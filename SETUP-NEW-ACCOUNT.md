@@ -10,7 +10,7 @@ You need: the handoff zip, a computer with **git** installed (https://git-scm.co
 
 Designs live inside the browser, per copy of the app — the old online copy's designs will **not** appear in a new one.
 
-1. Open the old online copy (https://claude.ai/artifact/WSEaiShKsrkDT4mFzVpkES) or whichever copy you used.
+1. Open the online copy (link in `HANDOFF.md`) or whichever copy you used.
 2. On the home page, for each design you want to keep: the card's **⋯ → Download project file** (a `.studio.json`
    with its photos, videos and fonts inside; inside the editor it's **⋯ → Download project file** too). For each of
    **My templates** you saved: the template card's **⋯ → Download template file**.

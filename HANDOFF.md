@@ -7,27 +7,27 @@ code), then `studio/README.md` (every feature, as the user sees it).
 
 | What | Where |
 | --- | --- |
-| Source code | GitHub `savio-1/new-design`, branch **`claude/charming-mendel-rchh9w`**, folder `studio/` |
+| Source code | GitHub `saviosunny9/explorations`, branch **`main`**, folder `studio/` (moved from `savio-1/new-design` with full history) |
 | Portable app (one file, works offline) | `studio/dist/collage-studio.html` — copy anywhere, double-click, opens in Chrome |
-| Online copy (private claude.ai artifact) | https://claude.ai/artifact/WSEaiShKsrkDT4mFzVpkES (only the owner can open it) |
+| Online copy (private claude.ai artifact) | (link added once published from this account; only the owner can open it) |
 | Technical context for Claude | `CLAUDE.md` (repo root) |
 | Feature guide | `studio/README.md` |
 | Dev / test harness | `studio/tools/smoke_test.js`, `studio/tools/dev/` (see below) |
 
-No pull request has been opened; work goes straight to the branch above.
+No pull request has been opened; work goes straight to `main`.
 
 Moving to a different Claude / GitHub account? Follow `PASTE-THIS-FIRST.md` (no terminal: you click, Claude restores
 the repo) or `SETUP-NEW-ACCOUNT.md` (manual, with git).
 
 ## How to continue in a new chat
 
-**Claude Code (recommended — it can run the app, test and push):** start a session on the repo `savio-1/new-design`,
-branch `claude/charming-mendel-rchh9w`. `CLAUDE.md` loads automatically. A good first message:
+**Claude Code (recommended — it can run the app, test and push):** start a session on the repo `saviosunny9/explorations`,
+branch `main`. `CLAUDE.md` loads automatically. A good first message:
 
 > This is Collage Studio. Read HANDOFF.md, CLAUDE.md and studio/README.md, then: <your request>.
-> Keep working on branch claude/charming-mendel-rchh9w; after each change test with Playwright, update
+> Keep working on branch main; after each change test with Playwright, update
 > studio/README.md and CLAUDE.md, rebuild the single file, commit and push, and republish the artifact
-> https://claude.ai/artifact/WSEaiShKsrkDT4mFzVpkES with `python3 studio/tools/build_single_file.py --artifact <dir>`.
+> (link in CLAUDE.md) with `python3 studio/tools/build_single_file.py --artifact <dir>`.
 
 **A plain chat (no repo access):** upload this zip and say "unzip it, read HANDOFF.md and CLAUDE.md first". Claude can
 edit the files and hand them back; you then replace the files in `studio/` and run the build yourself

@@ -6,8 +6,9 @@ Everything lives in `studio/`. There is no server, framework or build step for d
 `studio/index.html` in Chrome. The other files at the repo root (`index.html`, `direction-1.html`,
 `fillout-hero.html`) are unrelated older pages.
 
-Work on this has been done on the branch `claude/charming-mendel-rchh9w`. Don't open pull requests
-unless asked.
+The repository is GitHub `saviosunny9/explorations`; work on the branch `main`. (The project moved here
+from `savio-1/new-design`, branch `claude/charming-mendel-rchh9w`, with its full history.) Don't open pull
+requests unless asked.
 
 `HANDOFF.md` (repo root) has the links, history, open items and how to resume in a new chat.
 
@@ -272,8 +273,7 @@ Chromium exports WebM (no H.264); real Chrome exports MP4.
 
 1. Commit with a clear message; push to the working branch.
 2. `python3 studio/tools/build_single_file.py` → `studio/dist/collage-studio.html` (commit it too).
-3. A private claude.ai artifact of the app was published earlier
-   (https://claude.ai/artifact/WSEaiShKsrkDT4mFzVpkES). Build its page with
+3. A private claude.ai artifact of the app: (link added once published from this account). Build its page with
    `python3 studio/tools/build_single_file.py --artifact <dir>` (same inlined scripts as dist, incl. the muxers and
    JSZip, plus `STUDIO_MODEL_PARTS` so background removal reads the model parts already published under `models/`)
    and publish `<dir>/collage-studio.html` to that URL. The artifact has no `vendor/` scripts, so anything loaded
