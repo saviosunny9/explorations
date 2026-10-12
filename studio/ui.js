@@ -2158,7 +2158,7 @@
     toast(`Using the background from “${t.name}”`);
   }
   // a design started from a layout family is named after the family, not the orientation
-  const tplName = t => t.family ? `${t.family} · ${t.name}` : t.name;
+  const tplName = t => t.style ? `${t.style} · ${t.name}` : t.family ? `${t.family} · ${t.name}` : t.name;
   function replaceWithTemplate(t) {
     closeModal();
     templateFonts(t);
@@ -2213,7 +2213,15 @@
       grid,
     ];
   }
-  let tplGroup = null;
+  let tplGroup = null, tplStyle = null;
+  // combined families (moving layouts) hold several types, each in every ratio; the family card shows the types first
+  const combined = members => members.some(t => t.style);
+  const styleGroups = members => {
+    const by = new Map();
+    for (const t of members) { if (!by.has(t.style)) by.set(t.style, []); by.get(t.style).push(t); }
+    return [...by.values()];
+  };
+  const countOf = members => combined(members) ? styleGroups(members).length : members.length;
   // moving layouts come in every orientation; the one closest to your canvas goes first, and any other size can be built to fit
   function orientationMembers(members, W, H) {
     if (!members[0].layout) return members;
@@ -2222,11 +2230,15 @@
     const exact = members.some(t => t.width === W && t.height === H);
     if (!exact && window.STUDIO_LAYOUTS && window.STUDIO_LAYOUTS[members[0].layout]) {
       const L = window.STUDIO_LAYOUTS[members[0].layout];
-      sorted.unshift({ id: `mv-${members[0].layout}-fit-${W}x${H}`, name: `Your canvas ${W} × ${H}`, family: members[0].family, layout: members[0].layout, width: W, height: H, video: true, tags: [], build: () => L.build(W, H) });
+      sorted.unshift({ id: `mv-${members[0].layout}-fit-${W}x${H}`, name: `Your canvas ${W} × ${H}`, family: members[0].family, style: members[0].style, layout: members[0].layout, width: W, height: H, video: true, tags: [], build: () => L.build(W, H) });
     }
     return sorted;
   }
   function familyPanel(g, members) {
+    if (combined(members)) {
+      if (tplStyle) { const m = members.filter(t => t.style === tplStyle); if (m.length) return stylePanel(g, tplStyle, m); tplStyle = null; }
+      return combinedPanel(g, members);
+    }
     members = orientationMembers(members, S.doc.width, S.doc.height);
     const grid = h('div.tpl-grid', null, members.map((t, i) => templateCard(t, useTemplate, 260, { pieces: !/-fit-/.test(t.id), label: members[0].layout && i === 0 ? (/-fit-/.test(t.id) ? 'Your canvas' : `${t.name} · fits`) : undefined })));
     return [
@@ -2236,6 +2248,32 @@
       members[0].layout ? h('p.hint', { style: { marginBottom: '12px' } }, 'Every orientation is here, the one that fits your canvas first. Resize the canvas later and the layout re-flows to the new shape, keeping your photos and videos.') : h('p.hint', { style: { marginBottom: '12px' } }, members[0].video
         ? `${members.length} styles, each with its own camera move. Hover to preview — after choosing, change the move under Camera on the right.`
         : `${members.length} styles — pick one, then make it yours.`),
+      grid,
+    ];
+  }
+  // the family's types, one card each
+  function combinedPanel(g, members) {
+    const types = styleGroups(members);
+    const grid = h('div.tpl-grid', null, types.map(m => templateCard(m[0], () => { tplStyle = m[0].style; renderPanel(); panel.scrollTop = 0; }, 260, {
+      family: true, label: m[0].style, title: `Choose a ratio for “${m[0].style}”`,
+    })));
+    return [
+      panelHead('Templates'),
+      h('button.back-link', { type: 'button', onclick: () => { tplGroup = null; tplStyle = null; renderPanel(); } }, ic('chevLeft'), 'All templates'),
+      h('h2.drill-title', null, g),
+      h('p.hint', { style: { marginBottom: '12px' } }, `${types.length} types — pick one, then choose its ratio.`),
+      grid,
+    ];
+  }
+  // one type in every ratio; the one closest to your canvas comes first, and any other size can be built to fit
+  function stylePanel(g, style, members) {
+    const ms = orientationMembers(members, S.doc.width, S.doc.height);
+    const grid = h('div.tpl-grid', null, ms.map((t, i) => templateCard(t, useTemplate, 260, { pieces: !/-fit-/.test(t.id), label: i === 0 ? (/-fit-/.test(t.id) ? 'Your canvas' : `${t.name} · fits`) : undefined })));
+    return [
+      panelHead('Templates'),
+      h('button.back-link', { type: 'button', onclick: () => { tplStyle = null; renderPanel(); } }, ic('chevLeft'), g),
+      h('h2.drill-title', null, style),
+      h('p.hint', { style: { marginBottom: '12px' } }, 'Choose the ratio for your canvas, then add it. Resize the canvas later and the layout re-flows to the new shape, keeping your photos and videos.'),
       grid,
     ];
   }
@@ -2347,7 +2385,7 @@
           if (seen.has(t.group)) continue;
           seen.add(t.group);
           const members = T.filter(x => x.group === t.group);
-          cards.push(templateCard(t, () => { tplGroup = t.group; renderPanel(); panel.scrollTop = 0; }, 260, { family: true, count: members.length, label: t.group, title: `See all ${members.length} styles of “${t.group}”` }));
+          cards.push(templateCard(t, () => { tplGroup = t.group; tplStyle = null; renderPanel(); panel.scrollTop = 0; }, 260, { family: true, count: countOf(members), label: t.group, title: `See all ${countOf(members)} styles of “${t.group}”` }));
         } else cards.push(templateCard(t, useTemplate, 260, { pieces: true }));
       }
       grid.replaceChildren(...cards);
@@ -3047,9 +3085,30 @@
     box.style.width = 'min(560px, 100%)';
   }
   function familyModal(g, members) {
+    if (combined(members)) return typesModal(g, members);
     const box = modal([
       h('h1', null, g),
       h('p.lead', null, members[0].video ? `${members.length} styles — hover one to preview its motion.` : `${members.length} styles — pick one, then make it yours.`),
+      h('div.home-tpls', null, members.map(t => templateCard(t, tt => { closeModal(); startTemplate(tt); }, 220))),
+    ]);
+    box.style.width = 'min(900px, 100%)';
+    hydrateIcons(box);
+  }
+  // combined family on the home page: its types, then each type's ratios
+  function typesModal(g, members) {
+    const types = styleGroups(members);
+    const box = modal([
+      h('h1', null, g),
+      h('p.lead', null, `${types.length} types — pick one, then choose its ratio.`),
+      h('div.home-tpls', null, types.map(m => templateCard(m[0], () => ratiosModal(g, m), 220, { family: true, label: m[0].style, title: `Choose a ratio for “${m[0].style}”` }))),
+    ]);
+    box.style.width = 'min(900px, 100%)';
+    hydrateIcons(box);
+  }
+  function ratiosModal(g, members) {
+    const box = modal([
+      h('h1', null, members[0].style),
+      h('p.lead', null, `${g} · choose the ratio, then start your design.`),
       h('div.home-tpls', null, members.map(t => templateCard(t, tt => { closeModal(); startTemplate(tt); }, 220))),
     ]);
     box.style.width = 'min(900px, 100%)';
@@ -3124,7 +3183,7 @@
         if (seen.has(t.group)) continue;
         seen.add(t.group);
         const members = T.filter(x => x.group === t.group);
-        cards.push(templateCard(t, () => familyModal(t.group, members), 220, { family: true, count: members.length, label: t.group, title: `See all ${members.length} styles of “${t.group}”` }));
+        cards.push(templateCard(t, () => familyModal(t.group, members), 220, { family: true, count: countOf(members), label: t.group, title: `See all ${countOf(members)} styles of “${t.group}”` }));
       } else cards.push(templateCard(t, startTemplate, 220));
     }
     const limit = hs.allTpl || q ? cards.length : 12;

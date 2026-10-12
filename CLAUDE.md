@@ -241,8 +241,9 @@ Meet the agent and the Outfit line-up family; their fonts are kept as Text style
 filters with `LOOK('<preset>', overrides)` so they stay in step with the presets.
 
 **Moving layouts** (`mv-<layout>-<orientation>`): generator functions in the "LAYOUTS IN MOTION" block of
-templates.js build a layout for any `(W, H)`; each family lists itself in `GROUPS` (one member per orientation:
-story / portrait / square / wide) via `t.family`. Built docs carry `doc.layout = { key }`, the images get
+templates.js build a layout for any `(W, H)`; the eight layouts share three families in `GROUPS` (Moving grids, Photo piles,
+Strips & panels) via `t.family`; each member keeps its layout name in `t.style` and has one member per orientation
+(story / portrait / square / wide). ui.js shows a family as its types (`combinedPanel`, `typesModal`), then a type's ratios (`stylePanel`, `ratiosModal`). Built docs carry `doc.layout = { key }`, the images get
 `layoutSlot: true`, and `window.STUDIO_LAYOUTS[key].build(W, H)` lets `S.relayout()` re-flow the layout when the
 canvas is resized (photos carry over in slot order, layout text by `key`; other layers stay). `orientationMembers` (ui.js) sorts a
 family by closeness to the canvas and adds a "Your canvas" member. `S.photoSlots()` / `S.fillSlots()` fill many

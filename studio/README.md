@@ -107,7 +107,7 @@ Select a video (a layer or the canvas background) and the **Playback** section h
 
 ## Moving layouts (any orientation)
 
-Eight template families where photos and videos move in a layout. Each comes in **Story 9:16, Portrait 4:5, Square 1:1 and Landscape 16:9**, and opening a family puts the one that fits your canvas first — plus a **Your canvas** version built for any other size (Pinterest pin, A4, custom…). **Resize the canvas later and the layout re-flows** to the new shape, keeping the photos and videos you added and any text or stickers on top.
+Eight moving layouts, grouped into three families: **Moving grids** (Scrolling wall, Card trail, Grid build, Zoom wall), **Photo piles** (Photo drop, Fan stack) and **Strips & panels** (Strip conveyor, Slide-in panels). Each family card lists its types; choosing a type then asks for the ratio — **Story 9:16, Portrait 4:5, Square 1:1 or Landscape 16:9** — and the one that fits your canvas comes first, plus a **Your canvas** option built for any other size (Pinterest pin, A4, custom…). **Resize the canvas later and the layout re-flows** to the new shape, keeping the photos and videos you added and any text or stickers on top.
 
 - **Scrolling wall** — rows (or more rows on tall canvases) of rounded, slightly bulging screens gliding sideways.
 - **Card trail** — cards pop up one after another along a winding path (across on wide canvases, down on tall ones); the oldest drop away as it moves on.

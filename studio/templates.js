@@ -1086,8 +1086,10 @@
       // any size: the editor can re-flow a layout to the canvas it's on
       const buildAt = (L, W, H) => Object.assign({ width: W, height: H, anim: { duration: L.D, fps: 30 }, layout: { key: L.key } }, L.build(W, H));
       window.STUDIO_LAYOUTS = Object.fromEntries(LAYOUTS.map(L => [L.key, { name: L.name, build: (W, H) => buildAt(L, W, H) }]));
+      // several layouts share one family card; each keeps its own type (style) and the ratio is picked afterwards
+      const FAMILY = { wall: 'Moving grids', trail: 'Moving grids', grid: 'Moving grids', zoom: 'Moving grids', drop: 'Photo piles', fan: 'Photo piles', strips: 'Strips & panels', panels: 'Strips & panels' };
       return LAYOUTS.flatMap(L => SIZES.map(([k, W, H, label]) => ({
-        id: `mv-${L.key}-${k}`, name: label, family: L.name, layout: L.key, orientation: k, tags: ['Video', 'Photo', 'Layout'], width: W, height: H, video: true,
+        id: `mv-${L.key}-${k}`, name: label, family: FAMILY[L.key], style: L.name, layout: L.key, orientation: k, tags: ['Video', 'Photo', 'Layout'], width: W, height: H, video: true,
         build: () => buildAt(L, W, H),
       })));
     })(),
@@ -2476,7 +2478,7 @@
 
   // families of variations show as one card in the panel and open into all their styles
   const GROUPS = {
-    'Scrolling wall': [], 'Card trail': [], 'Grid build': [], 'Photo drop': [], 'Fan stack': [], 'Strip conveyor': [], 'Zoom wall': [], 'Slide-in panels': [],
+    'Moving grids': [], 'Photo piles': [], 'Strips & panels': [],
     'Text slides': ['ts-created', 'ts-goal', 'ts-earth', 'ts-crisis', 'ts-brands', 'ts-made', 'ts-align', 'ts-dress', 'ts-meant', 'ts-new', 'ts-visuals', 'ts-average', 'ts-cool', 'ts-iamart', 'ts-redact', 'ts-rest', 'ts-chase', 'ts-chapter', 'ts-do', 'ts-action', 'ts-where', 'ts-norest', 'ts-scribble', 'ts-feeling', 'ts-museum', 'ts-story', 'ts-justdo', 'ts-notend', 'ts-consume', 'ts-love', 'ts-now', 'ts-austen', 'ts-son', 'ts-sleep', 'ts-laziest', 'ts-gofor', 'ts-normalize', 'ts-purpose', 'ts-passion', 'ts-artflip', 'ts-exactly', 'ts-identity', 'ts-ability', 'ts-tryagain', 'ts-authentic', 'ts-happen', 'ts-memories', 'ts-now2', 'ts-hands', 'ts-messy', 'ts-start', 'ts-rushed', 'ts-develop', 'ts-addicted', 'ts-makeit', 'ts-dothis', 'ts-mostcreative', 'ts-busy', 'ts-lesscare', 'ts-chapter2', 'ts-overthink', 'ts-athletes', 'ts-curated', 'ts-outside', 'ts-done', 'ts-whatmakes', 'ts-support', 'ts-takerisk', 'ts-thinkbig'],
     'Photo effects': ['px-scribble', 'px-strips', 'px-censor', 'px-mosaic', 'px-mirror', 'px-eyes', 'px-childhood', 'px-note', 'px-words', 'px-brandfade', 'px-faceswap', 'px-ghost', 'px-phone', 'px-signed', 'px-redbar', 'px-taped', 'px-redprint', 'px-backdrop', 'px-gridpaper', 'px-letter', 'px-quote', 'px-fieldnotes', 'px-belonged', 'px-touch', 'px-margins', 'px-worthy', 'px-sketchbook'],
     'Paper & ID': ['pid-mugshot', 'pid-inquiry', 'pid-badge', 'pid-portrait', 'pid-certificate', 'pid-record', 'pid-pass', 'pid-application', 'pid-aboutme', 'pid-profile'],
