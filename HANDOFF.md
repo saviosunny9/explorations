@@ -9,7 +9,7 @@ code), then `studio/README.md` (every feature, as the user sees it).
 | --- | --- |
 | Source code | GitHub `saviosunny9/explorations`, branch **`main`**, folder `studio/` (moved from `savio-1/new-design` with full history) |
 | Portable app (one file, works offline) | `studio/dist/collage-studio.html` — copy anywhere, double-click, opens in Chrome |
-| Online copy (private claude.ai artifact) | (link added once published from this account; only the owner can open it) |
+| Online copy (private claude.ai artifact) | https://claude.ai/artifact/3H6nGJsMhFKchUekuoSQAC (only the owner can open it) |
 | Technical context for Claude | `CLAUDE.md` (repo root) |
 | Feature guide | `studio/README.md` |
 | Dev / test harness | `studio/tools/smoke_test.js`, `studio/tools/dev/` (see below) |
@@ -90,8 +90,10 @@ coffee tastes OFF!", "TO MAKE USING MONEY" → "TO MAKE MONEY SIMPLE". Earlier s
   position (the dashed target outline does follow).
 - The 4K H.264 encoder fallback was tested with a simulated failing encoder; headless Chromium has no H.264, so real
   Chrome MP4 export should be checked on the owner's machine.
-- The online copy reads the background-removal model from parts published with it (`models/rmbg.part0–4.txt`);
-  republishing must keep those files (publishing only the page keeps them).
+- The online copy is meant to read the background-removal model from parts published with it
+  (`models/rmbg.part0–4.txt`, `models/ultraface.txt`), but those aren't published yet: huggingface.co was blocked
+  from the cloud environment when the project moved. Until they are, background removal there depends on the
+  browser reaching Hugging Face directly. Republishing only the page keeps any files already published.
 
 ## Testing
 
