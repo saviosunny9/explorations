@@ -235,7 +235,9 @@ load. Put a new family's ids in `GROUPS` (order = display order); `video: true` 
 preview. Families so far: Typing screen (layout `typescreen`, 4 orientations), Type effects (7: word build, select sweep, word wall, blur shuffle), Screen close-up (4: phrase typing, comment thread), Smooth cam text (layout `smoothcam`, 4 orientations, words carried across re-flows by `key`), Text effects (5), eight moving-layout families (Scrolling wall, Card trail, Grid build, Photo drop, Fan stack, Strip conveyor, Zoom wall, Slide-in panels — 4 orientations each), Text slides (69), Photo effects (27, incl. eight handwritten journal layouts), Paper & ID (10), Film looks (16), Film camera (10), Stop motion, Speed flashes, Studio portrait, Newspaper
 reveal, Typing, Match cut, Kinetic headline, Sticky notes, Rolling numbers, Word by word, Letter
 bounce, Life-sim garden, Ribbon poster, Motion blur, Camera view, Meet the team, Grid-paper notes,
-Polaroid POV, Wall calendar, Notebook tip, Outfit line-up — about 280 templates. Film templates build
+Polaroid POV, Wall calendar, Notebook tip — about 265 templates. Removed on request (Oct 12): Everyday things, Film club ticket, Café chalkboard,
+Happy birthday, Y2K vibes, This week, Review card, Coming soon, Halftone duo, Postfólio, Tools I use, Creative partner,
+Meet the agent and the Outfit line-up family; their fonts are kept as Text styles and their stickers stay in Elements. Film templates build
 filters with `LOOK('<preset>', overrides)` so they stay in step with the presets.
 
 **Moving layouts** (`mv-<layout>-<orientation>`): generator functions in the "LAYOUTS IN MOTION" block of

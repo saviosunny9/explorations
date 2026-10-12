@@ -15,7 +15,7 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
 | `video.js` | Frame-by-frame video export (WebCodecs H.264 → MP4 or VP9 → WebM, MediaRecorder fallback) |
 | `ui.js` | Panels, inspector, popovers, dialogs |
-| `templates.js` | 55 templates plus text, paper, planner, photo-layout and background presets |
+| `templates.js` | About 265 templates plus text, paper, planner, photo-layout and background presets |
 
 Work is autosaved to the browser (IndexedDB). Use **Menu → Download project file** to keep a portable `.studio.json`.
 
@@ -192,7 +192,8 @@ Select a photo and choose **Remove background** (or **Cut out to layer** to keep
 ## Fonts and outfits
 
 - **Your fonts**: upload `.otf`, `.ttf`, `.woff`, `.woff2` files or a `.zip` from the font picker or the Text tab. They are registered with the FontFace API, kept in this browser only, and packed into saved project files. Commercial fonts are deliberately not bundled in this repo.
-- **Outfits** (`outfits-girls.js`, `outfits-boys.js`): neck-down outfit bodies plus shoes, bags and accessories. Adding one also adds an oversized face slot; a selfie dropped into it is cut out and trimmed to the head automatically for the "big head" look.
+- **Outfits** (`outfits-girls.js`, `outfits-boys.js`): neck-down outfit bodies plus shoes, bags and accessories. Adding one also adds an oversized face slot; a selfie dropped into it is cut out and trimmed to the head automatically for the "big head" look. They're in **Elements → Outfits · Girls / Outfits · Boys / Shoes & Bags**.
+- **Text → Styles** keeps the type looks of retired templates (Happy birthday, Café chalkboard, Coming soon, Y2K vibes, Outfit line-up, Halftone duo, Tools I use, Creative partner, Meet the agent…): *Birthday 3D*, *Chalk heading*, *Italic display*, *Wide spaced*, *Light caps*, *Bubble sticker*, *Stitched label*, *Marker blocks*, *Wide heavy*, *Chalk note* and more. Their stickers, shapes, calendars and checklists are all in Elements.
 
 ## Photo credits
 

@@ -14184,16 +14184,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const lifted = { on: true, color: '#000000', opacity: 0.3, blur: 14, x: 0, y: 7 };
   const deep = { on: true, color: '#0b1f18', opacity: 0.45, blur: 40, x: 0, y: 22 };
   const grid = (color, size, thick = 1.5) => ({ type: 'grid', color, size, thick, opacity: 1 });
-  // a big-head figure: outfit body (neck anchor at 150,18 of 300×520) plus an oversized face slot
-  const figure = (id, cx, cy, H, o = {}) => {
-    const k = H / 520, bw = 300 * k, bx = cx - bw / 2, by = cy - H / 2;
-    const nx = bx + 150 * k, ny = by + 18 * k, hw = bw * 0.66, hh = hw * 1.18;
-    return [
-      Object.assign({ type: 'sticker', stickerId: id, x: bx, y: by, width: bw, height: H }, o),
-      { type: 'image', x: nx - hw / 2, y: ny - hh * 0.92, width: hw, height: hh, rotation: o.rotation || 0, name: 'Face — add a selfie, then Remove background', frame: { style: 'circle', size: 0 }, placeholder: ['#ecd2bb', '#c99d7d'] },
-    ];
-  };
-
   const TEMPLATES = [
     {
       id: 'every-shade', name: 'Every Shade', tags: ['Post', 'Paper'], width: 1080, height: 1350,
@@ -14229,23 +14219,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           txt('Founder &\nCreative Director', { cx: 330, cy: 880, rotation: 3, fontFamily: 'Instrument Serif', fontSize: 82, lineHeight: 0.95, fill: '#2148c0', bg: { style: 'box', color: '#c9b6f2', padX: 34, padY: 20, radius: 28 } }),
           { type: 'badge', x: 748, y: 668, width: 290, height: 290, rotation: -8, fill: '#d7ef5a', textColor: '#2148c0', ringText: '5+ years experience', ringFont: 'Bricolage Grotesque', ringWeight: 500, ringSize: 0.115, ringSpacing: 0.04, ringRadius: 0.7, ringFill: false, ringStart: -40, center: 'asterisk', centerSize: 0.24 },
           stk('sparkle-4', 880, 90, 90, 90, { colors: ['#ffa53c'] }),
-        ],
-      }),
-    },
-    {
-      id: 'everyday-things', name: 'Everyday things', tags: ['Post', 'Photo'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#56632c' },
-        overlay: { grain: 22 },
-        elements: [
-          img(0, 0, 1080, 1350, { name: 'Background photo', placeholder: ['#7d8a3c', '#4b5823'] }),
-          txt('everyday things\nto personalise', { cx: 540, cy: 330, fontFamily: 'Fredoka', fontWeight: 600, fontSize: 98, lineHeight: 0.92, fill: '#f6f27a', shadow: { on: true, color: '#000000', opacity: 0.25, blur: 16, x: 0, y: 4 } }),
-          txt('(to make life more fun!)', { cx: 540, cy: 458, fontFamily: 'Space Mono', fontSize: 34, fill: '#f4f1e4' }),
-          stk('chalk-loop', -60, 20, 330, 130, { rotation: 32 }),
-          stk('chalk-star', 850, 70, 210, 210, { rotation: 14 }),
-          stk('chalk-scribble-star', 130, 560, 150, 150, { rotation: -8 }),
-          stk('chalk-squiggle', 740, 920, 340, 124, { rotation: -42 }),
         ],
       }),
     },
@@ -14432,234 +14405,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           stk('chrome-sparkle', 120, 1320, 160, 160),
           stk('arrow-curved', 660, 1490, 200, 180, { rotation: 30, colors: ['#3b2f6b'] }),
           txt('tap to see more', { cx: 540, cy: 1720, fontFamily: 'Gochi Hand', fontSize: 70, fill: '#3b2f6b', bg: { style: 'pill', color: '#ffffff', padX: 46, padY: 18 } }),
-        ],
-      }),
-    },
-    {
-      id: 'admit-one', name: 'Film club ticket', tags: ['Event', 'Post'], width: 1080, height: 1080,
-      build: () => ({
-        width: 1080, height: 1080,
-        background: { color: '#1d1b18' },
-        overlay: { grain: 30, vignette: 25 },
-        elements: [
-          shp('ticket', 110, 300, 860, 480, { rotation: -6, radius: 26, fill: '#ff8a5c', texture: 35, shadow: deep }),
-          shp('line', 640, 310, 460, 30, { rotation: 84, stroke: 'rgba(29,27,24,0.55)', strokeWidth: 4, dash: 1.5 }),
-          txt('FILM CLUB', { x: 170, y: 390, rotation: -6, align: 'left', fontFamily: 'Rye', fontSize: 78, fill: '#1d1b18' }),
-          txt('Friday 8PM\nRooftop cinema', { x: 182, y: 520, rotation: -6, align: 'left', fontFamily: 'Space Mono', fontWeight: 700, fontSize: 40, lineHeight: 1.2, fill: '#1d1b18' }),
-          txt('ADMIT\nONE', { cx: 858, cy: 468, rotation: -96, fontFamily: 'Anton', fontSize: 74, lineHeight: 0.9, letterSpacing: 0.05, fill: '#1d1b18' }),
-          txt('Nº 0042', { x: 186, y: 668, rotation: -6, align: 'left', fontFamily: 'Space Mono', fontSize: 26, fill: '#1d1b18' }),
-          stk('film-strip', 640, 40, 300, 163, { rotation: 12, colors: ['#f6f1e7'] }),
-          txt('popcorn provided', { cx: 540, cy: 930, fontFamily: 'Caveat', fontWeight: 700, fontSize: 60, fill: '#f6f1e7' }),
-          stk('arrow-loopy', 160, 820, 220, 136, { rotation: -30, colors: ['#f6f1e7'] }),
-        ],
-      }),
-    },
-    {
-      id: 'cafe-menu', name: 'Café chalkboard', tags: ['Post', 'Event'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#22362c', texture: 0 },
-        overlay: { grain: 40, vignette: 35 },
-        elements: [
-          txt('today’s menu', { cx: 540, cy: 170, fontFamily: 'Covered By Your Grace', fontSize: 130, fill: '#f6f1e7' }),
-          stk('chalk-squiggle', 380, 250, 320, 116, { colors: ['#f7d046'] }),
-          txt('flat white ............ 3.8\noat latte .............. 4.2\nmatcha ................. 4.5\nlemon cake ............. 3.9\ncinnamon bun .......... 3.6', { x: 150, y: 430, align: 'left', fontFamily: 'Gaegu', fontWeight: 700, fontSize: 54, lineHeight: 1.55, fill: '#f6f1e7' }),
-          stk('coffee-cup', 800, 900, 180, 222, { rotation: 8 }),
-          stk('lemon-slice', 130, 990, 160, 160, { rotation: -18 }),
-          stk('chalk-heart', 860, 330, 120, 120, { rotation: 14 }),
-          txt('open 8 – 4 · every day', { cx: 540, cy: 1240, fontFamily: 'Space Mono', fontSize: 32, fill: '#f6f1e7', opacity: 0.85 }),
-        ],
-      }),
-    },
-    {
-      id: 'birthday', name: 'Happy birthday', tags: ['Event', 'Post'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#ffd6e0', pattern: { type: 'polka', color: '#ffffff', size: 110 } },
-        elements: [
-          txt('happy\nbirthday', { cx: 540, cy: 400, rotation: -4, fontFamily: 'Bagel Fat One', fontSize: 190, lineHeight: 0.88, fill: '#ff4f79', stroke: { width: 6, color: '#ffffff' }, echo: { on: true, color: '#7a1f3d', dx: 0.03, dy: 0.04, steps: 6 } }),
-          txt('to the best human ever', { cx: 540, cy: 700, rotation: 2, fontFamily: 'Instrument Serif', italic: true, fontSize: 56, fill: '#7a1f3d', bg: { style: 'tape', color: '#fff6b0', padX: 40, padY: 16 } }),
-          stk('cake', 340, 790, 400, 400),
-          stk('balloon', 80, 760, 150, 257, { rotation: -10, colors: ['#5b4cf5'] }),
-          stk('balloon', 850, 700, 150, 257, { rotation: 8, colors: ['#f7d046'] }),
-          stk('balloon', 900, 860, 130, 223, { rotation: 14 }),
-          stk('sparkles-cluster', 80, 110, 170, 170, { colors: ['#ffffff'] }),
-          stk('plus-cluster', 860, 100, 160, 160, { colors: ['#5b4cf5'] }),
-          stk('sparkle-4', 760, 1180, 100, 100, { colors: ['#ffffff'] }),
-        ],
-      }),
-    },
-    {
-      id: 'y2k', name: 'Y2K vibes', tags: ['Post', 'Collage'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#d7f0ff', color2: '#ffc6ef', gradient: 'linear', angle: 160 },
-        overlay: { grain: 14 },
-        elements: [
-          stk('holo-blob', 120, 260, 840, 840, { opacity: 0.85 }),
-          img(270, 380, 540, 600, { frame: { style: 'squircle', size: 0 }, placeholder: ['#ffffff', '#e2d6ff'], outline: { on: false } }),
-          txt('it’s a vibe', { cx: 540, cy: 200, fontFamily: 'Rubik Bubbles', fontSize: 150, fill: '#ff4fd8', stroke: { width: 4, color: '#ffffff' } }),
-          stk('chrome-star', 800, 330, 200, 200, { rotation: 12 }),
-          stk('butterfly-chrome', 90, 830, 250, 205, { rotation: -14 }),
-          stk('y2k-flower', 820, 900, 180, 180, { colors: ['#b48cff', '#fff36b'] }),
-          stk('lips', 120, 360, 170, 100, { rotation: -16 }),
-          txt('★ 2000 forever ★', { cx: 540, cy: 1130, fontFamily: 'Syncopate', fontWeight: 700, fontSize: 40, letterSpacing: 0.1, fill: '#5b4cf5' }),
-          stk('chrome-heart', 460, 1180, 160, 160),
-        ],
-      }),
-    },
-    {
-      id: 'weekly-story', name: 'This week', tags: ['Story', 'Planner'], width: 1080, height: 1920,
-      build: () => ({
-        width: 1080, height: 1920,
-        background: { color: '#fbf8f1', pattern: { type: 'lined', color: 'rgba(70,110,160,0.22)', size: 60, thick: 1.5 }, texture: 30 },
-        elements: [
-          txt('this week', { x: 180, y: 160, align: 'left', fontFamily: 'Instrument Serif', italic: true, fontSize: 170, fill: '#1d1b18' }),
-          { type: 'calendar', layout: 'strip', x: 90, y: 420, width: 900, height: 300, year: yr, month: mo, day: dy, accent: '#5b4cf5', cellColor: '#efe9fb', titleFont: 'Instrument Serif', bodyFont: 'Instrument Sans', titleAlign: 'left' },
-          txt('priorities', { x: 180, y: 800, align: 'left', fontFamily: 'Caveat', fontWeight: 700, fontSize: 64, fill: '#5b4cf5' }),
-          { type: 'checklist', x: 180, y: 900, width: 700, fontFamily: 'Caveat', fontSize: 56, lineHeight: 1.5, boxStyle: 'round', items: '[x] Finish the brand deck\n[ ] Shoot product flat-lays\n[ ] Reply to emails\n[ ] Yoga ×3' },
-          stk('sticky-note', 590, 1340, 380, 360, { rotation: 5, colors: ['#ffe680'], shadow: lifted }),
-          txt('notes:\ndrink more\nwater!!', { x: 640, y: 1410, rotation: 5, align: 'left', fontFamily: 'Gochi Hand', fontSize: 56, lineHeight: 1.1, fill: '#1d1b18' }),
-          { type: 'calendar', layout: 'page', x: 130, y: 1350, width: 360, height: 430, rotation: -4, year: yr, month: mo, day: dy, accent: '#e4572e', monthCase: 'upper', titleSpacing: 0.12, shadow: lifted },
-          stk('washi-dots', 230, 1320, 180, 48, { rotation: -10, colors: ['#ffd166', '#ffffff'] }),
-          stk('clip-plastic', 900, 1300, 50, 143, { rotation: 8, colors: ['#5b4cf5'] }),
-        ],
-      }),
-    },
-    {
-      id: 'testimonial', name: 'Review card', tags: ['Quote', 'Post'], width: 1080, height: 1080,
-      build: () => ({
-        width: 1080, height: 1080,
-        background: { color: '#c9b6f2', pattern: { type: 'plus', color: 'rgba(255,255,255,0.45)', size: 70, thick: 2 } },
-        elements: [
-          shp('rounded', 110, 170, 860, 740, { radius: 40, fill: '#fffdf7', shadow: { on: true, color: '#3b2f6b', opacity: 1, blur: 0, x: 16, y: 16 }, stroke: '#3b2f6b', strokeWidth: 4 }),
-          ...[0, 1, 2, 3, 4].map(i => stk('star-chunky', 330 + i * 86, 230, 74, 74, { colors: ['#ffb547'] })),
-          txt('“Honestly the best\nlatte in the city —\nand the people are\neven better.”', { cx: 540, cy: 520, fontFamily: 'DM Serif Display', fontSize: 64, lineHeight: 1.12, fill: '#1d1b18' }),
-          img(330, 740, 110, 110, { frame: { style: 'circle', size: 0 }, placeholder: ['#f6dccf', '#e7b29f'] }),
-          txt('Maya R.\nregular since 2021', { x: 466, y: 752, align: 'left', fontFamily: 'Instrument Sans', fontWeight: 600, fontSize: 32, lineHeight: 1.25, fill: '#1d1b18' }),
-          stk('sparkle-4', 860, 90, 120, 120, { colors: ['#ffffff'] }),
-          stk('heart-puffy', 90, 860, 130, 130, { rotation: -12, colors: ['#ff7ab6'] }),
-        ],
-      }),
-    },
-    {
-      id: 'coming-soon', name: 'Coming soon', tags: ['Post', 'Event'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#151413' },
-        overlay: { grain: 35, vignette: 30 },
-        elements: [
-          stk('blob-1', -120, -60, 560, 560, { colors: ['#5b4cf5'], opacity: 0.9 }),
-          stk('blob-3', 640, 920, 560, 560, { colors: ['#ff8a3d'], opacity: 0.9 }),
-          txt('coming\nsoon', { cx: 540, cy: 600, fontFamily: 'Instrument Serif', italic: true, fontSize: 280, lineHeight: 0.82, fill: '#f6f1e7' }),
-          stk('circle-scribble', 230, 330, 640, 436, { rotation: -4, colors: ['#d7ef5a'] }),
-          txt('something new is brewing', { cx: 540, cy: 960, fontFamily: 'Space Mono', fontSize: 34, letterSpacing: 0.06, fill: '#f6f1e7' }),
-          txt('01 . 11', { cx: 540, cy: 1060, fontFamily: 'Bricolage Grotesque', fontWeight: 800, fontSize: 70, fill: '#151413', bg: { style: 'pill', color: '#d7ef5a', padX: 44, padY: 14 } }),
-          stk('sparkles-cluster', 820, 160, 160, 160, { colors: ['#f6f1e7'] }),
-        ],
-      }),
-    },
-    {
-      id: 'estilos', name: 'Halftone duo', tags: ['Post', 'Collage', 'Photo'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#f2418c' },
-        overlay: { creases: 55, paper: 22, grain: 14 },
-        elements: [
-          txt('Ryane  |  Designer Gráfico 2026', { cx: 540, cy: 70, fontFamily: 'Poppins', fontWeight: 600, fontSize: 30, letterSpacing: 0.12, fill: '#ffe3ef' }),
-          img(-30, 250, 580, 800, { rotation: -2, frame: { style: 'papercut', color: '#f4f1ea', size: 26 }, filters: { grayscale: 100, contrast: 25, brightness: 12, halftone: 35 }, placeholder: ['#d9d6d2', '#9d9893'], name: 'Halftone photo (left)' }),
-          img(520, 110, 590, 830, { rotation: 3, frame: { style: 'papercut', color: '#f4f1ea', size: 26 }, filters: { grayscale: 100, contrast: 25, brightness: 12, halftone: 35 }, placeholder: ['#e4e1dd', '#a8a39e'], name: 'Halftone photo (right)' }),
-          txt('estilos de\ndesign', { cx: 520, cy: 1110, fontFamily: 'Gabarito', fontWeight: 900, fontSize: 150, lineHeight: 0.85, letterSpacing: -0.03, fill: '#151413', bg: { style: 'sticker', color: '#ffffff', padX: 20, borderWidth: 7, borderColor: '#151413' } }),
-          stk('heart-sparkle', 820, 1110, 160, 153, { rotation: 12 }),
-          txt('arrasta pro lado  →', { cx: 540, cy: 1300, fontFamily: 'Poppins', fontWeight: 600, fontSize: 28, letterSpacing: 0.08, fill: '#ffe3ef' }),
-        ],
-      }),
-    },
-    {
-      id: 'postfolio', name: 'Postfólio', tags: ['Post', 'Collage', 'Profile'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#ee5aa5', pattern: { type: 'check', color: 'rgba(255,255,255,0.09)', size: 135 } },
-        overlay: { grain: 12 },
-        elements: [
-          shp('rect', 0, 390, 340, 460, { fill: '#f9b9d9', shadow: lifted }),
-          img(30, 425, 280, 390, { placeholder: ['#7b1f6a', '#ff7ab6'], name: 'Your work 1' }),
-          shp('rect', 370, 410, 340, 440, { fill: '#fbefd9', shadow: lifted }),
-          img(400, 445, 280, 370, { placeholder: ['#2a2420', '#8c877c'], name: 'Your work 2' }),
-          shp('rect', 740, 390, 340, 460, { fill: '#f9b9d9', shadow: lifted }),
-          img(770, 425, 280, 390, { placeholder: ['#4b1c8f', '#c9b6f2'], name: 'Your work 3' }),
-          stk('star-chunky', 230, 330, 140, 140, { rotation: -8, colors: ['#f9b9d9'] }),
-          img(390, 560, 330, 790, { filters: { grayscale: 100, contrast: 20 }, placeholder: ['#3b3a37', '#8c8a85'], name: 'Cut-out person — add a photo, then Remove background' }),
-          txt('POSTFÓLIO', { cx: 540, cy: 210, fontFamily: 'Anton', fontSize: 230, letterSpacing: -0.01, fill: '#2a2420', bg: { style: 'sticker', color: '#fbefd9', padX: 26, borderWidth: 6, borderColor: '#2a2420' } }),
-          stk('cloud-puffy', 30, 240, 200, 108, { rotation: -4 }),
-          stk('cloud-puffy-small', 900, 250, 150, 103),
-          shp('rounded', 250, 800, 260, 260, { radius: 56, fill: '#3d0f2c', shadow: soft, rotation: -3 }),
-          txt('Ps', { cx: 378, cy: 928, rotation: -3, fontFamily: 'Gabarito', fontWeight: 800, fontSize: 165, fill: '#f283b4' }),
-          stk('googly-eyes', 760, 960, 270, 180, { rotation: 6, outline: { on: true, color: '#fbefd9', width: 12 } }),
-        ],
-      }),
-    },
-    {
-      id: 'ferramentas', name: 'Tools I use', tags: ['Post', 'Photo'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#9ccaf2', color2: '#eaf4ff', gradient: 'linear', angle: 180 },
-        elements: [
-          img(0, 0, 1080, 1350, { placeholder: ['#a9d0f5', '#f6e7ef'], name: 'Background photo (sky & flowers)' }),
-          txt('ferramentas de', { cx: 480, cy: 110, rotation: -1, fontFamily: 'Nunito', fontWeight: 600, fontSize: 58, fill: '#ffffff', bg: { style: 'box', color: '#2f6fed', padX: 24, padY: 6, borderWidth: 3, borderColor: '#ffffff' } }),
-          txt('design', { cx: 540, cy: 280, fontFamily: 'Fredoka', fontWeight: 600, fontSize: 250, fill: '#f283b4', bg: { style: 'sticker', color: '#ffffff', padX: 26 }, shadow: { on: true, color: '#3b5f8f', opacity: 0.18, blur: 22, x: 0, y: 8 } }),
-          stk('cat-face', 290, 330, 130, 118, { rotation: -10 }),
-          txt('que eu uso', { cx: 540, cy: 445, rotation: -2, fontFamily: 'Nunito', fontWeight: 600, fontSize: 58, fill: '#ffffff', bg: { style: 'box', color: '#3aa655', padX: 28, padY: 10, stitch: true, borderColor: '#ffffff', borderWidth: 2.5 } }),
-          stk('magnet', 700, 415, 86, 86, { rotation: 20 }),
-          stk('star-chunky', 870, -30, 250, 250, { rotation: 14, colors: ['#ffc928'], outline: { on: true, color: '#ffffff', width: 14 } }),
-          img(220, 560, 640, 500, { frame: { style: 'border', color: '#ece4d2', size: 44, radius: 30 }, placeholder: ['#3a3f4a', '#9aa3b2'], shadow: soft, name: 'Screen' }),
-          txt('e você também devia!', { cx: 600, cy: 990, fontFamily: 'Nunito', fontWeight: 600, fontSize: 32, fill: '#ffffff', bg: { style: 'box', color: '#2f6fed', padX: 14, padY: 4 } }),
-          stk('daisy', 120, 1080, 130, 130, { colors: ['#ffffff', '#f6c445'] }),
-          stk('daisy', 860, 1110, 110, 110, { colors: ['#ff8fb8', '#f6c445'] }),
-          stk('tulip', 770, 920, 90, 154, { rotation: 8 }),
-          shp('pill', 380, 1230, 320, 56, { fill: '#f283b4', stroke: '#ffffff', strokeWidth: 3 }),
-          shp('line', 430, 1238, 220, 40, { stroke: '#ffffff', strokeWidth: 3, arrowEnd: true }),
-        ],
-      }),
-    },
-    {
-      id: 'creative-partner', name: 'Creative partner', tags: ['Story', 'Post', 'Photo'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#1d6fe8', color2: '#a6d6ff', gradient: 'linear', angle: 180 },
-        overlay: { grain: 18 },
-        elements: [
-          shp('ellipse', -360, 960, 1800, 820, { rotation: -5, fill: '#4fae3a', fill2: '#2c7d22', gradient: 'linear', gradAngle: 180, texture: 35 }),
-          txt('AGENT TWO\nBECOME MY\nCREATIVE\nPARTNER', { cx: 540, cy: 230, fontFamily: 'Rubik Mono One', fontSize: 94, lineHeight: 0.95, fill: '#ffffff', shadow: { on: true, color: '#0b3a8f', opacity: 0.3, blur: 20, x: 0, y: 6 } }),
-          txt('here’s what actually happened..', { cx: 540, cy: 470, fontFamily: 'Instrument Sans', fontWeight: 600, fontSize: 40, fill: '#ffffff' }),
-          stk('px-computer', 30, 330, 150, 141, { rotation: -6 }),
-          stk('px-folder', 860, 20, 120, 90, { rotation: 8 }),
-          stk('px-cursor', 800, 380, 84, 140),
-          img(250, 540, 580, 800, { placeholder: ['#ff8fc8', '#b45bd6'], shadow: { on: true, color: '#0b2a14', opacity: 0.35, blur: 30, x: 0, y: 18 }, name: 'Cut-out person — add a photo, then Remove background' }),
-          stk('arrow-curved', 150, 500, 130, 117, { rotation: -100, colors: ['#ffffff'] }),
-          txt('not a prompt\nbut a real\ncreative\nconversation', { cx: 190, cy: 760, rotation: -4, fontFamily: 'Gloria Hallelujah', fontSize: 38, lineHeight: 1.0, fill: '#ffffff' }),
-          stk('sparkle-outline', 230, 800, 160, 160, { rotation: -10 }),
-          stk('smiley-chain', 830, 850, 110, 266),
-          txt('invideo', { x: 770, y: 680, align: 'left', fontFamily: 'Instrument Sans', fontWeight: 600, fontSize: 34, fill: '#ffffff' }),
-          txt('Agent two', { x: 770, y: 715, align: 'left', fontFamily: 'Instrument Sans', fontWeight: 600, fontSize: 64, fill: '#ffffff' }),
-          stk('flower-cog', 90, 1180, 110, 110, { colors: ['#e23b2e'] }),
-          stk('flower-cog', 880, 1060, 90, 90, { colors: ['#e23b2e'] }),
-        ],
-      }),
-    },
-    {
-      id: 'hi-kimberly', name: 'Meet the agent', tags: ['Story', 'Profile', 'Photo'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#2847a8' },
-        elements: [
-          img(0, 0, 1080, 1350, { filters: { contrast: 15, duotone: true, duoDark: '#1b2a8f', duoLight: '#a9c4ff', halftone: 15 }, placeholder: ['#3556c0', '#93aef0'], name: 'Background photo (blue halftone)' }),
-          img(270, 260, 560, 1090, { placeholder: ['#d9c1a8', '#7d5a45'], outline: { on: true, style: 'scribble', color: '#f7c62f', width: 34 }, name: 'Cut-out person — add a photo, then Remove background' }),
-          shp('arch', 230, 220, 640, 1160, { fill: 'transparent', stroke: '#f7c62f', strokeWidth: 12, name: 'Guide outline (delete once your cut-out is in)' }),
-          txt('HI, I’M\nKIMBERLY\nBLOOM', { cx: 220, cy: 420, rotation: -3, fontFamily: 'Permanent Marker', fontSize: 62, lineHeight: 1, fill: '#1d1b18', bg: { style: 'rough', color: '#f7d046', padX: 12, padY: 2, gap: 2 } }),
-          stk('arrow-curved', 220, 560, 130, 117, { rotation: 20, colors: ['#ffffff'] }),
-          txt('I’M A\nSELLER’S &\nBUYER’S AGENT', { cx: 860, cy: 1080, rotation: 2, fontFamily: 'Permanent Marker', fontSize: 54, lineHeight: 1, fill: '#1d1b18', bg: { style: 'rough', color: '#f7d046', padX: 12, padY: 2, gap: 2 } }),
-          stk('arrow-straight', 770, 870, 150, 68, { rotation: -150, colors: ['#ffffff'] }),
         ],
       }),
     },
@@ -16725,34 +16470,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         ],
       }),
     })),
-    // ── big-head outfit line-up ──
-    ...[
-      { id: 'zapato', name: 'One shoe for each', bg: '#7a3a2c', ink: '#f3d6b0', title: 'UN\nZAPATO\nPARA CADA', swipe: 'deslizar  >>', brand: 'White.',
-        figs: ['girl-striped-cardigan', 'girl-trench-walk', 'girl-blazer-coffee', 'girl-leather-bag', 'girl-polka-shirt'], shoes: [['shoe-suede-clog', ['#8a5a3a', '#c9a679', '#d8c08a'], 250, 146], ['shoe-suede-clog', ['#b5a48e', '#d3bf9c', '#d8c08a'], 270, 158]] },
-      { id: 'jacket-mood', name: 'A jacket for every mood', bg: '#4b5a3a', ink: '#eadfc4', title: 'ONE\nJACKET FOR\nEVERY MOOD', swipe: 'swipe  >>', brand: 'Northside.',
-        figs: ['boy-hoodie-cargo', 'boy-denim-chinos', 'boy-varsity-jeans', 'boy-puffer-joggers', 'boy-camel-coat'], shoes: [['shoe-m-dad-sneaker', null, 250, 158], ['shoe-m-chelsea', null, 180, 167]] },
-      { id: 'what-we-wore', name: 'What we wore', bg: '#1d2a4a', ink: '#f2e9d8', title: 'WHAT WE\nWORE THIS\nWEEK', swipe: 'swipe  >>', brand: 'Studio Notes.',
-        figs: ['girl-hoodie-sneakers', 'boy-rugby-skate', 'girl-floral-slip', 'boy-linen-shorts', 'girl-knit-vest'], shoes: [['shoe-chunky-sneaker', null, 250, 140], ['shoe-penny-loafer', null, 290, 119]] },
-    ].map(v => ({
-      id: v.id, name: v.name, tags: ['Post', 'Collage', 'Fashion'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: v.bg },
-        overlay: { grain: 10 },
-        elements: [
-          stk(v.shoes[0][0], 50, 640, v.shoes[0][2] * 0.85, v.shoes[0][3] * 0.85, Object.assign({ rotation: -6 }, v.shoes[0][1] ? { colors: v.shoes[0][1] } : {})),
-          ...figure(v.figs[0], 200, 400, 380, { rotation: -3 }),
-          ...figure(v.figs[1], 540, 330, 330),
-          ...figure(v.figs[2], 880, 400, 380, { rotation: 3 }),
-          txt(v.title, { cx: 540, cy: 670, fontFamily: 'Josefin Sans', fontWeight: 300, fontSize: 74, lineHeight: 1.22, letterSpacing: 0.02, fill: v.ink }),
-          txt(v.swipe, { cx: 540, cy: 990, fontFamily: 'Instrument Sans', fontWeight: 500, fontSize: 34, letterSpacing: 0.02, fill: v.ink }),
-          ...figure(v.figs[3], 180, 1135, 400, { rotation: -2 }),
-          ...figure(v.figs[4], 900, 1135, 400, { rotation: 2 }),
-          stk(v.shoes[1][0], 690, 1210, v.shoes[1][2], v.shoes[1][3], Object.assign({ rotation: 4 }, v.shoes[1][1] ? { colors: v.shoes[1][1] } : {})),
-          txt(v.brand, { cx: 540, cy: 1290, fontFamily: 'Instrument Serif', italic: true, fontSize: 56, fill: v.ink }),
-        ],
-      }),
-    })),
   ];
 
   const TEXT_PRESETS = [
@@ -16797,6 +16514,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     { name: 'Wide heavy', dark: true, el: { text: 'CREATIVE\nPARTNER', fontFamily: 'Rubik Mono One', fontSize: 92, lineHeight: 0.95, fill: '#ffffff', shadow: { on: true, color: '#0b3a8f', opacity: 0.35, blur: 20, x: 0, y: 6 } } },
     { name: 'Chalk note', dark: true, el: { text: 'not a prompt\nbut a real\nconversation', fontFamily: 'Gloria Hallelujah', fontSize: 40, lineHeight: 1.05, fill: '#ffffff' } },
     { name: 'Tracked caption', el: { text: 'Ryane | Designer Gráfico 2026', fontFamily: 'Poppins', fontWeight: 600, fontSize: 30, letterSpacing: 0.12, fill: '#ffffff', shadow: { on: true, color: '#000000', opacity: 0.25, blur: 8, x: 0, y: 2 } }, dark: true },
+    { name: 'Birthday 3D', el: { text: 'happy\nbirthday', fontFamily: 'Bagel Fat One', fontSize: 120, lineHeight: 0.88, fill: '#ff4f79', stroke: { width: 5, color: '#ffffff' }, echo: { on: true, color: '#7a1f3d', dx: 0.03, dy: 0.04, steps: 6 } } },
+    { name: 'Chalk heading', dark: true, el: { text: 'today’s menu', fontFamily: 'Covered By Your Grace', fontSize: 100, fill: '#f6f1e7' } },
+    { name: 'Italic display', el: { text: 'coming\nsoon', fontFamily: 'Instrument Serif', italic: true, fontSize: 150, lineHeight: 0.82, fill: '#1d1b18' } },
+    { name: 'Wide spaced', el: { text: '★ 2000 forever ★', fontFamily: 'Syncopate', fontWeight: 700, fontSize: 40, letterSpacing: 0.1, fill: '#5b4cf5' } },
+    { name: 'Light caps', el: { text: 'ONE\nJACKET FOR\nEVERY MOOD', fontFamily: 'Josefin Sans', fontWeight: 300, fontSize: 66, lineHeight: 1.22, letterSpacing: 0.02, fill: '#1d1b18' } },
   ];
 
   const PAPER_PRESETS = [
@@ -16952,7 +16674,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     'Polaroid POV': ['pov-red', 'pov-blue', 'pov-green'],
     'Wall calendar': ['date-green', 'date-pink', 'date-blue'],
     'Notebook tip': ['tip-green', 'tip-pink', 'tip-lilac'],
-    'Outfit line-up': ['zapato', 'jacket-mood', 'what-we-wore'],
   };
   // families made by a layout generator list themselves (one member per orientation)
   for (const t of TEMPLATES) if (t.family && GROUPS[t.family]) GROUPS[t.family].push(t.id);
