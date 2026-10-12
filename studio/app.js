@@ -136,7 +136,7 @@
     return {
       width: w, height: h,
       background: { color, color2: '#ffffff', gradient: 'none', angle: 180, assetId: null, filters: {}, crop: { zoom: 1, x: 0.5, y: 0.5 }, imageOpacity: 1, texture: 0, pattern: { type: 'none', color: 'rgba(29,27,24,0.14)', size: 40, thick: 1.5, opacity: 1, color2: '' } },
-      overlay: { grain: 0, vignette: 0, tint: '#ff8a3d', tintAmount: 0, paper: 0, leak: 0, creases: 0 },
+      overlay: { grain: 0, vignette: 0, tint: '#ff8a3d', tintAmount: 0, paper: 0, leak: 0, creases: 0, light: 0 },
       anim: { duration: 5, fps: 30 },
       elements: [],
     };
@@ -235,9 +235,15 @@
   const art = new Konva.Group();
   artFrame.add(art);
   layer.add(artFrame);
+  // paper relief: the background's folds drawn again above the layers and moving with the camera, so print sits in the paper
+  const reliefCam = new Konva.Group({ listening: false });
+  reliefCam.add(new Konva.Shape({
+    listening: false,
+    sceneFunc: (c) => { const bg = doc.background || {}; if (bg.crumple && bg.relief && !R.isClearBg(doc)) R.drawCrumple(c._context, doc.width, doc.height, bg.crumple, bg.crumpleSeed || 1); },
+  }));
   const overlayShape = new Konva.Shape({
     listening: false,
-    sceneFunc: (c) => { const ctx = c._context; if (doc.overlay && doc.overlay.rgb > 0) R.rgbSplit(ctx, doc.overlay.rgb / 100 * doc.width * 0.006 * Math.hypot(ctx.getTransform().a, ctx.getTransform().b)); ctx.save(); if (doc.background && doc.background.none) ctx.globalCompositeOperation = 'source-atop'; R.drawOverlay(ctx, doc); ctx.restore(); },
+    sceneFunc: (c) => { const ctx = c._context; R.frameBlurCtx(ctx, doc); if (doc.overlay && doc.overlay.rgb > 0) R.rgbSplit(ctx, doc.overlay.rgb / 100 * doc.width * 0.006 * Math.hypot(ctx.getTransform().a, ctx.getTransform().b)); ctx.save(); if (doc.background && doc.background.none) ctx.globalCompositeOperation = 'source-atop'; R.drawOverlay(ctx, doc); ctx.restore(); },
   });
 
   // Alt/Option distances: red lines with pixel values between the selection and the canvas or the layer under the pointer
@@ -438,7 +444,7 @@
       globalCompositeOperation: el.blend && el.blend !== 'normal' ? el.blend : 'source-over',
       // full-canvas overlays let clicks through to the photo or video underneath (pick them in Layers)
       // full-frame overlays and the clips that cut in between typed words never catch clicks meant for the layers under them
-      listening: el.type !== 'flashes' && !el.cutin,
+      listening: el.type !== 'flashes' && !el.cutin && !el.mcut,
     });
   }
   function rebuild() {
@@ -451,6 +457,7 @@
       nodes.set(el.id, n);
       art.add(n);
     }
+    artFrame.add(reliefCam);
     artFrame.add(overlayShape);
     overlayShape.moveToTop();
     sizeArt();
@@ -472,7 +479,8 @@
   // blend modes need the background on the same canvas as the layers, or they'd mix with nothing while editing
   function placeBackground() {
     // blends mix with the background on the layers' canvas — but never with the see-through checkerboard
-    const want = !(doc.background && doc.background.none) && doc.elements.some(e => e.blend && e.blend !== 'normal' && e.blend !== 'source-over') ? layer : bgLayer;
+    // a canvas blur has to blur the background too, so it joins the layers' canvas as well
+    const want = !(doc.background && doc.background.none) && (R.hasFrameBlur(doc) || doc.elements.some(e => e.blend && e.blend !== 'normal' && e.blend !== 'source-over')) ? layer : bgLayer;
     if (bgFrame.getLayer() === want) return;
     bgFrame.moveTo(want);
     if (want === layer) bgFrame.moveToBottom();
@@ -795,6 +803,21 @@
     deepMerge(d, extra);
     S.loadDoc(d, null, Object.assign({ name: 'Untitled design' }, opts));
   };
+  // match cut: the user only owns the highlighted word (doc.matchcut); the articles around it are rewritten from it
+  S.setMatchCut = function (patch, live) {
+    const M = window.STUDIO_MATCHCUT;
+    if (!doc.matchcut || !M) return;
+    doc.matchcut = Object.assign({}, doc.matchcut, patch);
+    const fresh = M.build(doc.matchcut).map(e => { const n = normalize(e); autosize(n, false); return n; });
+    const first = doc.elements.findIndex(e => e.mcut);
+    const before = first < 0 ? 0 : doc.elements.slice(0, first).filter(e => !e.mcut).length;
+    const rest = doc.elements.filter(e => !e.mcut);
+    rest.splice(before, 0, ...fresh);
+    doc.elements = rest;
+    rebuild();
+    // while typing, only the canvas redraws; the inspector stays put so the word field keeps its focus
+    if (!live) { S.commit(); emit('doc'); }
+  };
   // a moving layout rebuilt for the canvas it's on now; photos and videos already placed carry over in order
   S.relayout = function () {
     const L = doc.layout && window.STUDIO_LAYOUTS && window.STUDIO_LAYOUTS[doc.layout.key];
@@ -1003,7 +1026,7 @@
         marquee.setAttrs({ x, y, width: w, height: h, visible: true });
         const hits = [];
         for (const el of doc.elements) {
-          if (el.hidden || el.locked) continue;
+          if (el.hidden || el.locked || el.mcut) continue;
           const r = nodes.get(el.id).getClientRect({ relativeTo: art });
           const touches = r.x < x + w && r.x + r.width > x && r.y < y + h && r.y + r.height > y;
           // a layer that surrounds the whole box (a background photo, say) isn't what the box is aiming at
@@ -1908,7 +1931,7 @@
     const cam = t != null ? R.camAt(doc, t) : null;
     const a = cam ? { x: doc.width / 2, y: doc.height / 2, offsetX: cam.fx, offsetY: cam.fy, scaleX: cam.z, scaleY: cam.z, rotation: cam.r }
       : { x: 0, y: 0, offsetX: 0, offsetY: 0, scaleX: 1, scaleY: 1, rotation: 0 };
-    art.setAttrs(a); bgCam.setAttrs(a);
+    art.setAttrs(a); bgCam.setAttrs(a); reliefCam.setAttrs(a);
     bgLayer.batchDraw();
   }
   S.applyCamera = applyCamera;

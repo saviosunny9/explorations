@@ -1871,8 +1871,9 @@
   // every piece of text in a video, editable without touching the canvas
   function videoTextSection() {
     if (!S.hasAnimation()) return null;
-    const items = S.doc.elements.filter(e => !e.hidden && ((e.type === 'text' && String(e.text || '').trim()) || (e.type === 'ribbon' && e.text)));
-    if (!items.length) return null;
+    const mc = S.doc.matchcut;
+    const items = S.doc.elements.filter(e => !e.hidden && !e.mcut && ((e.type === 'text' && String(e.text || '').trim()) || (e.type === 'ribbon' && e.text)));
+    if (!items.length && !mc) return null;
     const label = e => {
       if (e.name) return e.name;
       if (e.type === 'ribbon') return 'Ribbon text';
@@ -1884,11 +1885,35 @@
       return 'Text';
     };
     return sec('Text in this video', [
-      h('p.hint', null, 'Type here — the animation updates as you go. Click a label to select that layer.'),
+      ...(mc ? matchCutControls(mc) : []),
+      items.length ? h('p.hint', null, 'Type here — the animation updates as you go. Click a label to select that layer.') : null,
       ...items.slice().reverse().map(e => h('div.video-text-item', null,
         h('button.link-btn.vt-label', { type: 'button', onclick: () => S.select([e.id]) }, label(e)),
         elTextBox(e, { rows: Math.min(6, Math.max(1, String(e.text || '').split('\n').length)), hint: e.type === 'ribbon' ? 'Runs along the ribbon.' : undefined }))),
     ], true, { key: 'video-text-all' });
+  }
+  // match cut: one word to highlight; the sentences around it are written and shuffled for you
+  function matchCutControls(mc) {
+    const M = window.STUDIO_MATCHCUT, st = M && M.styles.find(x => x.id === mc.style);
+    const inp = h('input.sel', { type: 'text', value: mc.word || '', placeholder: 'motivation', 'aria-label': 'Highlighted word' });
+    inp.addEventListener('input', () => S.setMatchCut({ word: inp.value }, true));
+    // the field already shows the word, so finishing an edit just saves it (re-rendering here would pull the focused field away)
+    inp.addEventListener('change', () => { S.setMatchCut({ word: inp.value }, true); S.commit(); });
+    return [
+      label('Highlighted word'),
+      full(inp),
+      h('p.hint', null, 'Stays put between cuts. The headlines and sentences around it are written from it — shuffle for new ones.'),
+      row('Highlight', colorCtl('doc', 'matchcut.color', { def: st ? st.color : '#f2df45', set: (v, live) => S.setMatchCut({ color: v }, live) })),
+      full(h('button.btn', { type: 'button', onclick: () => S.setMatchCut({ seed: Math.floor(Math.random() * 1e6) }) }, ic('shuffle'), 'Shuffle sentences')),
+    ];
+  }
+  // a blur over the whole finished frame: photos, text, everything
+  function canvasBlurSection() {
+    const type = blurTypeOf(S.doc.blur || {});
+    return sec('Canvas blur', [
+      h('p.hint', null, 'Blurs the whole canvas — every layer and the background — like a lens or camera effect.'),
+      ...blurControls('doc', 'blur', { noun: 'canvas' }),
+    ], type !== 'none', { key: 'canvas-blur' });
   }
   function sizeName(w, hh) { const m = SIZES.find(([, a, b]) => a === w && b === hh); return m ? m[0] : 'Custom'; }
   function canvasInspector() {
@@ -1947,6 +1972,7 @@
       ], true, { key: 'photo-slots' }) : null,
       videoTextSection(),
       cameraSection(),
+      canvasBlurSection(),
       addSec('Finish', [
         {
           label: 'Pattern', on: bg.pattern && bg.pattern.type !== 'none',
@@ -1962,7 +1988,10 @@
           ],
         },
         fin('Paper texture', 'background.texture'),
-        fin('Crumpled paper', 'background.crumple', 100, { def: 60, body: () => [full(h('button.btn', { type: 'button', onclick: () => S.change(T, 'background.crumpleSeed', Math.floor(Math.random() * 1e6)) }, ic('shuffle'), 'New creases'))] }),
+        fin('Crumpled paper', 'background.crumple', 100, { def: 60, body: () => [
+          toggle(T, 'background.relief', 'Creases over the layers too'),
+          h('p.hint', null, 'Folds and shading run over text and photos as well, so they look printed on the paper.'),
+          full(h('button.btn', { type: 'button', onclick: () => S.change(T, 'background.crumpleSeed', Math.floor(Math.random() * 1e6)) }, ic('shuffle'), 'New creases'))] }),
         fin('Film grain', 'overlay.grain', 100, { def: 30, body: () => [row('Grain size', num(T, 'overlay.grainSize', { min: 0, max: 100, slider: true, def: 0 }))] }),
         fin('Dust & scratches', 'overlay.dust', 100, { def: 45 }),
         fin('Film burn', 'overlay.burn', 100, { def: 60 }),
@@ -1987,6 +2016,7 @@
           body: () => [row('Colour', colorCtl(T, 'overlay.tint')), row('Amount', num(T, 'overlay.tintAmount', { min: 0, max: 100, slider: true }))],
         },
         fin('Paper on top', 'overlay.paper'),
+        fin('Window light', 'overlay.light', 100, { def: 35, body: () => [h('p.hint', null, 'Soft light falling across the frame from the top left, like a sheet photographed by a window.')] }),
         fin('Poster folds', 'overlay.creases', 100, { def: 60 }),
         fin('Light leak', 'overlay.leak', 100, { def: 45 }),
         fin('Window-blind shadows', 'overlay.blinds', 100, { def: 50 }),

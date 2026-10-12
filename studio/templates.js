@@ -335,45 +335,79 @@
     })),
 
     // ── VIDEO: match cut — one word stays put while everything around it changes ──
-    ...[
-      { id: 'match-highlight', name: 'Keyword match cut', paper: '#ecebe7', crumple: 50, ink: '#2a2a2a', dim: '#6a6a6a', style: 'marker', color: '#f2df45', slot: 0.2, cam: { move: 'jolt', zoom: 1.3, rotate: 2, cut: 0.2, wander: 0, blur: 0.4 } },
-      { id: 'match-dark', name: 'Night edition', paper: '#121212', crumple: 0, ink: '#ececec', dim: '#8a8a8a', style: 'marker', color: '#ff4fa3', slot: 0.25, cam: { move: 'pushin', zoom: 1.6, start: 0, dur: 5, shake: 0.4, blur: 0.4 } },
-      { id: 'match-news', name: 'Newsprint flicker', paper: '#e8e2d2', crumple: 20, ink: '#1f1c17', dim: '#5e574b', style: 'underline', color: '#d62828', slot: 0.14, serif: true, cam: { move: 'jolt', zoom: 1.45, rotate: 3, cut: 0.14, wander: 0, blur: 0.5, shake: 0.2 } },
-    ].map(v => ({
-      id: v.id, name: v.name, tags: ['Video', 'Quote'], width: 1080, height: 1350, video: true,
-      build: () => {
-        const KW = 'motivation';
-        const A = [
-          ['The Impact of Motivation\non Athletic Performance', 'In this piece, we explore motivation for athletes', 'potential. The discussion covers the different types of', 'Archivo Black', 'Inter'],
-          ['Understanding Motivation\nin the Workplace', 'The piece delves into how motivation and habit', 'influence productivity. It also considers how teams', 'Fraunces', 'Newsreader'],
-          ['The Role of Motivation\nin Achieving Goals', 'It examines how motivation acts as a quiet engine', 'behind achievement. It discusses the role of habits', 'Space Grotesk', 'DM Sans'],
-          ['Motivation and Learning:\nWhat Really Works', 'A closer look at intrinsic motivation in education', 'explores the concept of curiosity and its effect on', 'Newsreader', 'Instrument Sans'],
-          ['Why Motivation Fades\n(and How to Keep It)', 'Research shows motivation is less about willpower', 'and more about small, repeatable systems that make', 'Bricolage Grotesque', 'Space Grotesk'],
-          ['Finding Motivation\nin Hard Seasons', 'Small wins build motivation in ways that last', 'longer than any pep talk. The article highlights practical', 'DM Serif Display', 'Fraunces'],
-        ];
-        const body = 'resilience and focus over time. It also covers the psychological strategies coaches use to boost confidence, and the importance of rest in sustaining performance. Recent studies suggest that steady routines matter more than bursts of energy, especially when the goal is far away.';
+    // Only the highlighted word is the user's (doc.matchcut); the articles around it are written from it, picked by a seed.
+    ...(() => {
+      const STYLES = [
+        { id: 'match-highlight', name: 'Keyword match cut', paper: '#f6f3eb', crumple: 40, ink: '#262421', dim: '#67625a', style: 'marker', color: '#f2df45', slot: 0.2, cam: { move: 'jolt', zoom: 1.3, rotate: 2, cut: 0.2, wander: 0, blur: 0.4 } },
+        { id: 'match-dark', name: 'Night edition', paper: '#121212', crumple: 0, ink: '#ececec', dim: '#8a8a8a', style: 'marker', color: '#ff4fa3', slot: 0.25, cam: { move: 'pushin', zoom: 1.6, start: 0, dur: 5, shake: 0.4, blur: 0.4 } },
+        { id: 'match-news', name: 'Newsprint flicker', paper: '#ece5d3', crumple: 35, ink: '#1f1c17', dim: '#5e574b', style: 'underline', color: '#d62828', slot: 0.14, serif: true, cam: { move: 'jolt', zoom: 1.45, rotate: 3, cut: 0.14, wander: 0, blur: 0.5, shake: 0.2 } },
+      ];
+      // {W} = the word in title case, {w} = as typed
+      const TITLES = [
+        'The Impact of {W}\non Everyday Performance', 'Understanding {W}\nin the Workplace', 'The Role of {W}\nin Achieving Goals', '{W} and Learning:\nWhat Really Works',
+        'Why {W} Fades\n(and How to Keep It)', 'Finding {W}\nin Hard Seasons', 'A Short History\nof {W}', 'What {W} Teaches Us\nAbout Ourselves', 'The Science\nBehind {W}',
+        'Rethinking {W}\nfor a Busy World', 'How {W} Shapes\nthe Way We Work', '{W}, Explained\nin Five Minutes', 'The Quiet Power\nof {W}', 'Is {W} Overrated?\nA Closer Look',
+      ];
+      const LINES = [
+        'In this piece, we explore {w} and what drives it', 'The piece delves into how {w} and habit', 'It examines how {w} acts as a quiet engine', 'A closer look at {w} in everyday routines',
+        'Research shows {w} is less about willpower', 'Small wins build {w} in ways that last', 'Experts argue that {w} grows with practice', 'We look at why {w} matters more than talent',
+        'This essay traces how {w} changes over time', 'Here is what {w} looks like up close', 'Most people misunderstand {w} completely', 'Teams that value {w} tend to move faster',
+      ];
+      const AFTER = [
+        'influence productivity. It also considers how teams', 'potential. The discussion covers the different types of', 'behind achievement. It discusses the role of habits',
+        'explores the concept of curiosity and its effect on', 'and more about small, repeatable systems that make', 'longer than any pep talk. The article highlights practical',
+        'shape the choices we make when nobody is watching.', 'and why the first step is usually the hardest one.', 'across careers, classrooms and creative work alike.',
+        'in ways that are easy to miss from the outside.',
+      ];
+      const BODY = [
+        'resilience and focus over time. It also covers the psychological strategies coaches use to boost confidence, and the importance of rest in sustaining performance. Recent studies suggest that steady routines matter more than bursts of energy, especially when the goal is far away.',
+        'the habits that hold it together. Interviews with researchers, teachers and founders point to the same pattern: clear goals, honest feedback and enough rest to recover. The rest of the article looks at simple ways to build it into an ordinary week.',
+        'what happens when it runs out. The authors compare short bursts of effort with slow, steady progress and find that the second wins almost every time. They end with a checklist anyone can try tomorrow morning.',
+      ];
+      const FONTS = [['Archivo Black', 'Inter'], ['Fraunces', 'Newsreader'], ['Space Grotesk', 'DM Sans'], ['Newsreader', 'Instrument Sans'], ['Bricolage Grotesque', 'Space Grotesk'], ['DM Serif Display', 'Fraunces'], ['Instrument Serif', 'Inter'], ['Inter', 'Newsreader']];
+      const WEIGHT = { Fraunces: 700, Newsreader: 700, 'Bricolage Grotesque': 800, 'Space Grotesk': 700, Inter: 700 };
+      const rnd = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+      const shuffled = (list, r) => list.map(x => [r(), x]).sort((p, q) => p[0] - q[0]).map(p => p[1]);
+      const titleCase = w => w.replace(/(^|\s)(\S)/g, (m, a, c) => a + c.toUpperCase());
+      const fillIn = (s, w) => s.replace(/\{w\}/g, w).replace(/\{W\}/g, titleCase(w));
+      const N = 6;
+      function build(mc) {
+        const v = STYLES.find(x => x.id === mc.style) || STYLES[0];
+        const word = String(mc.word || '').replace(/\s+/g, ' ').trim() || 'motivation';
+        const r = rnd((mc.seed || 1) * 7919 + 3), color = mc.color || v.color;
+        const T = shuffled(TITLES, r), Ln = shuffled(LINES, r), Af = shuffled(AFTER, r), F = shuffled(FONTS, r);
         const els = [];
-        A.forEach(([title, line, after, tf, bf], i) => {
-          const time = { start: 0, cycle: { slot: v.slot, index: i, count: A.length } };
-          const f = v.serif ? ['Newsreader', 'Newsreader'] : [tf, bf];
+        for (let i = 0; i < N; i++) {
+          const time = { start: 0, cycle: { slot: v.slot, index: i, count: N } };
+          const f = v.serif ? ['Newsreader', 'Newsreader'] : F[i % F.length];
           els.push(
             txt('Home / Articles', { x: 60, y: 300, align: 'left', fontFamily: f[1], fontWeight: 500, fontSize: 30, fill: v.dim, time, lblur: { motion: 10 } }),
-            txt(title, { x: 60, y: 360, align: 'left', fontFamily: f[0], fontWeight: f[0] === 'Fraunces' || f[0] === 'Newsreader' ? 700 : f[0] === 'Bricolage Grotesque' ? 800 : f[0] === 'Space Grotesk' ? 700 : 400, fontSize: 60, lineHeight: 1.05, fill: v.ink, time, lblur: { motion: 7 } }),
-            txt(line, { cx: 540, cy: 675, autoWidth: false, width: 2400, align: 'center', anchor: KW, fontFamily: f[1], fontWeight: 600, fontSize: 48, fill: v.ink, time, typing: { caret: false, blink: false, marks: [KW], style: v.style, color: v.color }, name: 'Keyword line' }),
-            txt(after, { cx: 540, cy: 745, autoWidth: false, width: 2400, align: 'center', fontFamily: f[1], fontWeight: 500, fontSize: 44, fill: v.ink, time, lblur: { motion: 5 } }),
-            txt(body, { x: -40, y: 790, autoWidth: false, width: 1160, align: 'left', fontFamily: f[1], fontWeight: 500, fontSize: 40, lineHeight: 1.3, fill: v.dim, time, lblur: { motion: 16, gauss: 1.5 } }),
+            txt(fillIn(T[i], word), { x: 60, y: 360, align: 'left', fontFamily: f[0], fontWeight: WEIGHT[f[0]] || 400, fontSize: 60, lineHeight: 1.05, fill: v.ink, time, lblur: { motion: 7 } }),
+            txt(fillIn(Ln[i], word), { cx: 540, cy: 675, autoWidth: false, width: 2400, align: 'center', anchor: word, fontFamily: f[1], fontWeight: 600, fontSize: 48, fill: v.ink, time, typing: { caret: false, blink: false, marks: [word], style: v.style, color }, name: 'Keyword line' }),
+            txt(Af[i], { cx: 540, cy: 745, autoWidth: false, width: 2400, align: 'center', fontFamily: f[1], fontWeight: 500, fontSize: 44, fill: v.ink, time, lblur: { motion: 5 } }),
+            txt(BODY[Math.floor(r() * BODY.length)], { x: -40, y: 790, autoWidth: false, width: 1160, align: 'left', fontFamily: f[1], fontWeight: 500, fontSize: 40, lineHeight: 1.3, fill: v.dim, time, lblur: { motion: 16, gauss: 1.5 } }),
           );
-        });
-        return {
-          width: 1080, height: 1350,
-          background: { color: v.paper, crumple: v.crumple, crumpleSeed: 8, texture: v.crumple ? 25 : 0 },
-          overlay: { vignette: 38, grain: 20 },
-          anim: { duration: 5, fps: 30 },
-          camera: v.cam,
-          elements: els,
-        };
-      },
-    })),
+        }
+        return els.map(e => Object.assign(e, { mcut: true }));
+      }
+      window.STUDIO_MATCHCUT = { build, styles: STYLES };
+      return STYLES.map(v => ({
+        id: v.id, name: v.name, tags: ['Video', 'Quote'], width: 1080, height: 1350, video: true,
+        build: () => {
+          const mc = { style: v.id, word: 'motivation', seed: 1 };
+          return {
+            width: 1080, height: 1350,
+            // relief: the paper's folds are drawn over the print too, so the ink follows the paper; window light across the sheet
+            background: { color: v.paper, crumple: v.crumple, crumpleSeed: 8, relief: !!v.crumple, texture: v.crumple ? 18 : 0 },
+            overlay: v.crumple ? { paper: 12, vignette: 18, grain: 10, light: 22 } : { vignette: 38, grain: 20 },
+            anim: { duration: 5, fps: 30 },
+            camera: v.cam,
+            matchcut: mc,
+            elements: build(mc),
+          };
+        },
+      }));
+    })(),
 
     // ── TEXT SLIDES: typographic quote posters, one idea per slide ──
     ...(() => {

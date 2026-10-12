@@ -172,6 +172,14 @@ are the bundled photos from `flashes.js`, `film-` from `filmphotos.js`, `ed-` fr
   block's BlockAdditional via a small patch in `vendor/webm-muxer.js` (`meta.additions`, plus ReferenceBlock on delta
   frames). `format: 'png'` → `exportFrames` zips numbered PNGs (JSZip). Muxers load from `vendor/` in development.
   Check with `ffprobe` (`alpha_mode=1`) and `ffmpeg -c:v libvpx-vp9 -i x.webm -pix_fmt rgba`.
+- Canvas blur: `doc.blur` holds the photo blur keys (motion, ghost, zoomBlur, spinBlur, blur, tiltShift + their settings and
+  spots). `frameBlur` runs them over the finished frame in `renderDoc` (after the camera blur, before the finish; drawn over
+  the sharp frame so edges stay filled, or replacing it on a see-through canvas). In the editor `R.frameBlurCtx` does the same
+  to the artboard region of the layers' canvas (≤ 1200 px), called first in `overlayShape`; `placeBackground` moves the
+  background onto that canvas while a canvas blur is on. UI: `canvasBlurSection` reuses `blurControls('doc', 'blur')`.
+- Paper relief: `background.relief` with `background.crumple` skips the crumple in `drawBackground` and draws it once above
+  the layers, inside the camera (`renderDoc`; `reliefCam` in app.js), so print follows the folds. `overlay.light` is a soft
+  window-light falloff in `drawOverlay`.
 - Frames: add a case to `frameGeometry` (returns `outer`, `inner` clip, `rect`, optional `extra` painter; starting size and colour in `FRAME_START`, ui.js)
   and a label in `R.FRAMES`. Cut-up frames (`strips`, `mosaic`, `mirror`) set `g.paint(ctx, draw)` and place the
   photo piece by piece by calling `draw(rect)`.
@@ -239,6 +247,12 @@ Polaroid POV, Wall calendar, Notebook tip — about 258 templates. Removed on re
 Happy birthday, Y2K vibes, This week, Review card, Coming soon, Halftone duo, Postfólio, Tools I use, Creative partner,
 Meet the agent, the Outfit line-up family, Quote card, Retro event, Photo dump, Mood board, New post story, Save the date and Big sale; their fonts are kept as Text styles and their stickers stay in Elements. Film templates build
 filters with `LOOK('<preset>', overrides)` so they stay in step with the presets.
+
+**Match cut** (`match-highlight`, `match-dark`, `match-news`): the user only edits `doc.matchcut = { style, word, seed, color }`.
+`window.STUDIO_MATCHCUT.build(mc)` writes six articles (titles, keyword lines, follow-on lines, body) from phrase banks with
+`{w}` / `{W}` filled by the word, picked by `seed`; every generated layer has `mcut: true` (no clicks, not in marquee, not
+listed in *Text in this video*). `S.setMatchCut(patch, live)` rebuilds them in place; ui.js `matchCutControls` shows the word
+field, highlight colour and *Shuffle sentences*.
 
 **Moving layouts** (`mv-<layout>-<orientation>`): generator functions in the "LAYOUTS IN MOTION" block of
 templates.js build a layout for any `(W, H)`; the eight layouts share three families in `GROUPS` (Moving grids, Photo piles,

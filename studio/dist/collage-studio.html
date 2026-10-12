@@ -10067,6 +10067,46 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     x.globalAlpha = 0.2; x.drawImage(src, Math.cos(a) * L * 2, Math.sin(a) * L * 2);
     return o;
   }
+  /* canvas blur (doc.blur): one of the photo blurs over the whole finished frame, same keys as filters / tblur */
+  const frameBlurOn = doc => { const f = doc && doc.blur; return !!(f && ['motion', 'ghost', 'zoomBlur', 'spinBlur', 'tiltShift', 'blur'].some(k => f[k] > 0)); };
+  R.hasFrameBlur = frameBlurOn;
+  function frameBlur(src, f) {
+    const M = Math.max(src.width, src.height);
+    let out = src;
+    if (f.motion) out = motionBlur(out, f.motion, f.motionAngle || 0);
+    if (f.ghost) out = ghostBlur(out, f.ghost, f.motionAngle || 0);
+    if (f.zoomBlur) out = radialBlur(out, f.zoomBlur, f.blurX ?? 0.5, f.blurY ?? 0.5, 'zoom');
+    if (f.spinBlur) out = radialBlur(out, f.spinBlur, f.blurX ?? 0.5, f.blurY ?? 0.5, 'spin');
+    if (f.tiltShift) out = tiltShift(out, f.tiltShift, f.tiltY ?? 0.5, f.tiltSize ?? 0.25);
+    if (f.blur) {
+      const o = canvas(src.width, src.height), x = o.getContext('2d');
+      if ('filter' in x) { x.filter = `blur(${f.blur * M / 1000}px)`; x.drawImage(out, 0, 0); out = o; }
+    }
+    const pts = f.blurPts || [];
+    if (f.blurArea && f.blurArea !== 'all' && pts.length && out !== src) out = blurSpots(src, out, pts, f.blurArea === 'sharp', (f.blurFeather ?? 60) / 100);
+    return out;
+  }
+  // the editor's version: blur the canvas region the artboard covers on the layer's own canvas (worked out at ≤ 1200 px)
+  let fbBuf = null;
+  R.frameBlurCtx = function (ctx, doc) {
+    if (!frameBlurOn(doc)) return;
+    const c = ctx.canvas, T = ctx.getTransform();
+    const x0 = T.e, y0 = T.f, w = doc.width * T.a, h = doc.height * T.d;
+    if (!(w > 2 && h > 2)) return;
+    const k = Math.min(1, 1200 / Math.max(w, h)), bw = Math.max(2, Math.round(w * k)), bh = Math.max(2, Math.round(h * k));
+    if (!fbBuf || fbBuf.width !== bw || fbBuf.height !== bh) fbBuf = canvas(bw, bh);
+    const bx = fbBuf.getContext('2d');
+    bx.setTransform(1, 0, 0, 1, 0, 0); bx.clearRect(0, 0, bw, bh);
+    bx.drawImage(c, x0, y0, w, h, 0, 0, bw, bh);
+    const out = frameBlur(fbBuf, doc.blur);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+    // over a see-through canvas the blurred frame replaces the sharp one; otherwise it lands on top so the edges stay filled
+    if (R.isClearBg(doc)) ctx.globalCompositeOperation = 'copy';
+    ctx.drawImage(out, x0, y0, w, h);
+    ctx.restore();
+  };
   // barrel distortion: the centre swells, edges bow out and the corners fall away
   function barrel(src, amt) {
     const w = src.width, h = src.height;
@@ -12206,7 +12246,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     drawPattern(ctx, w, h, bg.pattern);
     if (bg.texture) fillTexture(ctx, 'paper', bg.texture, w, h);
-    if (bg.crumple) drawCrumple(ctx, w, h, bg.crumple, bg.crumpleSeed || 1);
+    // with relief on, the folds are drawn once above the layers instead (see renderDoc), so the print sits in the paper
+    if (bg.crumple && !bg.relief) drawCrumple(ctx, w, h, bg.crumple, bg.crumpleSeed || 1);
   }
   R.drawBackground = drawBackground;
 
@@ -12221,6 +12262,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (o.dust) dustScratches(ctx, w, h, o.dust, t != null ? Math.floor(t * 12) : null, 1);
     if (o.tint && o.tintAmount) { ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha *= o.tintAmount / 100; ctx.fillStyle = o.tint; ctx.fillRect(0, 0, w, h); ctx.restore(); }
     if (o.paper) fillTexture(ctx, 'paper', o.paper, w, h);
+    if (o.light) {
+      // window light: brighter from the top left, falling off toward the far corner, like a sheet photographed by a window
+      const a = o.light / 100, g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, `rgba(255,248,232,${0.26 * a})`); g.addColorStop(0.45, 'rgba(255,255,255,0)'); g.addColorStop(1, `rgba(20,12,0,${0.32 * a})`);
+      ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.restore();
+      ctx.save(); ctx.globalAlpha *= 0.5; ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.restore();
+    }
     if (o.leak) {
       // warm light leak bleeding in from two corners
       ctx.save();
@@ -12771,6 +12819,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         drawElement(ctx, el, env);
         ctx.restore();
       }
+      const bgd = doc.background || {};
+      if (bgd.crumple && bgd.relief && !R.isClearBg(doc)) drawCrumple(ctx, doc.width, doc.height, bgd.crumple, bgd.crumpleSeed || 1);
     }
     ctx.restore();
     if (panel) return c;
@@ -12804,6 +12854,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
     }
     if (scr) screenLens(c, ctx, scr, doc.screen.pitch * sx * (cam ? cam.z : 1));
+    if (frameBlurOn(doc)) {
+      const out = frameBlur(c, doc.blur);
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+      if (opts.transparent || R.isClearBg(doc)) ctx.globalCompositeOperation = 'copy';
+      ctx.drawImage(out, 0, 0);
+      ctx.restore();
+    }
     const ov = doc.overlay || {};
     if (ov.rgb > 0) {
       const copy = canvas(c.width, c.height); copy.getContext('2d').drawImage(c, 0, 0);
@@ -14502,45 +14559,79 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     })),
 
     // ── VIDEO: match cut — one word stays put while everything around it changes ──
-    ...[
-      { id: 'match-highlight', name: 'Keyword match cut', paper: '#ecebe7', crumple: 50, ink: '#2a2a2a', dim: '#6a6a6a', style: 'marker', color: '#f2df45', slot: 0.2, cam: { move: 'jolt', zoom: 1.3, rotate: 2, cut: 0.2, wander: 0, blur: 0.4 } },
-      { id: 'match-dark', name: 'Night edition', paper: '#121212', crumple: 0, ink: '#ececec', dim: '#8a8a8a', style: 'marker', color: '#ff4fa3', slot: 0.25, cam: { move: 'pushin', zoom: 1.6, start: 0, dur: 5, shake: 0.4, blur: 0.4 } },
-      { id: 'match-news', name: 'Newsprint flicker', paper: '#e8e2d2', crumple: 20, ink: '#1f1c17', dim: '#5e574b', style: 'underline', color: '#d62828', slot: 0.14, serif: true, cam: { move: 'jolt', zoom: 1.45, rotate: 3, cut: 0.14, wander: 0, blur: 0.5, shake: 0.2 } },
-    ].map(v => ({
-      id: v.id, name: v.name, tags: ['Video', 'Quote'], width: 1080, height: 1350, video: true,
-      build: () => {
-        const KW = 'motivation';
-        const A = [
-          ['The Impact of Motivation\non Athletic Performance', 'In this piece, we explore motivation for athletes', 'potential. The discussion covers the different types of', 'Archivo Black', 'Inter'],
-          ['Understanding Motivation\nin the Workplace', 'The piece delves into how motivation and habit', 'influence productivity. It also considers how teams', 'Fraunces', 'Newsreader'],
-          ['The Role of Motivation\nin Achieving Goals', 'It examines how motivation acts as a quiet engine', 'behind achievement. It discusses the role of habits', 'Space Grotesk', 'DM Sans'],
-          ['Motivation and Learning:\nWhat Really Works', 'A closer look at intrinsic motivation in education', 'explores the concept of curiosity and its effect on', 'Newsreader', 'Instrument Sans'],
-          ['Why Motivation Fades\n(and How to Keep It)', 'Research shows motivation is less about willpower', 'and more about small, repeatable systems that make', 'Bricolage Grotesque', 'Space Grotesk'],
-          ['Finding Motivation\nin Hard Seasons', 'Small wins build motivation in ways that last', 'longer than any pep talk. The article highlights practical', 'DM Serif Display', 'Fraunces'],
-        ];
-        const body = 'resilience and focus over time. It also covers the psychological strategies coaches use to boost confidence, and the importance of rest in sustaining performance. Recent studies suggest that steady routines matter more than bursts of energy, especially when the goal is far away.';
+    // Only the highlighted word is the user's (doc.matchcut); the articles around it are written from it, picked by a seed.
+    ...(() => {
+      const STYLES = [
+        { id: 'match-highlight', name: 'Keyword match cut', paper: '#f6f3eb', crumple: 40, ink: '#262421', dim: '#67625a', style: 'marker', color: '#f2df45', slot: 0.2, cam: { move: 'jolt', zoom: 1.3, rotate: 2, cut: 0.2, wander: 0, blur: 0.4 } },
+        { id: 'match-dark', name: 'Night edition', paper: '#121212', crumple: 0, ink: '#ececec', dim: '#8a8a8a', style: 'marker', color: '#ff4fa3', slot: 0.25, cam: { move: 'pushin', zoom: 1.6, start: 0, dur: 5, shake: 0.4, blur: 0.4 } },
+        { id: 'match-news', name: 'Newsprint flicker', paper: '#ece5d3', crumple: 35, ink: '#1f1c17', dim: '#5e574b', style: 'underline', color: '#d62828', slot: 0.14, serif: true, cam: { move: 'jolt', zoom: 1.45, rotate: 3, cut: 0.14, wander: 0, blur: 0.5, shake: 0.2 } },
+      ];
+      // {W} = the word in title case, {w} = as typed
+      const TITLES = [
+        'The Impact of {W}\non Everyday Performance', 'Understanding {W}\nin the Workplace', 'The Role of {W}\nin Achieving Goals', '{W} and Learning:\nWhat Really Works',
+        'Why {W} Fades\n(and How to Keep It)', 'Finding {W}\nin Hard Seasons', 'A Short History\nof {W}', 'What {W} Teaches Us\nAbout Ourselves', 'The Science\nBehind {W}',
+        'Rethinking {W}\nfor a Busy World', 'How {W} Shapes\nthe Way We Work', '{W}, Explained\nin Five Minutes', 'The Quiet Power\nof {W}', 'Is {W} Overrated?\nA Closer Look',
+      ];
+      const LINES = [
+        'In this piece, we explore {w} and what drives it', 'The piece delves into how {w} and habit', 'It examines how {w} acts as a quiet engine', 'A closer look at {w} in everyday routines',
+        'Research shows {w} is less about willpower', 'Small wins build {w} in ways that last', 'Experts argue that {w} grows with practice', 'We look at why {w} matters more than talent',
+        'This essay traces how {w} changes over time', 'Here is what {w} looks like up close', 'Most people misunderstand {w} completely', 'Teams that value {w} tend to move faster',
+      ];
+      const AFTER = [
+        'influence productivity. It also considers how teams', 'potential. The discussion covers the different types of', 'behind achievement. It discusses the role of habits',
+        'explores the concept of curiosity and its effect on', 'and more about small, repeatable systems that make', 'longer than any pep talk. The article highlights practical',
+        'shape the choices we make when nobody is watching.', 'and why the first step is usually the hardest one.', 'across careers, classrooms and creative work alike.',
+        'in ways that are easy to miss from the outside.',
+      ];
+      const BODY = [
+        'resilience and focus over time. It also covers the psychological strategies coaches use to boost confidence, and the importance of rest in sustaining performance. Recent studies suggest that steady routines matter more than bursts of energy, especially when the goal is far away.',
+        'the habits that hold it together. Interviews with researchers, teachers and founders point to the same pattern: clear goals, honest feedback and enough rest to recover. The rest of the article looks at simple ways to build it into an ordinary week.',
+        'what happens when it runs out. The authors compare short bursts of effort with slow, steady progress and find that the second wins almost every time. They end with a checklist anyone can try tomorrow morning.',
+      ];
+      const FONTS = [['Archivo Black', 'Inter'], ['Fraunces', 'Newsreader'], ['Space Grotesk', 'DM Sans'], ['Newsreader', 'Instrument Sans'], ['Bricolage Grotesque', 'Space Grotesk'], ['DM Serif Display', 'Fraunces'], ['Instrument Serif', 'Inter'], ['Inter', 'Newsreader']];
+      const WEIGHT = { Fraunces: 700, Newsreader: 700, 'Bricolage Grotesque': 800, 'Space Grotesk': 700, Inter: 700 };
+      const rnd = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+      const shuffled = (list, r) => list.map(x => [r(), x]).sort((p, q) => p[0] - q[0]).map(p => p[1]);
+      const titleCase = w => w.replace(/(^|\s)(\S)/g, (m, a, c) => a + c.toUpperCase());
+      const fillIn = (s, w) => s.replace(/\{w\}/g, w).replace(/\{W\}/g, titleCase(w));
+      const N = 6;
+      function build(mc) {
+        const v = STYLES.find(x => x.id === mc.style) || STYLES[0];
+        const word = String(mc.word || '').replace(/\s+/g, ' ').trim() || 'motivation';
+        const r = rnd((mc.seed || 1) * 7919 + 3), color = mc.color || v.color;
+        const T = shuffled(TITLES, r), Ln = shuffled(LINES, r), Af = shuffled(AFTER, r), F = shuffled(FONTS, r);
         const els = [];
-        A.forEach(([title, line, after, tf, bf], i) => {
-          const time = { start: 0, cycle: { slot: v.slot, index: i, count: A.length } };
-          const f = v.serif ? ['Newsreader', 'Newsreader'] : [tf, bf];
+        for (let i = 0; i < N; i++) {
+          const time = { start: 0, cycle: { slot: v.slot, index: i, count: N } };
+          const f = v.serif ? ['Newsreader', 'Newsreader'] : F[i % F.length];
           els.push(
             txt('Home / Articles', { x: 60, y: 300, align: 'left', fontFamily: f[1], fontWeight: 500, fontSize: 30, fill: v.dim, time, lblur: { motion: 10 } }),
-            txt(title, { x: 60, y: 360, align: 'left', fontFamily: f[0], fontWeight: f[0] === 'Fraunces' || f[0] === 'Newsreader' ? 700 : f[0] === 'Bricolage Grotesque' ? 800 : f[0] === 'Space Grotesk' ? 700 : 400, fontSize: 60, lineHeight: 1.05, fill: v.ink, time, lblur: { motion: 7 } }),
-            txt(line, { cx: 540, cy: 675, autoWidth: false, width: 2400, align: 'center', anchor: KW, fontFamily: f[1], fontWeight: 600, fontSize: 48, fill: v.ink, time, typing: { caret: false, blink: false, marks: [KW], style: v.style, color: v.color }, name: 'Keyword line' }),
-            txt(after, { cx: 540, cy: 745, autoWidth: false, width: 2400, align: 'center', fontFamily: f[1], fontWeight: 500, fontSize: 44, fill: v.ink, time, lblur: { motion: 5 } }),
-            txt(body, { x: -40, y: 790, autoWidth: false, width: 1160, align: 'left', fontFamily: f[1], fontWeight: 500, fontSize: 40, lineHeight: 1.3, fill: v.dim, time, lblur: { motion: 16, gauss: 1.5 } }),
+            txt(fillIn(T[i], word), { x: 60, y: 360, align: 'left', fontFamily: f[0], fontWeight: WEIGHT[f[0]] || 400, fontSize: 60, lineHeight: 1.05, fill: v.ink, time, lblur: { motion: 7 } }),
+            txt(fillIn(Ln[i], word), { cx: 540, cy: 675, autoWidth: false, width: 2400, align: 'center', anchor: word, fontFamily: f[1], fontWeight: 600, fontSize: 48, fill: v.ink, time, typing: { caret: false, blink: false, marks: [word], style: v.style, color }, name: 'Keyword line' }),
+            txt(Af[i], { cx: 540, cy: 745, autoWidth: false, width: 2400, align: 'center', fontFamily: f[1], fontWeight: 500, fontSize: 44, fill: v.ink, time, lblur: { motion: 5 } }),
+            txt(BODY[Math.floor(r() * BODY.length)], { x: -40, y: 790, autoWidth: false, width: 1160, align: 'left', fontFamily: f[1], fontWeight: 500, fontSize: 40, lineHeight: 1.3, fill: v.dim, time, lblur: { motion: 16, gauss: 1.5 } }),
           );
-        });
-        return {
-          width: 1080, height: 1350,
-          background: { color: v.paper, crumple: v.crumple, crumpleSeed: 8, texture: v.crumple ? 25 : 0 },
-          overlay: { vignette: 38, grain: 20 },
-          anim: { duration: 5, fps: 30 },
-          camera: v.cam,
-          elements: els,
-        };
-      },
-    })),
+        }
+        return els.map(e => Object.assign(e, { mcut: true }));
+      }
+      window.STUDIO_MATCHCUT = { build, styles: STYLES };
+      return STYLES.map(v => ({
+        id: v.id, name: v.name, tags: ['Video', 'Quote'], width: 1080, height: 1350, video: true,
+        build: () => {
+          const mc = { style: v.id, word: 'motivation', seed: 1 };
+          return {
+            width: 1080, height: 1350,
+            // relief: the paper's folds are drawn over the print too, so the ink follows the paper; window light across the sheet
+            background: { color: v.paper, crumple: v.crumple, crumpleSeed: 8, relief: !!v.crumple, texture: v.crumple ? 18 : 0 },
+            overlay: v.crumple ? { paper: 12, vignette: 18, grain: 10, light: 22 } : { vignette: 38, grain: 20 },
+            anim: { duration: 5, fps: 30 },
+            camera: v.cam,
+            matchcut: mc,
+            elements: build(mc),
+          };
+        },
+      }));
+    })(),
 
     // ── TEXT SLIDES: typographic quote posters, one idea per slide ──
     ...(() => {
@@ -16708,7 +16799,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return {
       width: w, height: h,
       background: { color, color2: '#ffffff', gradient: 'none', angle: 180, assetId: null, filters: {}, crop: { zoom: 1, x: 0.5, y: 0.5 }, imageOpacity: 1, texture: 0, pattern: { type: 'none', color: 'rgba(29,27,24,0.14)', size: 40, thick: 1.5, opacity: 1, color2: '' } },
-      overlay: { grain: 0, vignette: 0, tint: '#ff8a3d', tintAmount: 0, paper: 0, leak: 0, creases: 0 },
+      overlay: { grain: 0, vignette: 0, tint: '#ff8a3d', tintAmount: 0, paper: 0, leak: 0, creases: 0, light: 0 },
       anim: { duration: 5, fps: 30 },
       elements: [],
     };
@@ -16807,9 +16898,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const art = new Konva.Group();
   artFrame.add(art);
   layer.add(artFrame);
+  // paper relief: the background's folds drawn again above the layers and moving with the camera, so print sits in the paper
+  const reliefCam = new Konva.Group({ listening: false });
+  reliefCam.add(new Konva.Shape({
+    listening: false,
+    sceneFunc: (c) => { const bg = doc.background || {}; if (bg.crumple && bg.relief && !R.isClearBg(doc)) R.drawCrumple(c._context, doc.width, doc.height, bg.crumple, bg.crumpleSeed || 1); },
+  }));
   const overlayShape = new Konva.Shape({
     listening: false,
-    sceneFunc: (c) => { const ctx = c._context; if (doc.overlay && doc.overlay.rgb > 0) R.rgbSplit(ctx, doc.overlay.rgb / 100 * doc.width * 0.006 * Math.hypot(ctx.getTransform().a, ctx.getTransform().b)); ctx.save(); if (doc.background && doc.background.none) ctx.globalCompositeOperation = 'source-atop'; R.drawOverlay(ctx, doc); ctx.restore(); },
+    sceneFunc: (c) => { const ctx = c._context; R.frameBlurCtx(ctx, doc); if (doc.overlay && doc.overlay.rgb > 0) R.rgbSplit(ctx, doc.overlay.rgb / 100 * doc.width * 0.006 * Math.hypot(ctx.getTransform().a, ctx.getTransform().b)); ctx.save(); if (doc.background && doc.background.none) ctx.globalCompositeOperation = 'source-atop'; R.drawOverlay(ctx, doc); ctx.restore(); },
   });
 
   // Alt/Option distances: red lines with pixel values between the selection and the canvas or the layer under the pointer
@@ -17010,7 +17107,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       globalCompositeOperation: el.blend && el.blend !== 'normal' ? el.blend : 'source-over',
       // full-canvas overlays let clicks through to the photo or video underneath (pick them in Layers)
       // full-frame overlays and the clips that cut in between typed words never catch clicks meant for the layers under them
-      listening: el.type !== 'flashes' && !el.cutin,
+      listening: el.type !== 'flashes' && !el.cutin && !el.mcut,
     });
   }
   function rebuild() {
@@ -17023,6 +17120,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       nodes.set(el.id, n);
       art.add(n);
     }
+    artFrame.add(reliefCam);
     artFrame.add(overlayShape);
     overlayShape.moveToTop();
     sizeArt();
@@ -17044,7 +17142,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // blend modes need the background on the same canvas as the layers, or they'd mix with nothing while editing
   function placeBackground() {
     // blends mix with the background on the layers' canvas — but never with the see-through checkerboard
-    const want = !(doc.background && doc.background.none) && doc.elements.some(e => e.blend && e.blend !== 'normal' && e.blend !== 'source-over') ? layer : bgLayer;
+    // a canvas blur has to blur the background too, so it joins the layers' canvas as well
+    const want = !(doc.background && doc.background.none) && (R.hasFrameBlur(doc) || doc.elements.some(e => e.blend && e.blend !== 'normal' && e.blend !== 'source-over')) ? layer : bgLayer;
     if (bgFrame.getLayer() === want) return;
     bgFrame.moveTo(want);
     if (want === layer) bgFrame.moveToBottom();
@@ -17367,6 +17466,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     deepMerge(d, extra);
     S.loadDoc(d, null, Object.assign({ name: 'Untitled design' }, opts));
   };
+  // match cut: the user only owns the highlighted word (doc.matchcut); the articles around it are rewritten from it
+  S.setMatchCut = function (patch, live) {
+    const M = window.STUDIO_MATCHCUT;
+    if (!doc.matchcut || !M) return;
+    doc.matchcut = Object.assign({}, doc.matchcut, patch);
+    const fresh = M.build(doc.matchcut).map(e => { const n = normalize(e); autosize(n, false); return n; });
+    const first = doc.elements.findIndex(e => e.mcut);
+    const before = first < 0 ? 0 : doc.elements.slice(0, first).filter(e => !e.mcut).length;
+    const rest = doc.elements.filter(e => !e.mcut);
+    rest.splice(before, 0, ...fresh);
+    doc.elements = rest;
+    rebuild();
+    // while typing, only the canvas redraws; the inspector stays put so the word field keeps its focus
+    if (!live) { S.commit(); emit('doc'); }
+  };
   // a moving layout rebuilt for the canvas it's on now; photos and videos already placed carry over in order
   S.relayout = function () {
     const L = doc.layout && window.STUDIO_LAYOUTS && window.STUDIO_LAYOUTS[doc.layout.key];
@@ -17575,7 +17689,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         marquee.setAttrs({ x, y, width: w, height: h, visible: true });
         const hits = [];
         for (const el of doc.elements) {
-          if (el.hidden || el.locked) continue;
+          if (el.hidden || el.locked || el.mcut) continue;
           const r = nodes.get(el.id).getClientRect({ relativeTo: art });
           const touches = r.x < x + w && r.x + r.width > x && r.y < y + h && r.y + r.height > y;
           // a layer that surrounds the whole box (a background photo, say) isn't what the box is aiming at
@@ -18480,7 +18594,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const cam = t != null ? R.camAt(doc, t) : null;
     const a = cam ? { x: doc.width / 2, y: doc.height / 2, offsetX: cam.fx, offsetY: cam.fy, scaleX: cam.z, scaleY: cam.z, rotation: cam.r }
       : { x: 0, y: 0, offsetX: 0, offsetY: 0, scaleX: 1, scaleY: 1, rotation: 0 };
-    art.setAttrs(a); bgCam.setAttrs(a);
+    art.setAttrs(a); bgCam.setAttrs(a); reliefCam.setAttrs(a);
     bgLayer.batchDraw();
   }
   S.applyCamera = applyCamera;
@@ -22257,8 +22371,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // every piece of text in a video, editable without touching the canvas
   function videoTextSection() {
     if (!S.hasAnimation()) return null;
-    const items = S.doc.elements.filter(e => !e.hidden && ((e.type === 'text' && String(e.text || '').trim()) || (e.type === 'ribbon' && e.text)));
-    if (!items.length) return null;
+    const mc = S.doc.matchcut;
+    const items = S.doc.elements.filter(e => !e.hidden && !e.mcut && ((e.type === 'text' && String(e.text || '').trim()) || (e.type === 'ribbon' && e.text)));
+    if (!items.length && !mc) return null;
     const label = e => {
       if (e.name) return e.name;
       if (e.type === 'ribbon') return 'Ribbon text';
@@ -22270,11 +22385,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return 'Text';
     };
     return sec('Text in this video', [
-      h('p.hint', null, 'Type here — the animation updates as you go. Click a label to select that layer.'),
+      ...(mc ? matchCutControls(mc) : []),
+      items.length ? h('p.hint', null, 'Type here — the animation updates as you go. Click a label to select that layer.') : null,
       ...items.slice().reverse().map(e => h('div.video-text-item', null,
         h('button.link-btn.vt-label', { type: 'button', onclick: () => S.select([e.id]) }, label(e)),
         elTextBox(e, { rows: Math.min(6, Math.max(1, String(e.text || '').split('\n').length)), hint: e.type === 'ribbon' ? 'Runs along the ribbon.' : undefined }))),
     ], true, { key: 'video-text-all' });
+  }
+  // match cut: one word to highlight; the sentences around it are written and shuffled for you
+  function matchCutControls(mc) {
+    const M = window.STUDIO_MATCHCUT, st = M && M.styles.find(x => x.id === mc.style);
+    const inp = h('input.sel', { type: 'text', value: mc.word || '', placeholder: 'motivation', 'aria-label': 'Highlighted word' });
+    inp.addEventListener('input', () => S.setMatchCut({ word: inp.value }, true));
+    // the field already shows the word, so finishing an edit just saves it (re-rendering here would pull the focused field away)
+    inp.addEventListener('change', () => { S.setMatchCut({ word: inp.value }, true); S.commit(); });
+    return [
+      label('Highlighted word'),
+      full(inp),
+      h('p.hint', null, 'Stays put between cuts. The headlines and sentences around it are written from it — shuffle for new ones.'),
+      row('Highlight', colorCtl('doc', 'matchcut.color', { def: st ? st.color : '#f2df45', set: (v, live) => S.setMatchCut({ color: v }, live) })),
+      full(h('button.btn', { type: 'button', onclick: () => S.setMatchCut({ seed: Math.floor(Math.random() * 1e6) }) }, ic('shuffle'), 'Shuffle sentences')),
+    ];
+  }
+  // a blur over the whole finished frame: photos, text, everything
+  function canvasBlurSection() {
+    const type = blurTypeOf(S.doc.blur || {});
+    return sec('Canvas blur', [
+      h('p.hint', null, 'Blurs the whole canvas — every layer and the background — like a lens or camera effect.'),
+      ...blurControls('doc', 'blur', { noun: 'canvas' }),
+    ], type !== 'none', { key: 'canvas-blur' });
   }
   function sizeName(w, hh) { const m = SIZES.find(([, a, b]) => a === w && b === hh); return m ? m[0] : 'Custom'; }
   function canvasInspector() {
@@ -22333,6 +22472,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       ], true, { key: 'photo-slots' }) : null,
       videoTextSection(),
       cameraSection(),
+      canvasBlurSection(),
       addSec('Finish', [
         {
           label: 'Pattern', on: bg.pattern && bg.pattern.type !== 'none',
@@ -22348,7 +22488,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           ],
         },
         fin('Paper texture', 'background.texture'),
-        fin('Crumpled paper', 'background.crumple', 100, { def: 60, body: () => [full(h('button.btn', { type: 'button', onclick: () => S.change(T, 'background.crumpleSeed', Math.floor(Math.random() * 1e6)) }, ic('shuffle'), 'New creases'))] }),
+        fin('Crumpled paper', 'background.crumple', 100, { def: 60, body: () => [
+          toggle(T, 'background.relief', 'Creases over the layers too'),
+          h('p.hint', null, 'Folds and shading run over text and photos as well, so they look printed on the paper.'),
+          full(h('button.btn', { type: 'button', onclick: () => S.change(T, 'background.crumpleSeed', Math.floor(Math.random() * 1e6)) }, ic('shuffle'), 'New creases'))] }),
         fin('Film grain', 'overlay.grain', 100, { def: 30, body: () => [row('Grain size', num(T, 'overlay.grainSize', { min: 0, max: 100, slider: true, def: 0 }))] }),
         fin('Dust & scratches', 'overlay.dust', 100, { def: 45 }),
         fin('Film burn', 'overlay.burn', 100, { def: 60 }),
@@ -22373,6 +22516,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           body: () => [row('Colour', colorCtl(T, 'overlay.tint')), row('Amount', num(T, 'overlay.tintAmount', { min: 0, max: 100, slider: true }))],
         },
         fin('Paper on top', 'overlay.paper'),
+        fin('Window light', 'overlay.light', 100, { def: 35, body: () => [h('p.hint', null, 'Soft light falling across the frame from the top left, like a sheet photographed by a window.')] }),
         fin('Poster folds', 'overlay.creases', 100, { def: 60 }),
         fin('Light leak', 'overlay.leak', 100, { def: 45 }),
         fin('Window-blind shadows', 'overlay.blinds', 100, { def: 50 }),

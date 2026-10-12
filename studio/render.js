@@ -2236,6 +2236,46 @@
     x.globalAlpha = 0.2; x.drawImage(src, Math.cos(a) * L * 2, Math.sin(a) * L * 2);
     return o;
   }
+  /* canvas blur (doc.blur): one of the photo blurs over the whole finished frame, same keys as filters / tblur */
+  const frameBlurOn = doc => { const f = doc && doc.blur; return !!(f && ['motion', 'ghost', 'zoomBlur', 'spinBlur', 'tiltShift', 'blur'].some(k => f[k] > 0)); };
+  R.hasFrameBlur = frameBlurOn;
+  function frameBlur(src, f) {
+    const M = Math.max(src.width, src.height);
+    let out = src;
+    if (f.motion) out = motionBlur(out, f.motion, f.motionAngle || 0);
+    if (f.ghost) out = ghostBlur(out, f.ghost, f.motionAngle || 0);
+    if (f.zoomBlur) out = radialBlur(out, f.zoomBlur, f.blurX ?? 0.5, f.blurY ?? 0.5, 'zoom');
+    if (f.spinBlur) out = radialBlur(out, f.spinBlur, f.blurX ?? 0.5, f.blurY ?? 0.5, 'spin');
+    if (f.tiltShift) out = tiltShift(out, f.tiltShift, f.tiltY ?? 0.5, f.tiltSize ?? 0.25);
+    if (f.blur) {
+      const o = canvas(src.width, src.height), x = o.getContext('2d');
+      if ('filter' in x) { x.filter = `blur(${f.blur * M / 1000}px)`; x.drawImage(out, 0, 0); out = o; }
+    }
+    const pts = f.blurPts || [];
+    if (f.blurArea && f.blurArea !== 'all' && pts.length && out !== src) out = blurSpots(src, out, pts, f.blurArea === 'sharp', (f.blurFeather ?? 60) / 100);
+    return out;
+  }
+  // the editor's version: blur the canvas region the artboard covers on the layer's own canvas (worked out at ≤ 1200 px)
+  let fbBuf = null;
+  R.frameBlurCtx = function (ctx, doc) {
+    if (!frameBlurOn(doc)) return;
+    const c = ctx.canvas, T = ctx.getTransform();
+    const x0 = T.e, y0 = T.f, w = doc.width * T.a, h = doc.height * T.d;
+    if (!(w > 2 && h > 2)) return;
+    const k = Math.min(1, 1200 / Math.max(w, h)), bw = Math.max(2, Math.round(w * k)), bh = Math.max(2, Math.round(h * k));
+    if (!fbBuf || fbBuf.width !== bw || fbBuf.height !== bh) fbBuf = canvas(bw, bh);
+    const bx = fbBuf.getContext('2d');
+    bx.setTransform(1, 0, 0, 1, 0, 0); bx.clearRect(0, 0, bw, bh);
+    bx.drawImage(c, x0, y0, w, h, 0, 0, bw, bh);
+    const out = frameBlur(fbBuf, doc.blur);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+    // over a see-through canvas the blurred frame replaces the sharp one; otherwise it lands on top so the edges stay filled
+    if (R.isClearBg(doc)) ctx.globalCompositeOperation = 'copy';
+    ctx.drawImage(out, x0, y0, w, h);
+    ctx.restore();
+  };
   // barrel distortion: the centre swells, edges bow out and the corners fall away
   function barrel(src, amt) {
     const w = src.width, h = src.height;
@@ -4375,7 +4415,8 @@
     }
     drawPattern(ctx, w, h, bg.pattern);
     if (bg.texture) fillTexture(ctx, 'paper', bg.texture, w, h);
-    if (bg.crumple) drawCrumple(ctx, w, h, bg.crumple, bg.crumpleSeed || 1);
+    // with relief on, the folds are drawn once above the layers instead (see renderDoc), so the print sits in the paper
+    if (bg.crumple && !bg.relief) drawCrumple(ctx, w, h, bg.crumple, bg.crumpleSeed || 1);
   }
   R.drawBackground = drawBackground;
 
@@ -4390,6 +4431,13 @@
     if (o.dust) dustScratches(ctx, w, h, o.dust, t != null ? Math.floor(t * 12) : null, 1);
     if (o.tint && o.tintAmount) { ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha *= o.tintAmount / 100; ctx.fillStyle = o.tint; ctx.fillRect(0, 0, w, h); ctx.restore(); }
     if (o.paper) fillTexture(ctx, 'paper', o.paper, w, h);
+    if (o.light) {
+      // window light: brighter from the top left, falling off toward the far corner, like a sheet photographed by a window
+      const a = o.light / 100, g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, `rgba(255,248,232,${0.26 * a})`); g.addColorStop(0.45, 'rgba(255,255,255,0)'); g.addColorStop(1, `rgba(20,12,0,${0.32 * a})`);
+      ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.restore();
+      ctx.save(); ctx.globalAlpha *= 0.5; ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.restore();
+    }
     if (o.leak) {
       // warm light leak bleeding in from two corners
       ctx.save();
@@ -4940,6 +4988,8 @@
         drawElement(ctx, el, env);
         ctx.restore();
       }
+      const bgd = doc.background || {};
+      if (bgd.crumple && bgd.relief && !R.isClearBg(doc)) drawCrumple(ctx, doc.width, doc.height, bgd.crumple, bgd.crumpleSeed || 1);
     }
     ctx.restore();
     if (panel) return c;
@@ -4973,6 +5023,13 @@
       }
     }
     if (scr) screenLens(c, ctx, scr, doc.screen.pitch * sx * (cam ? cam.z : 1));
+    if (frameBlurOn(doc)) {
+      const out = frameBlur(c, doc.blur);
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+      if (opts.transparent || R.isClearBg(doc)) ctx.globalCompositeOperation = 'copy';
+      ctx.drawImage(out, 0, 0);
+      ctx.restore();
+    }
     const ov = doc.overlay || {};
     if (ov.rgb > 0) {
       const copy = canvas(c.width, c.height); copy.getContext('2d').drawImage(c, 0, 0);
