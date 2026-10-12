@@ -1,4 +1,4 @@
-# Collage Studio
+# Savio's editor
 
 A browser editor for scrapbook / collage style posts: layered photos, stickers, styled text, calendars and planners on a snap-to-grid canvas.
 
@@ -15,7 +15,7 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
 | `video.js` | Frame-by-frame video export (WebCodecs H.264 → MP4 or VP9 → WebM, MediaRecorder fallback) |
 | `ui.js` | Panels, inspector, popovers, dialogs |
-| `templates.js` | About 265 templates plus text, paper, planner, photo-layout and background presets |
+| `templates.js` | About 258 templates plus text, paper, planner, photo-layout and background presets |
 
 Work is autosaved to the browser (IndexedDB). Use **Menu → Download project file** to keep a portable `.studio.json`.
 

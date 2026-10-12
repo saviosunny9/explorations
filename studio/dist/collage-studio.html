@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Collage Studio</title>
+  <title>Savio’s editor</title>
   <meta name="description" content="A layered photo & graphic editor for scrapbook-style posts: text styles, stickers, frames, calendars, templates and snap-to-grid layout." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14285,129 +14285,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         ],
       }),
     },
-    {
-      id: 'save-the-date', name: 'Save the date', tags: ['Event', 'Post'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#f4eee3', texture: 45 },
-        elements: [
-          txt('Save the Date', { cx: 540, cy: 200, fontFamily: 'Great Vibes', fontSize: 150, fill: '#3d4a2f' }),
-          txt('ANNA  &  LEO', { cx: 540, cy: 345, fontFamily: 'Cormorant Garamond', fontWeight: 600, fontSize: 46, letterSpacing: 0.32, fill: '#3d4a2f' }),
-          img(290, 420, 500, 600, { frame: { style: 'arch', size: 0 }, placeholder: ['#d8e4d2', '#9fb68f'] }),
-          shp('arch', 270, 400, 540, 640, { fill: 'transparent', stroke: '#3d4a2f', strokeWidth: 2 }),
-          txt('14 · 02 · 2027', { cx: 540, cy: 1110, fontFamily: 'Cormorant Garamond', fontWeight: 500, fontSize: 64, letterSpacing: 0.08, fill: '#3d4a2f' }),
-          txt('Lisbon, Portugal — invitation to follow', { cx: 540, cy: 1190, fontFamily: 'Cormorant Garamond', italic: true, fontSize: 36, fill: '#3d4a2f' }),
-          stk('sparkles-cluster', 800, 400, 150, 150, { colors: ['#c9a74a'] }),
-          stk('heart-doodle', 170, 900, 110, 110, { rotation: -12, colors: ['#c96f5f'] }),
-        ],
-      }),
-    },
-    {
-      id: 'big-sale', name: 'Big sale', tags: ['Sale', 'Post'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#f7d046', pattern: { type: 'diagonal', color: 'rgba(29,27,24,0.07)', size: 60 } },
-        elements: [
-          txt('BIG\nSALE', { cx: 470, cy: 400, fontFamily: 'Anton', fontSize: 330, lineHeight: 0.86, fill: '#1d1b18' }),
-          txt('50%\nOFF', { cx: 840, cy: 250, rotation: 12, fontFamily: 'Archivo Black', fontSize: 78, lineHeight: 0.9, fill: '#ffffff', bg: { style: 'burst', color: '#f2542d', padX: 74, padY: 74 } }),
-          txt('THIS WEEKEND ONLY', { cx: 470, cy: 725, fontFamily: 'Space Mono', fontWeight: 700, fontSize: 36, letterSpacing: 0.12, fill: '#f7d046', bg: { style: 'pill', color: '#1d1b18', padX: 40, padY: 18 } }),
-          img(250, 820, 580, 430, { frame: { style: 'rounded', radius: 36, size: 0 }, placeholder: ['#ffe9a8', '#f0b44a'], shadow: { on: true, color: '#1d1b18', opacity: 1, blur: 0, x: 14, y: 14 } }),
-          stk('arrow-loopy', 30, 760, 240, 150, { rotation: 25, colors: ['#1d1b18'] }),
-          stk('sparkles-cluster', 840, 760, 160, 160, { colors: ['#1d1b18'] }),
-          stk('shopping-bag', 790, 1010, 170, 208, { rotation: 10, colors: ['#ff9ad5', '#f2542d'] }),
-          txt('shop.yourstore.com', { cx: 540, cy: 1300, fontFamily: 'Space Mono', fontSize: 28, fill: '#1d1b18' }),
-        ],
-      }),
-    },
-    {
-      id: 'quote-card', name: 'Quote card', tags: ['Quote', 'Post'], width: 1080, height: 1080,
-      build: () => ({
-        width: 1080, height: 1080,
-        background: { color: '#efe6d2', texture: 55 },
-        elements: [
-          stk('quotes-doodle', 110, 150, 230, 126, { colors: ['#c45a3b'] }),
-          txt('Bloom where\nyou are\nplanted.', { x: 110, y: 320, align: 'left', fontFamily: 'Instrument Serif', italic: true, fontSize: 140, lineHeight: 0.95, fill: '#2a2420' }),
-          stk('underline-swoosh', 110, 750, 420, 120, { colors: ['#c45a3b'] }),
-          txt('— Mary Engelbreit', { x: 120, y: 880, align: 'left', fontFamily: 'Space Mono', fontSize: 30, fill: '#2a2420' }),
-          stk('flower-doodle', 760, 640, 220, 220, { rotation: 12, colors: ['#2f5d50'] }),
-          stk('daisy', 860, 140, 120, 120, { colors: ['#ffffff', '#f6c445'] }),
-        ],
-      }),
-    },
-    {
-      id: 'open-studio', name: 'Retro event', tags: ['Event', 'Post'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#ffefd6', pattern: { type: 'waves', color: 'rgba(255,138,61,0.25)', size: 80, thick: 5 }, texture: 20 },
-        elements: [
-          stk('sun-70s', 90, 900, 900, 504, { colors: ['#ffcf3f', '#ff9640', '#ff5e5b'] }),
-          txt('friday nights · 7pm · free', { cx: 540, cy: 210, fontFamily: 'Bricolage Grotesque', fontWeight: 700, fontSize: 52, uppercase: true, letterSpacing: 0.1, curve: 32, fill: '#1d1b18' }),
-          txt('OPEN\nSTUDIO', { cx: 530, cy: 560, fontFamily: 'Shrikhand', fontSize: 190, lineHeight: 0.92, fill: '#ff5e5b', stroke: { width: 5, color: '#1d1b18' }, echo: { on: true, color: '#1d1b18', dx: 0.05, dy: 0.06, steps: 12 } }),
-          { type: 'badge', x: 790, y: 740, width: 230, height: 230, rotation: 14, shape: 'burst', fill: '#7c5cff', textColor: '#ffffff', ringText: 'bring a friend · ', ringRepeat: true, ringSep: '', ringFont: 'Space Mono', ringWeight: 700, ringRadius: 0.66, ringSize: 0.085, center: 'text', centerText: 'FREE', centerFont: 'Shrikhand', centerWeight: 400, centerSize: 0.22, centerColor: '#ffffff' },
-          stk('peace', 90, 760, 150, 150, { rotation: -14, colors: ['#2bb3a3'] }),
-          txt('123 Maker Lane', { cx: 540, cy: 860, fontFamily: 'Space Mono', fontWeight: 700, fontSize: 32, fill: '#1d1b18' }),
-        ],
-      }),
-    },
-    {
-      id: 'photo-dump', name: 'Photo dump', tags: ['Collage', 'Photo', 'Post'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#f3efe6', pattern: { type: 'grid', color: 'rgba(0,0,0,0.08)', size: 54, thick: 1.2 }, texture: 30 },
-        elements: [
-          txt('weekend dump', { cx: 540, cy: 130, rotation: -2, fontFamily: 'Permanent Marker', fontSize: 92, fill: '#1d1b18' }),
-          img(80, 250, 460, 540, { rotation: -6, frame: { style: 'polaroid', color: '#ffffff', size: 24, bottom: 3.6 }, placeholder: ['#f3d9d0', '#e3b4a6'], shadow: soft }),
-          img(560, 220, 440, 520, { rotation: 5, frame: { style: 'polaroid', color: '#ffffff', size: 24, bottom: 3.6 }, placeholder: ['#d8e4d2', '#b4c9aa'], shadow: soft }),
-          img(300, 700, 480, 560, { rotation: -1, frame: { style: 'polaroid', color: '#ffffff', size: 24, bottom: 3.6 }, placeholder: ['#dad6ef', '#b9b2de'], shadow: soft }),
-          stk('washi-plain', 200, 236, 200, 54, { rotation: -16, colors: ['#f6a5c0'] }),
-          stk('washi-grid', 700, 200, 200, 54, { rotation: 12, colors: ['#b9e4c9', '#4f9d69'] }),
-          stk('tape-masking', 440, 680, 200, 54, { rotation: -3 }),
-          txt('sunday market', { cx: 300, cy: 740, rotation: -6, fontFamily: 'Caveat', fontWeight: 600, fontSize: 44, fill: '#1d1b18' }),
-          txt('golden hour ☼', { cx: 780, cy: 700, rotation: 5, fontFamily: 'Caveat', fontWeight: 600, fontSize: 44, fill: '#1d1b18' }),
-          txt('us, obviously', { cx: 540, cy: 1200, rotation: -1, fontFamily: 'Caveat', fontWeight: 600, fontSize: 48, fill: '#1d1b18' }),
-          stk('heart-doodle', 880, 900, 120, 120, { rotation: 12, colors: ['#ff4f8b'] }),
-          stk('sparkles-cluster', 90, 940, 140, 140, { colors: ['#ffb000'] }),
-        ],
-      }),
-    },
-    {
-      id: 'mood-board', name: 'Mood board', tags: ['Collage', 'Post'], width: 1080, height: 1350,
-      build: () => ({
-        width: 1080, height: 1350,
-        background: { color: '#f6f1e7', texture: 30 },
-        elements: [
-          txt('mood board', { x: 70, y: 70, align: 'left', fontFamily: 'Instrument Serif', italic: true, fontSize: 120, fill: '#2a2420' }),
-          txt('AW 26 — QUIET LUXURY', { x: 76, y: 210, align: 'left', fontFamily: 'Space Mono', fontSize: 24, letterSpacing: 0.12, fill: '#2a2420' }),
-          img(70, 290, 520, 640, { placeholder: ['#d9c9b0', '#a88f6c'] }),
-          img(620, 110, 390, 380, { placeholder: ['#c7c2b8', '#8d877c'] }),
-          img(620, 520, 390, 410, { frame: { style: 'arch', size: 0 }, placeholder: ['#e3d5c3', '#b9a283'] }),
-          img(70, 960, 330, 320, { placeholder: ['#b8b09d', '#7f7764'] }),
-          img(430, 960, 300, 320, { frame: { style: 'circle', size: 0 }, placeholder: ['#efe2d0', '#cdb396'] }),
-          ...[['#e8dccb', 'Oat'], ['#a88f6c', 'Camel'], ['#5c5346', 'Bark'], ['#2a2420', 'Ink']].map(([c, n], i) => [
-            shp('ellipse', 770 + (i % 2) * 130, 980 + Math.floor(i / 2) * 160, 100, 100, { fill: c, stroke: 'rgba(0,0,0,0.12)', strokeWidth: 1.5 }),
-            txt(n + '\n' + c.toUpperCase(), { cx: 820 + (i % 2) * 130, cy: 1112 + Math.floor(i / 2) * 160, fontFamily: 'Space Mono', fontSize: 15, lineHeight: 1.2, fill: '#2a2420' }),
-          ]).flat(),
-          stk('clip-gold', 560, 260, 54, 156, { rotation: 10 }),
-        ],
-      }),
-    },
-    {
-      id: 'story-new-post', name: 'New post story', tags: ['Story'], width: 1080, height: 1920,
-      build: () => ({
-        width: 1080, height: 1920,
-        background: { color: '#f2edff', color2: '#c9b6f2', gradient: 'radial' },
-        overlay: { grain: 15 },
-        elements: [
-          txt('NEW POST', { cx: 540, cy: 330, fontFamily: 'Unbounded', fontWeight: 900, fontSize: 132, fill: '#5b4cf5', fill2: '#ff7ab6', gradient: 'linear', gradAngle: 90 }),
-          txt('fresh on the feed ✦', { cx: 540, cy: 450, fontFamily: 'Instrument Serif', italic: true, fontSize: 64, fill: '#3b2f6b' }),
-          img(190, 560, 700, 900, { frame: { style: 'arch', size: 0 }, placeholder: ['#ffffff', '#d9cff7'], shadow: soft }),
-          stk('star-8-gradient', 790, 500, 200, 200, { rotation: 12 }),
-          stk('chrome-sparkle', 120, 1320, 160, 160),
-          stk('arrow-curved', 660, 1490, 200, 180, { rotation: 30, colors: ['#3b2f6b'] }),
-          txt('tap to see more', { cx: 540, cy: 1720, fontFamily: 'Gochi Hand', fontSize: 70, fill: '#3b2f6b', bg: { style: 'pill', color: '#ffffff', padX: 46, padY: 18 } }),
-        ],
-      }),
-    },
     // ── "Meet our…" on crumpled poster paper ──
     ...[
       { id: 'meet-women', name: 'Meet our women', paper: '#2d3fd3', ink: '#ffffff', words: ['MEET', 'OUR', 'WOMEN'], corners: ['THE WOMEN', 'BEHIND BACKSPACE'], caption: '[BEFORE BACKSPACE]', layout: 'grid' },
@@ -23501,7 +23378,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       S.saveNow();
       if (isHome()) leaveHome();
       toast('Project opened — it’s now in your designs');
-    } catch (err) { toast('That file isn’t a Collage Studio project'); }
+    } catch (err) { toast('That file isn’t a Savio’s editor project'); }
   });
 
   /* ───────────────────────── dialogs ───────────────────────── */
@@ -23748,7 +23625,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     drawHomeMine(homeMine);
     home.replaceChildren(
       h('header.home-top', null,
-        h('div.home-brand', null, h('span.brand-mark'), h('b', null, 'Collage Studio')),
+        h('div.home-brand', null, h('span.brand-mark'), h('b', null, 'Savio’s editor')),
         h('label.home-search', null, ic('search'), search),
         h('div.home-actions', null,
           cur ? h('button.btn', { type: 'button', onclick: leaveHome, title: 'Back to the design you were editing' }, ic('chevLeft'), h('span', null, 'Back to editor')) : null,

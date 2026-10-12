@@ -34,7 +34,7 @@ js += ''.join('<script>\n' + open(os.path.join(SRC, f), encoding='utf-8').read()
 if '--artifact' in sys.argv:
     out = os.path.join(sys.argv[sys.argv.index('--artifact') + 1], 'collage-studio.html')
     with open(out, 'w', encoding='utf-8') as f:
-        f.write('<title>Collage Studio</title>\n<meta name="description" content="A layered photo & graphic editor for scrapbook-style posts.">\n'
+        f.write('<title>Savio’s editor</title>\n<meta name="description" content="A layered photo & graphic editor for scrapbook-style posts.">\n'
                 '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
                 f'<style>\n{css}\n</style>\n{body.strip()}\n<script>window.STUDIO_MODEL_PARTS = 5;</script>\n{js}')
     print('wrote', out, f'({os.path.getsize(out) // 1024} KB) with', ', '.join(vendored + local))

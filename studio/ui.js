@@ -2992,7 +2992,7 @@
       S.saveNow();
       if (isHome()) leaveHome();
       toast('Project opened — it’s now in your designs');
-    } catch (err) { toast('That file isn’t a Collage Studio project'); }
+    } catch (err) { toast('That file isn’t a Savio’s editor project'); }
   });
 
   /* ───────────────────────── dialogs ───────────────────────── */
@@ -3239,7 +3239,7 @@
     drawHomeMine(homeMine);
     home.replaceChildren(
       h('header.home-top', null,
-        h('div.home-brand', null, h('span.brand-mark'), h('b', null, 'Collage Studio')),
+        h('div.home-brand', null, h('span.brand-mark'), h('b', null, 'Savio’s editor')),
         h('label.home-search', null, ic('search'), search),
         h('div.home-actions', null,
           cur ? h('button.btn', { type: 'button', onclick: leaveHome, title: 'Back to the design you were editing' }, ic('chevLeft'), h('span', null, 'Back to editor')) : null,
