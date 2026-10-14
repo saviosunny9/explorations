@@ -31,4 +31,6 @@ if '--artifact' in sys.argv:
     out = pathlib.Path(sys.argv[sys.argv.index('--artifact') + 1]); out.mkdir(parents=True, exist_ok=True)
     (out / 'luma.html').write_text(head() + '\n' + body())
     (out / 'sample-portrait.jpg').write_bytes((ROOT / 'sample-portrait.jpg').read_bytes())
+    (out / 'img').mkdir(exist_ok=True)
+    for f in (ROOT / 'img').glob('*.jpg'): (out / 'img' / f.name).write_bytes(f.read_bytes())
     print('wrote', out / 'luma.html')

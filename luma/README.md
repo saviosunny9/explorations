@@ -25,4 +25,17 @@ Open `luma/index.html` in Chrome; it needs an internet connection for three.js (
 
 ## Photos
 
-The sample try-on portrait is from Unsplash (`photo-1523529831-3b6372bedacd`, Unsplash License). No model photography is bundled. Image hosts were blocked from the build environment, so the editorial model shots in all skin tones are still to come. Product imagery is rendered live from the 3D models.
+Editorial photographs are from [Pexels](https://www.pexels.com) under the Pexels License (free to use, no attribution required), resized and compressed into `img/`:
+
+| File | Pexels photo |
+| --- | --- |
+| `img/worn-gold-necklace.jpg` | https://www.pexels.com/photo/10507114/ |
+| `img/worn-hoop.jpg` | https://www.pexels.com/photo/12194346/ |
+| `img/worn-ring.jpg` | https://www.pexels.com/photo/16689780/ |
+| `img/worn-emerald.jpg` | https://www.pexels.com/photo/17298688/ |
+| `img/edit-earring.jpg` | https://www.pexels.com/photo/7615245/ |
+| `img/home-portrait.jpg` | https://www.pexels.com/photo/9509032/ |
+
+The sample try-on portrait is from Unsplash (`photo-1523529831-3b6372bedacd`, Unsplash License).
+For a real launch, replace these with LUMA's own shoot: stock models must not appear to endorse the brand.
+Product imagery is rendered live from the 3D models.

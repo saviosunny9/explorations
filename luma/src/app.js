@@ -1052,12 +1052,17 @@ function productCard(p, i) {
 }
 function renderGrid() {
   const g = $('#grid'); g.textContent = '';
-  PRODUCTS.filter(p => cat === 'all' || p.cat === cat).forEach((p, i) => g.append(productCard(p, i)));
+  PRODUCTS.filter(p => cat === 'all' || p.cat === cat).forEach((p, i) => {
+    if (cat === 'all' && i === 5) g.append(h('a.tile-photo.rv', { href: '#tryon', 'aria-label': 'Try earrings on your own photo' },
+      h('img', { src: 'img/edit-earring.jpg', alt: 'A woman in a gold earring and chain, looking away', loading: 'lazy' }),
+      h('span', {}, h('small', { text: 'Virtual try-on' }), h('b', { text: 'See it on you, before it arrives' }))));
+    g.append(productCard(p, i));
+  });
   observeReveals(g);
 }
-$$('#tabs .tab').forEach(b => b.addEventListener('click', () => {
-  cat = b.dataset.cat; $$('#tabs .tab').forEach(x => x.setAttribute('aria-selected', x === b)); renderGrid();
-}));
+function setCat(c) { cat = c; $$('#tabs .tab').forEach(x => x.setAttribute('aria-selected', x.dataset.cat === c)); renderGrid(); }
+$$('#tabs .tab').forEach(b => b.addEventListener('click', () => setCat(b.dataset.cat)));
+$$('[data-cat-link]').forEach(a => a.addEventListener('click', () => setCat(a.dataset.catLink)));
 async function renderThumbs() {
   for (const p of PRODUCTS) {
     const url = await idle(() => thumbnail(p.spec, p.feature ? { w: 900, hgt: 1000 } : {}));
