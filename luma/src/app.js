@@ -945,6 +945,14 @@ void main(){
   #include <colorspace_fragment>
 }`;
 
+// Binary assets: the published artifact carries them as base64 text (.txt), the repo as plain files.
+async function binUrl(url) {
+  if (!window.__LUMA_B64) return url;
+  const txt = await (await fetch(url + '.txt')).text();
+  const bin = Uint8Array.from(atob(txt.trim()), c => c.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bin]));
+}
+
 function desertHero() {
   const canvas = $('#heroCanvas'), section = $('#story');
   const mobileQ = matchMedia('(max-width: 760px)');
@@ -968,13 +976,13 @@ function desertHero() {
     vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, side: THREE.BackSide, depthWrite: false, fog: false, toneMapped: false,
   }));
   sky.renderOrder = -1; scene.add(sky);
-  new RGBELoader().load('img/sky/sky_1k.hdr', tex => {
+  binUrl('img/sky/sky_1k.hdr').then(u => new RGBELoader().load(u, tex => {
     tex.mapping = THREE.EquirectangularReflectionMapping;
     const pm = new THREE.PMREMGenerator(renderer);
     scene.environment = pm.fromEquirectangular(tex).texture; pm.dispose(); tex.dispose();
     scene.environmentRotation.set(0, -SKY_YAW, 0);
     scene.environmentIntensity = 0.75;
-  });
+  }));
   // sunlight from where the sun stands in the photograph
   const sunDir = new THREE.Vector3(Math.cos(0.597 - SKY_YAW) * Math.cos(0.5), Math.sin(0.5), Math.sin(0.597 - SKY_YAW) * Math.cos(0.5)).normalize();
   const sun = new THREE.DirectionalLight(0xffe2bc, 3.4);
@@ -985,7 +993,7 @@ function desertHero() {
 
   // models
   const gl = new GLTFLoader(); gl.setMeshoptDecoder(MeshoptDecoder);
-  const load = url => new Promise((res, rej) => gl.load(url, g => res(g.scene), undefined, rej));
+  const load = async url => { const u = await binUrl(url); return new Promise((res, rej) => gl.load(u, g => res(g.scene), undefined, rej)); };
   const terrain = [];
   const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0);
   const groundY = (x, z) => { ray.set(new THREE.Vector3(x, 500, z), down); const hit = ray.intersectObjects(terrain, true)[0]; return hit ? hit.point.y : 0; };

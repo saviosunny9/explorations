@@ -29,9 +29,14 @@ print('wrote', ROOT / 'index.html', len(full) // 1024, 'KB')
 
 if '--artifact' in sys.argv:
     out = pathlib.Path(sys.argv[sys.argv.index('--artifact') + 1]); out.mkdir(parents=True, exist_ok=True)
-    (out / 'luma.html').write_text(head() + '\n' + body())
+    (out / 'luma.html').write_text(head() + '\n<script>window.__LUMA_B64 = true;</script>\n' + body())
     (out / 'sample-portrait.jpg').write_bytes((ROOT / 'sample-portrait.jpg').read_bytes())
     (out / 'img').mkdir(exist_ok=True)
-    for f in [*(ROOT / 'img').rglob('*.jpg'), *(ROOT / 'img').rglob('*.hdr'), *(ROOT / 'models').glob('*.glb')]:
+    import base64
+    for f in (ROOT / 'img').rglob('*.jpg'):
         dest = out / f.relative_to(ROOT); dest.parent.mkdir(parents=True, exist_ok=True); dest.write_bytes(f.read_bytes())
+    # artifacts serve only web media types, so binary 3D assets travel as base64 text
+    for f in [*(ROOT / 'img').rglob('*.hdr'), *(ROOT / 'models').glob('*.glb')]:
+        dest = out / (str(f.relative_to(ROOT)) + '.txt'); dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(base64.b64encode(f.read_bytes()).decode())
     print('wrote', out / 'luma.html')
