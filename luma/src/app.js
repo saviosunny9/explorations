@@ -43,7 +43,7 @@ const METALS = {
 const STONES = {
   diamond:   { name: 'Diamond', tint: [1, 1, 1], ior: 2.42, disp: 0.05, bright: 1.2, ppc: 21500, swatch: 'radial-gradient(circle at 35% 30%,#fff,#dfe8ec 45%,#9fb4bc)' },
   sapphire:  { name: 'Teal sapphire', tint: [0.22, 0.62, 0.66], ior: 1.77, disp: 0.02, bright: 1.15, ppc: 9800, swatch: 'radial-gradient(circle at 35% 30%,#9fd2d6,#2f7e88 50%,#123f47)' },
-  emerald:   { name: 'Emerald', tint: [0.16, 0.66, 0.42], ior: 1.58, disp: 0.014, bright: 1.1, ppc: 12500, swatch: 'radial-gradient(circle at 35% 30%,#9fe0bd,#1f8a5b 50%,#0b3b28)' },
+  emerald:   { name: 'Emerald', tint: [0.04, 0.5, 0.28], ior: 1.58, disp: 0.014, bright: 1.05, ppc: 12500, swatch: 'radial-gradient(circle at 35% 30%,#9fe0bd,#1f8a5b 50%,#0b3b28)' },
   morganite: { name: 'Morganite', tint: [1.0, 0.7, 0.66], ior: 1.59, disp: 0.014, bright: 1.15, ppc: 2900, swatch: 'radial-gradient(circle at 35% 30%,#ffe4dc,#e6a495 50%,#a8665a)' },
 };
 const CUTS = { round: 'Round brilliant', oval: 'Oval', emerald: 'Emerald cut', pear: 'Pear' };
@@ -56,40 +56,40 @@ const HOUSES = [
 ];
 
 const PRODUCTS = [
-  { id: 'octave', name: 'Octave halo ring', house: 'Atelier Caldera', city: 'Valenza', cat: 'occasion', bg: 'sapphire', feature: true,
-    spec: { type: 'ring', cut: 'emerald', stone: 'diamond', carat: 2, setting: 'halo', band: 'pave', metal: 'platinum', size: 52 },
-    desc: 'An emerald-cut diamond in a halo of brilliants, on a pavé band. The piece the house is known for, made in small numbers each season.' },
-  { id: 'fil', name: "Fil d'or pendant", house: 'Casa Alvor', city: 'Lisbon', cat: 'everyday', bg: 'parch',
+  { id: 'octave', name: 'Octave emerald ring', house: 'Atelier Caldera', city: 'Valenza', cat: 'occasion', bg: 'noir', feature: true,
+    spec: { type: 'ring', cut: 'emerald', stone: 'emerald', carat: 3, setting: 'halo', band: 'pave', metal: 'yellow', size: 52 },
+    desc: 'A step-cut Colombian emerald in a halo of brilliants, on a pavé band of 18k yellow gold. The piece the house is known for, made in small numbers each season.' },
+  { id: 'fil', name: "Fil d'or pendant", house: 'Casa Alvor', city: 'Lisbon', cat: 'everyday', bg: 'white',
     spec: { type: 'pendant', cut: 'round', stone: 'diamond', carat: 0.5, setting: 'solitaire', metal: 'yellow', chain: 42 },
     desc: 'A single brilliant on a fine cable chain. Light enough to sleep in, made to be layered.' },
-  { id: 'point', name: 'Point de lumière studs', house: 'Lindqvist', city: 'Copenhagen', cat: 'everyday', bg: 'stone',
+  { id: 'point', name: 'Point de lumière studs', house: 'Lindqvist', city: 'Copenhagen', cat: 'everyday', bg: 'light',
     spec: { type: 'earrings', style: 'stud', cut: 'round', stone: 'diamond', carat: 0.5, setting: 'solitaire', metal: 'white' },
     desc: 'Four-claw diamond studs with screw backs. Half a carat each, matched in colour and clarity.' },
-  { id: 'riviera', name: 'Riviera tennis bracelet', house: 'Orsini & Figli', city: 'Milan', cat: 'everyday', bg: 'river',
+  { id: 'riviera', name: 'Riviera tennis bracelet', house: 'Orsini & Figli', city: 'Milan', cat: 'everyday', bg: 'light',
     spec: { type: 'bracelet', style: 'tennis', stone: 'diamond', metal: 'white', size: 17 },
     desc: 'Forty-four brilliants in hinged cups, so the line moves like fabric on the wrist.' },
-  { id: 'ondine', name: 'Ondine drop pendant', house: 'Ondel', city: 'Geneva', cat: 'occasion', bg: 'sapphire',
+  { id: 'ondine', name: 'Ondine drop pendant', house: 'Ondel', city: 'Geneva', cat: 'occasion', bg: 'noir',
     spec: { type: 'pendant', cut: 'oval', stone: 'sapphire', carat: 1.5, setting: 'halo', metal: 'yellow', chain: 42 },
     desc: 'A teal sapphire from Sri Lanka in a halo of diamonds, the colour of the Gulf at dusk.' },
-  { id: 'aube', name: 'Aube solitaire', house: 'Maison Verel', city: 'Paris', cat: 'bridal', bg: 'stone',
+  { id: 'aube', name: 'Aube solitaire', house: 'Maison Verel', city: 'Paris', cat: 'bridal', bg: 'light',
     spec: { type: 'ring', cut: 'round', stone: 'diamond', carat: 1.5, setting: 'solitaire', band: 'plain', metal: 'yellow', size: 52 },
     desc: 'A round brilliant raised on four claws over a slim, rounded band. The classic Paris solitaire.' },
-  { id: 'goutte', name: 'Goutte drop earrings', house: 'Maison Verel', city: 'Paris', cat: 'occasion', bg: 'parch',
+  { id: 'goutte', name: 'Goutte drop earrings', house: 'Maison Verel', city: 'Paris', cat: 'occasion', bg: 'white',
     spec: { type: 'earrings', style: 'drop', cut: 'pear', stone: 'emerald', carat: 1, setting: 'solitaire', metal: 'yellow' },
     desc: 'Pear-cut Colombian emeralds hanging from diamond studs. They move with you.' },
-  { id: 'cadence', name: 'Cadence bangle', house: 'Orsini & Figli', city: 'Milan', cat: 'everyday', bg: 'sapphire',
+  { id: 'cadence', name: 'Cadence bangle', house: 'Orsini & Figli', city: 'Milan', cat: 'everyday', bg: 'noir',
     spec: { type: 'bracelet', style: 'bangle', band: 'plain', stone: 'diamond', metal: 'yellow', size: 17 },
     desc: 'An oval bangle with ten polished studs. Opens on a hidden hinge.' },
-  { id: 'trinite', name: 'Trinité three-stone', house: 'Hart & Rowe', city: 'London', cat: 'bridal', bg: 'parch',
+  { id: 'trinite', name: 'Trinité three-stone', house: 'Hart & Rowe', city: 'London', cat: 'bridal', bg: 'white',
     spec: { type: 'ring', cut: 'oval', stone: 'diamond', carat: 1, setting: 'trilogy', band: 'plain', metal: 'rose', size: 52 },
     desc: 'An oval diamond between two smaller ovals, for past, present and future.' },
-  { id: 'nenuphar', name: 'Nénuphar brooch', house: 'Ondel', city: 'Geneva', cat: 'occasion', bg: 'river',
+  { id: 'nenuphar', name: 'Nénuphar brooch', house: 'Ondel', city: 'Geneva', cat: 'occasion', bg: 'light',
     spec: { type: 'brooch', stone: 'sapphire', metal: 'yellow' },
     desc: 'A water lily of twenty teal sapphires around a round diamond. Wear it on a lapel or as a pendant.' },
-  { id: 'solene', name: 'Solène eternity band', house: 'Lindqvist', city: 'Copenhagen', cat: 'bridal', bg: 'stone',
+  { id: 'solene', name: 'Solène eternity band', house: 'Lindqvist', city: 'Copenhagen', cat: 'bridal', bg: 'light',
     spec: { type: 'ring', setting: 'eternity', stone: 'diamond', carat: 1, cut: 'round', band: 'pave', metal: 'white', size: 52 },
     desc: 'Brilliants all the way round, set between two fine rails. Worn alone or with an engagement ring.' },
-  { id: 'riviere', name: 'Grande Rivière necklace', house: 'Hart & Rowe', city: 'London', cat: 'occasion', bg: 'sapphire',
+  { id: 'riviere', name: 'Grande Rivière necklace', house: 'Hart & Rowe', city: 'London', cat: 'occasion', bg: 'noir',
     spec: { type: 'necklace', stone: 'diamond', metal: 'white' },
     desc: 'A graduated line of diamonds, eleven carats in all, for the evenings that call for it.' },
 ];
@@ -273,9 +273,9 @@ function lightTent(tone = 'studio') {
     vertexShader: 'varying vec3 d; void main(){ d = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: `uniform float warm; varying vec3 d; void main(){
       float y = d.y;
-      vec3 top = mix(vec3(.05,.13,.15), vec3(.32,.30,.27), warm);
-      vec3 mid = mix(vec3(.22,.40,.45), vec3(.62,.58,.52), warm);
-      vec3 low = vec3(.95,.9,.82);
+      vec3 top = mix(vec3(.06,.06,.06), vec3(.34,.34,.33), warm);
+      vec3 mid = mix(vec3(.36,.36,.35), vec3(.66,.66,.64), warm);
+      vec3 low = vec3(.96,.95,.93);
       vec3 c = y > 0.0 ? mix(mid, top, smoothstep(0.0, .75, y)) : mix(mid, low * .8, smoothstep(0.0, -.55, y));
       gl_FragColor = vec4(c, 1.0); }`,
   }));
@@ -288,8 +288,8 @@ function lightTent(tone = 'studio') {
   panel(7, 46, [-44, 6, 12], 4.2);
   panel(7, 46, [44, 6, -12], 3.6);
   panel(22, 14, [14, 10, 44], 3.2);
-  panel(18, 16, [-26, -6, -40], 2.6, 0xffdcab);
-  panel(26, 6, [0, -30, 30], 1.6, 0xf2ede5);
+  panel(18, 16, [-26, -6, -40], 2.6, 0xfff0d8);
+  panel(26, 6, [0, -30, 30], 1.6, 0xffffff);
   for (let i = 0; i < 14; i++) {
     const a = i / 14 * Math.PI * 2;
     panel(2.6, 2.6, [Math.cos(a) * 48, 12 + (i % 3) * 9, Math.sin(a) * 48], 9 - (i % 3) * 2);
@@ -909,24 +909,70 @@ function updateNav() {
   nav.classList.toggle('solid', story.bottom < 70 || nav.classList.contains('menu-open'));
 }
 
-/* ---------- hero + anatomy ---------- */
-const hero = new Viewer($('#heroCanvas'), { fov: 24, exposure: 1.05 });
+/* ---------- hero + anatomy: a marble rotunda with the ring floating at its centre ---------- */
+const HAZE = 0xf4f1ec;
+function rotunda(scene) {
+  const plaster = new THREE.MeshStandardMaterial({ color: 0xf2efe9, roughness: 0.88, metalness: 0, envMapIntensity: 0.35 });
+  const g = new THREE.Group();
+  const add = (geo, mat = plaster, cast = true) => { const m = new THREE.Mesh(geo, mat); m.castShadow = cast; m.receiveShadow = true; g.add(m); return m; };
+  const floor = add(new THREE.CircleGeometry(120, 64), plaster, false); floor.rotation.x = -Math.PI / 2;
+  // stepped plinth, with one fine emerald inlay on the top step
+  const STEP = 0.24, N = 5;
+  for (let i = 0; i < N; i++) { const r = 10.2 - i * 0.62; add(new THREE.CylinderGeometry(r, r, STEP, 128)).position.y = STEP * (i + 0.5); }
+  const top = STEP * N;
+  const inlay = add(new THREE.CylinderGeometry(10.205, 10.205, 0.035, 128, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x0f6b50, roughness: 0.35, metalness: 0.1 }), false);
+  inlay.position.y = STEP - 0.05;
+  // columns round the back and sides; the front stays open
+  const R = 6.4, H = 7.2;
+  const col = new THREE.LatheGeometry([[0, 0], [0.62, 0], [0.62, 0.16], [0.54, 0.22], [0.56, 0.3], [0.44, 0.38], [0.42, 0.5], [0.36, H - 0.55], [0.4, H - 0.45], [0.44, H - 0.32], [0.6, H - 0.22], [0.6, H], [0, H]].map(([x, y]) => V2(x, y)), 40);
+  const plinth = new THREE.BoxGeometry(1.35, 0.32, 1.35);
+  for (let i = 0; i < 14; i++) {
+    const a = (i + 0.5) / 14 * Math.PI * 2, x = Math.sin(a) * R, z = Math.cos(a) * R;
+    if (z > R * 0.55) continue;
+    add(col).position.set(x, top + 0.32, z);
+    add(plinth).position.set(x, top + 0.16, z);
+  }
+  // entablature, cornice and a shallow dome
+  const eY = top + 0.32 + H;
+  add(new THREE.CylinderGeometry(7.05, 7.05, 0.7, 128, 1, false)).position.y = eY + 0.35;
+  add(new THREE.CylinderGeometry(7.45, 7.3, 0.22, 128)).position.y = eY + 0.81;
+  add(new THREE.CylinderGeometry(7.6, 7.6, 0.16, 128)).position.y = eY + 1.0;
+  const dome = add(new THREE.SphereGeometry(7.0, 96, 24, 0, Math.PI * 2, 0, Math.PI / 2)); dome.scale.y = 0.42; dome.position.y = eY + 1.08;
+  // distant arcade fading into the haze
+  const far = new THREE.InstancedMesh(new THREE.BoxGeometry(2.4, 26, 2.4), plaster, 26);
+  for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2; tmpO.position.set(Math.sin(a) * 46, 13, Math.cos(a) * 46); tmpO.rotation.set(0, a, 0); tmpO.scale.setScalar(1); tmpO.updateMatrix(); far.setMatrixAt(i, tmpO.matrix); }
+  g.add(far);
+  scene.add(g);
+  scene.background = new THREE.Color(HAZE);
+  scene.fog = new THREE.Fog(HAZE, 20, 62);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xe3ddd3, 1.0));
+  const sun = new THREE.DirectionalLight(0xfff4e6, 3.0);
+  sun.position.set(-9, 18, 11); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+  Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 60 });
+  scene.add(sun);
+  return { top };
+}
+const hero = new Viewer($('#heroCanvas'), { fov: 30, exposure: 1.0, tone: 'warm' });
+hero.renderer.shadowMap.enabled = true; hero.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const temple = rotunda(hero.scene);
 const octave = byId('octave');
 const ring = hero.setPiece(octave.spec, { sparkle: 30, sparkleSize: 1.1 });
+ring.traverse(o => { if (o.isMesh) o.castShadow = true; });
 const rig = new THREE.Group(); hero.root.add(rig); rig.add(ring);
-const heroShadow = shadowPlane(4.2, 0.55, '6,18,22'); heroShadow.position.y = -1.55; hero.root.add(heroShadow);
-hero.camera.position.set(0, 0.35, 11); hero.camera.lookAt(0, 0.1, 0);
+const RING_Y = temple.top + 3.0;
 const P = ring.userData.parts;
 const base = { stone: P.stone.position.y, claws: P.claws.position.y, halo: P.halo?.position.y || 0 };
 const drag = { x: 0, y: 0, vx: 0, vy: 0, down: false, lx: 0, ly: 0 };
 {
   const c = $('#heroCanvas');
-  c.addEventListener('pointerdown', e => { drag.down = true; drag.lx = e.clientX; drag.ly = e.clientY; drag.moved = 0; });
+  c.addEventListener('pointerdown', e => { drag.down = true; drag.lx = e.clientX; drag.ly = e.clientY; });
   addEventListener('pointermove', e => {
     if (!drag.down) return;
     const dx = e.clientX - drag.lx, dy = e.clientY - drag.ly; drag.lx = e.clientX; drag.ly = e.clientY;
     drag.vx = dx * 0.008; drag.vy = dy * 0.005; drag.x += drag.vx; drag.y = clamp(drag.y + drag.vy, -0.8, 0.8);
-    $('#hint').style.opacity = 0;
+    $('#hint').classList.add('used');
   });
   addEventListener('pointerup', () => { drag.down = false; });
 }
@@ -941,6 +987,7 @@ function storyProgress() {
 }
 // rotation (x, y) the ring settles at for each step: stone from above, halo, claws side-on, band
 const POSES = [[0.95, 0.35], [0.62, 0.9], [0.12, 1.55], [-0.1, 2.75], [0.25, 3.3]];
+const camFrom = new THREE.Vector3(), lookAt = new THREE.Vector3();
 let lastT = 0;
 hero.onFrame = t => {
   const dt = Math.min(0.1, t - lastT || 0.016); lastT = t;
@@ -950,18 +997,22 @@ hero.onFrame = t => {
   const i = clamp(Math.floor(s), 0, 3), f = smooth(0, 1, s - i);
   const pose = s < 0 ? POSES[0] : [lerp(POSES[i][0], POSES[i + 1][0], f), lerp(POSES[i][1], POSES[i + 1][1], f)];
   if (!drag.down) { drag.vx *= 0.94; drag.x += drag.vx; }
-  const idleY = reduced ? 0 : t * 0.22;
-  const heroRot = [0.18 + Math.sin(t * 0.6) * 0.04, idleY];
-  ring.rotation.x = lerp(heroRot[0], pose[0], k) + drag.y;
-  ring.rotation.y = lerp(heroRot[1], pose[1] + idleY * 0.15, k) + drag.x;
-  ring.rotation.z = lerp(-0.08, 0, k);
-  // composition: right of the headline on wide screens, above the cards on phones
-  rig.position.x = wide ? lerp(2.05, 1.75, k) : 0;
-  rig.position.y = (wide ? lerp(0.28, -0.42, k) : lerp(1.32, 0.95, k)) + Math.sin(t * 0.8) * 0.05;
-  const sc = wide ? lerp(1.02, 0.82, k) : lerp(0.5, 0.58, k);
-  rig.scale.setScalar(sc);
-  heroShadow.position.set(rig.position.x, -1.5 * sc + rig.position.y - 0.25, 0);
-  heroShadow.material.opacity = 0.5 - Math.sin(t * 0.8) * 0.05;
+  const idleY = reduced ? 0 : t * 0.25;
+  ring.rotation.x = lerp(0.22 + Math.sin(t * 0.6) * 0.04, pose[0], k) + drag.y;
+  ring.rotation.y = lerp(idleY, pose[1] + idleY * 0.15, k) + drag.x;
+  rig.position.set(0, RING_Y + (reduced ? 0 : Math.sin(t * 0.8) * 0.08), 0);
+  rig.scale.setScalar(lerp(wide ? 1.45 : 1.6, 1, k));
+  $('#hint').classList.toggle('away', s > -0.75);
+  // camera: from the steps of the rotunda in towards the ring, which moves to the right of the frame
+  const end = smooth(3.2, 4.2, s);
+  if (wide) {
+    camFrom.set(lerp(0, -1.9, k), lerp(RING_Y + 1.2, RING_Y + 0.2, k), lerp(26, 10.2, k) + end * 4);
+    lookAt.set(lerp(0, -1.75, k), lerp(RING_Y + 1.15, RING_Y + 0.25, k), 0);
+  } else {
+    camFrom.set(0, lerp(RING_Y + 0.4, RING_Y - 1.2, k), lerp(31, 11, k) + end * 4);
+    lookAt.set(0, lerp(RING_Y - 1.2, RING_Y - 1.9, k), 0);
+  }
+  hero.camera.position.copy(camFrom); hero.camera.lookAt(lookAt);
   // exploded view: stone, halo and claws lift away in the first steps, settle back for the band
   const E = smooth(-0.55, 0.25, s) * (1 - smooth(2.35, 3.05, s));
   P.stone.position.y = base.stone + E * 1.05;
@@ -1060,15 +1111,11 @@ function liquid() {
         float diff = max(dot(n, l), 0.0);
         float spec = pow(max(dot(reflect(-l, n), v), 0.0), 28.0);
         float spec2 = pow(max(dot(reflect(-normalize(vec3(0.6, -0.2, 0.8)), n), v), 0.0), 60.0);
-        vec3 deep = vec3(0.19, 0.14, 0.07), champ = vec3(0.86, 0.74, 0.52), pale = vec3(1.0, 0.95, 0.84);
-        vec3 col = mix(deep, champ, smoothstep(0.15, 0.95, diff));
-        col = mix(col, pale, smoothstep(0.75, 1.0, diff) * 0.6);
-        float fres = pow(1.0 - n.z, 2.0);
-        vec3 ir = 0.5 + 0.5 * cos(6.2831 * (h0 * 1.6 + n.x * 1.2 + vec3(0.0, 0.33, 0.67)));
-        col += ir * fres * 0.9 * smoothstep(0.35, 0.75, h0);
-        col += spec * vec3(1.0, 0.95, 0.85) * 0.9 + spec2 * vec3(0.75, 0.9, 1.0) * 0.5;
-        // sapphire shadow in the folds, after the brand palette
-        col = mix(col, vec3(0.1, 0.2, 0.23), smoothstep(0.55, 0.0, diff) * 0.35);
+        vec3 deep = vec3(0.012), satin = vec3(0.42, 0.42, 0.41), pale = vec3(0.95, 0.95, 0.93);
+        vec3 col = mix(deep, satin, smoothstep(0.35, 1.0, diff) * 0.55);
+        col = mix(col, pale, smoothstep(0.86, 1.0, diff) * 0.35);
+        col += spec * vec3(0.9) * 0.55;
+        col += spec2 * vec3(0.72, 0.62, 0.40) * 0.55; // a gold glint where the cloth turns
         vec2 q = gl_FragCoord.xy / res - 0.5;
         col *= 1.0 - dot(q, q) * 0.9;
         col *= 1.0 - 0.32 * exp(-dot(q * vec2(1.6, 2.6), q * vec2(1.6, 2.6)) * 3.0); // quieter behind the words
@@ -1096,13 +1143,9 @@ function openProduct(id, metal) {
   pdCurrent = { p, spec: { ...p.spec, metal: metal || p.spec.metal } };
   const pd = $('#pd');
   pd.classList.add('open'); pd.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
-  $('#pdBg').style.background = {
-    sapphire: 'radial-gradient(80% 70% at 50% 45%, #3b7383, #1a3f49 70%, #10282f)',
-    river: 'radial-gradient(80% 70% at 50% 45%, #7d898c, #4f5a5e 80%)',
-    stone: 'radial-gradient(80% 70% at 50% 45%, #f1ebe0, #d8cdb9 90%)',
-    parch: 'radial-gradient(80% 70% at 50% 45%, #fbf8f3, #e6dfd2 90%)',
-  }[p.bg];
-  $('.pd-stage .hint2').style.color = (p.bg === 'sapphire' || p.bg === 'river') ? 'var(--parchment)' : 'var(--ink)';
+  $('#pdBg').style.background = p.bg === 'noir' ? 'radial-gradient(80% 70% at 50% 45%, #262625, #0d0d0d 72%, #050505)' : 'var(--paper)';
+  $('.pd-stage .hint2').style.color = p.bg === 'noir' ? '#fff' : 'var(--ink)';
+  $('#pdMetals').style.color = p.bg === 'noir' ? '#fff' : 'var(--ink)';
   if (!pdV) pdV = new Viewer($('#pdCanvas'), { controls: true, autoRotate: true, fov: 26 });
   requestAnimationFrame(() => { pdV.resize(); pdRebuild(); });
   $('#pdHouse').textContent = `${p.house} · ${p.city}`;
@@ -1132,12 +1175,12 @@ function specRows(s) {
 }
 function pdInfo() {
   const { spec } = pdCurrent;
-  $('#pdPrice').textContent = aed(priceOf(spec));
+  $('#pdPrice').textContent = aed(priceOf(spec)) + ' · VAT included';
+  $('#pdBag').textContent = `${aed(priceOf(spec))} — Add to bag`;
   $('#pdSpecs').replaceChildren(...specRows(spec).flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v })]));
   const m = $('#pdMetals'); m.textContent = '';
   for (const [k, mt] of Object.entries(METALS)) {
-    m.append(h('button.chip', { 'aria-pressed': spec.metal === k, onclick: () => { pdCurrent.spec.metal = k; pdRebuild(); pdInfo(); } },
-      h('span', { style: `display:inline-block;width:10px;height:10px;border-radius:50%;background:${mt.swatch};margin-right:8px;vertical-align:-1px` }), mt.short));
+    m.append(h('button.chip', { 'aria-pressed': spec.metal === k, style: 'color:inherit', onclick: () => { pdCurrent.spec.metal = k; pdRebuild(); pdInfo(); } }, mt.short));
   }
 }
 function closeProduct() {
@@ -1180,7 +1223,7 @@ $('#bagHome').addEventListener('click', () => {
 /* ---------- compose (configurator) ---------- */
 const cfg = store.get('cfg', null) || { type: 'ring', cut: 'oval', stone: 'diamond', carat: 1.5, setting: 'halo', band: 'pave', metal: 'yellow', size: 52, engraving: 'A & L · 2026', style: 'drop', chain: 42 };
 const cfgV = new Viewer($('#cfgCanvas'), { controls: true, autoRotate: false, fov: 26, tone: 'warm', exposure: 1.0 });
-const cfgShadow = shadowPlane(4, 0.22, '90,72,40'); cfgV.scene.add(cfgShadow);
+const cfgShadow = shadowPlane(4, 0.16, '0,0,0'); cfgV.scene.add(cfgShadow);
 let cfgView = 'front';
 const CFG_DIRS = { front: null, side: [1, 0.2, 0.05], top: [0.05, 1, 0.25], inside: [0.02, 0.62, 1] };
 function cfgSpec() {
@@ -1213,9 +1256,11 @@ function setCfgView(v, instant) {
 }
 $$('#cfgViews .chip').forEach(c => c.addEventListener('click', () => setCfgView(c.dataset.view)));
 
+const optLab = (label, value) => h('div.lab', {}, h('span', { text: label + ':' }), h('span', { text: value || '' }));
 function choiceRow(label, value, items, key, onPick) {
+  const cur = items.find(([k]) => cfg[key] === k);
   return h('div.opt', {},
-    h('div.lab', {}, h('span', { text: label }), h('span', { text: value })),
+    optLab(label, value || (cur ? cur[1] : '')),
     h('div.choices', {}, ...items.map(([k, txt]) => h('button.choice', { 'aria-pressed': cfg[key] === k, text: txt, onclick: () => { cfg[key] = k; onPick?.(k); renderCfg(); cfgRebuild(); } }))));
 }
 function renderCfg() {
@@ -1227,7 +1272,7 @@ function renderCfg() {
     if (k === 'earrings' && !['stud', 'drop'].includes(cfg.style)) cfg.style = 'drop';
   }));
   // metal
-  panel.append(h('div.opt', {}, h('div.lab', {}, h('span', { text: 'Metal' }), h('span', { text: METALS[cfg.metal].name })),
+  panel.append(h('div.opt', {}, optLab('Metal', METALS[cfg.metal].name),
     h('div.choices', {}, ...Object.entries(METALS).map(([k, m]) => h('button.swatch', { 'aria-pressed': cfg.metal === k, 'aria-label': m.name, title: m.name, onclick: () => { cfg.metal = k; renderCfg(); cfgRebuild(); } }, h('i', { style: `background:${m.swatch}` }))))));
   if (s.type === 'bracelet') {
     panel.append(choiceRow('Style', '', [['tennis', 'Tennis'], ['bangle', 'Bangle']], 'style'));
@@ -1235,7 +1280,7 @@ function renderCfg() {
   }
   // stone
   if (!(s.type === 'bracelet' && s.style === 'bangle' && cfg.band !== 'pave')) {
-    panel.append(h('div.opt', {}, h('div.lab', {}, h('span', { text: 'Stone' }), h('span', { text: STONES[cfg.stone].name })),
+    panel.append(h('div.opt', {}, optLab('Stone', STONES[cfg.stone].name),
       h('div.choices', {}, ...Object.entries(STONES).map(([k, m]) => h('button.swatch', { 'aria-pressed': cfg.stone === k, 'aria-label': m.name, title: m.name, onclick: () => { cfg.stone = k; renderCfg(); cfgRebuild(); } }, h('i', { style: `background:${m.swatch}` }))))));
   }
   if (s.type === 'earrings') panel.append(choiceRow('Style', '', [['stud', 'Studs'], ['drop', 'Drops']], 'style'));
@@ -1248,7 +1293,7 @@ function renderCfg() {
     const lab = h('span', { text: read() });
     const rng = h('input.range', { type: 'range', id: 'cfgCarat', min: 0.3, max: 3, step: 0.05, value: cfg.carat, 'aria-label': 'Carat weight' });
     rng.addEventListener('input', () => { cfg.carat = +rng.value; lab.textContent = read(); cfgRebuild(); });
-    panel.append(h('div.opt', {}, h('div.lab', {}, h('span', { text: s.type === 'earrings' ? 'Carat, each' : 'Carat' }), lab), rng));
+    panel.append(h('div.opt', {}, h('div.lab', {}, h('span', { text: (s.type === 'earrings' ? 'Carat, each' : 'Carat') + ':' }), lab), rng));
   }
   if (s.type === 'ring' && s.setting !== 'eternity') panel.append(choiceRow('Band', '', [['plain', 'Polished'], ['pave', 'Pavé']], 'band'));
   if (s.type === 'ring') {
@@ -1257,20 +1302,20 @@ function renderCfg() {
     const eng = h('input.field', { id: 'cfgEngrave', maxlength: 18, value: cfg.engraving, placeholder: 'Up to 18 characters', 'aria-label': 'Engraving text' });
     let et; eng.addEventListener('input', () => { cfg.engraving = eng.value; clearTimeout(et); et = setTimeout(() => { cfgRebuild(); if (cfg.engraving.trim()) setCfgView('inside'); }, 250); });
     panel.append(h('div.two', { style: 'display:grid;grid-template-columns:1fr 1.4fr;gap:12px' },
-      h('div.opt', {}, h('div.lab', {}, h('span', { text: 'Size' })), sel),
-      h('div.opt', {}, h('div.lab', {}, h('span', { text: 'Engraving' })), eng)));
+      h('div.opt', {}, optLab('Size'), sel),
+      h('div.opt', {}, optLab('Engraving'), eng)));
   }
   if (s.type === 'pendant') panel.append(choiceRow('Chain', '', [[40, '40 cm'], [42, '42 cm'], [45, '45 cm']].map(([a, b]) => [a, b]), 'chain'));
   if (s.type === 'bracelet') {
     const sel = h('select.field', { id: 'cfgWrist', 'aria-label': 'Wrist size' }, ...[15, 16, 17, 18, 19].map(n => h('option', { value: n, selected: (cfg.wrist || 17) === n, text: `${n} cm wrist` })));
     sel.addEventListener('change', () => { cfg.wrist = +sel.value; store.set('cfg', cfg); });
-    panel.append(h('div.opt', {}, h('div.lab', {}, h('span', { text: 'Wrist' })), sel));
+    panel.append(h('div.opt', {}, optLab('Wrist'), sel));
   }
   panel.append(h('div.cfg-sum', {},
-    h('div.row', {}, h('div', {}, h('p.eyebrow.muted', { text: 'Your design', style: 'margin-bottom:8px' }), h('div.price.num', { id: 'cfgPrice' })), h('p.note', { id: 'cfgLead', text: 'Made to order in Europe · 4–6 weeks' })),
     h('div.btns', {},
-      h('button.btn.gold', { text: 'Add to bag', onclick: () => addToBag({ id: 'custom', name: cfgName(), spec: cfgSpec() }) }),
-      h('button.btn', { text: 'Try at home', onclick: () => { addShortlist('custom'); } }))));
+      h('button.btn.solid.full', { id: 'cfgBuy', onclick: () => addToBag({ id: 'custom', name: cfgName(), spec: cfgSpec() }) }),
+      h('button.btn.full', { text: 'Try it at home first', onclick: () => { addShortlist('custom'); } })),
+    h('p.note', {}, h('span.dot'), 'Made to order in Europe in four to six weeks. Engraving and sizing are free.')));
   $('#insideBtn').hidden = !(s.type === 'ring' && cfg.engraving.trim());
   cfgSummary();
 }
@@ -1284,7 +1329,7 @@ function cfgName() {
 }
 function cfgSummary() {
   const s = cfgSpec();
-  const el = $('#cfgPrice'); if (el) el.textContent = aed(priceOf(s));
+  const el = $('#cfgBuy'); if (el) el.textContent = `${aed(priceOf(s))} — Add to bag`;
   $('#cfgRead').textContent = `${cfgName()} · ${METALS[s.metal].short}`;
 }
 function loadConfig(spec) {
@@ -1541,7 +1586,7 @@ function addShortlist(id) {
     const spec = cfgSpec();
     state.customs = state.customs || [];
     const cid = 'custom-' + Date.now();
-    PRODUCTS.push({ id: cid, name: cfgName(), house: 'LUMA Compose', city: 'Dubai', cat: 'custom', bg: 'parch', spec, desc: 'Your own design, composed in 3D.' });
+    PRODUCTS.push({ id: cid, name: cfgName(), house: 'LUMA Compose', city: 'Dubai', cat: 'custom', bg: 'white', spec, desc: 'Your own design, composed in 3D.' });
     id = cid; store.set('customs', PRODUCTS.filter(p => p.cat === 'custom'));
   }
   if (state.shortlist.includes(id)) { toast('Already on your home try-on list'); return; }

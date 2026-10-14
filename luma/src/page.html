@@ -17,23 +17,25 @@
 
 <main id="top">
   <!-- Hero and anatomy share one sticky 3D stage -->
-  <section class="story on-dark" id="story" aria-label="Octave halo ring">
+  <section class="story" id="story" aria-label="Octave emerald ring">
     <div class="stage">
-      <canvas id="heroCanvas" aria-label="Octave halo ring in 3D. Drag to turn it."></canvas>
-      <div class="grain"></div>
-      <div class="hint" id="hint"><span class="eyebrow">Drag to turn</span><span class="bar"></span><span class="eyebrow">Scroll</span></div>
+      <canvas id="heroCanvas" aria-label="The Octave emerald ring floating in a marble rotunda. Drag to turn it."></canvas>
+      <div class="explore" id="hint" aria-hidden="true">
+        <svg class="arc" viewBox="0 0 400 40" preserveAspectRatio="none"><path d="M2 3 Q200 52 398 3"/></svg>
+        <span class="knob"><svg viewBox="-12 -12 24 24"><path d="M0-9V9M-9 0H9M-6.4-6.4L6.4 6.4M-6.4 6.4L6.4-6.4"/><circle r="2.2"/></svg></span>
+        <span class="eyebrow">Drag to explore</span>
+      </div>
     </div>
     <div class="story-label wrap" id="storyLabel"><p class="eyebrow">Octave · Atelier Caldera, Valenza</p></div>
 
     <div class="hero-copy wrap">
-      <p class="eyebrow">Fine jewellery from Europe · Curated in Dubai</p>
-      <h1 class="display h1">The finest of Europe, <em>chosen</em> for you.</h1>
-      <div class="row">
-        <p class="lede">LUMA brings together pieces from twelve European ateliers, chosen for the women of the Emirates. Wear them every day, keep them for the evenings that matter, or try them on at home.</p>
-        <div class="ctas">
-          <a class="btn gold" href="#edit">Explore the edit</a>
-          <a class="btn" href="#athome">Book a home try-on</a>
-        </div>
+      <div>
+        <p class="eyebrow accent">Fine jewellery from Europe · Curated in Dubai</p>
+        <h1 class="display hero-title">The finest of Europe, <em>chosen</em> for you.</h1>
+      </div>
+      <div class="hero-links">
+        <a class="link" href="#edit">Explore the edit</a>
+        <a class="link" href="#athome">Book a home try-on</a>
       </div>
     </div>
 
@@ -42,24 +44,24 @@
         <div class="card">
           <span class="idx">I — The stone</span>
           <h3 class="display h3">Cut like still water</h3>
-          <p>A 2.01 carat emerald cut. Its long step facets give a calm, mirrored light instead of sparkle, the cut Europe's high jewellers return to for evening pieces.</p>
-          <div class="spec"><span>2.01 ct</span><span>F colour</span><span>VS1</span><span>GIA</span></div>
+          <p>A 3.02 carat Colombian emerald. Its long step facets give a deep, calm light instead of sparkle, the cut Europe's high jewellers keep for their finest green stones.</p>
+          <div class="spec"><span>3.02 ct</span><span>Colombia</span><span>Minor oil</span><span>Certified</span></div>
         </div>
       </article>
       <article class="step" data-step="1">
         <div class="card">
           <span class="idx">II — The halo</span>
-          <h3 class="display h3">Thirty-four brilliants</h3>
+          <h3 class="display h3">A frame of brilliants</h3>
           <p>Each stone is under one and a half millimetres, set by hand in a single frame so the centre stone reads half a size larger.</p>
-          <div class="spec"><span>0.42 ct total</span><span>Hand set</span></div>
+          <div class="spec"><span>0.48 ct total</span><span>F–G VS</span><span>Hand set</span></div>
         </div>
       </article>
       <article class="step" data-step="2">
         <div class="card">
           <span class="idx">III — The claws</span>
-          <h3 class="display h3">Four points of platinum</h3>
+          <h3 class="display h3">Four points of gold</h3>
           <p>Claws are polished to a fine tip, so the setting almost disappears and light reaches the stone from every side.</p>
-          <div class="spec"><span>Platinum 950</span><span>Double gallery</span></div>
+          <div class="spec"><span>18k yellow gold</span><span>Double gallery</span></div>
         </div>
       </article>
       <article class="step" data-step="3">
@@ -68,7 +70,7 @@
           <h3 class="display h3">Made to be worn daily</h3>
           <p>A comfort-fit band, rounded on the inside and pavé on the shoulders, finished in Valenza by Atelier Caldera. Resized free of charge in our Dubai atelier.</p>
           <div class="spec"><span>2.1 mm</span><span>Sizes 46–62</span></div>
-          <p style="margin-top:24px"><button class="btn gold" data-open="octave">View the Octave ring</button></p>
+          <p style="margin-top:24px"><button class="btn solid" data-open="octave">View the Octave ring</button></p>
         </div>
       </article>
       <div class="story-end"></div>
@@ -172,7 +174,7 @@
           <div class="pieces" id="pieces"></div>
         </div>
         <div class="tr-actions">
-          <button class="btn gold" id="tryAddHome">Add to home try-on</button>
+          <button class="btn solid" id="tryAddHome">Add to home try-on</button>
           <button class="btn" id="tryView">View in 3D</button>
         </div>
       </div>
@@ -182,9 +184,9 @@
   <section class="athome on-dark" id="athome" aria-labelledby="homeTitle">
     <div class="wrap ah-grid">
       <div>
-        <p class="eyebrow" style="color:var(--gold);margin-bottom:16px">Luma at home</p>
+        <p class="eyebrow accent" style="margin-bottom:16px">Luma at home</p>
         <h2 class="display h2" id="homeTitle">We bring the edit <em>to you</em></h2>
-        <p class="lede" style="margin-top:24px;opacity:.86">Choose up to six pieces. A LUMA stylist brings them to your home in a sealed, insured case, helps you try each one, and sizes rings on the spot. There is no charge and nothing to buy.</p>
+        <p class="lede" style="margin-top:24px;opacity:.75">Choose up to six pieces. A LUMA stylist brings them to your home in a sealed, insured case, helps you try each one, and sizes rings on the spot. There is no charge and nothing to buy.</p>
         <ol class="ah-steps">
           <li><b>1</b><p><strong>Shortlist up to six pieces</strong>From the edit, from Compose, or from try-on.</p></li>
           <li><b>2</b><p><strong>Choose a day and a time</strong>Every day from 10:00 to 22:00, across all seven emirates.</p></li>
@@ -239,7 +241,7 @@
           </div>
         </div>
         <p class="err" id="hErr" role="alert"></p>
-        <button class="btn gold full" type="submit">Request my home try-on</button>
+        <button class="btn solid full" type="submit">Request my home try-on</button>
       </form>
       <div class="form done" id="homeDone" hidden>
         <p class="eyebrow">Request received</p>
@@ -287,19 +289,19 @@
     <div>
       <p class="eyebrow muted" id="pdHouse"></p>
       <h2 class="display h3" id="pdName" style="font-size:clamp(32px,3vw,46px);margin:12px 0 10px"></h2>
-      <div class="price num" id="pdPrice"></div>
+      <div class="price num muted" id="pdPrice"></div>
     </div>
     <p id="pdDesc" style="margin:0"></p>
     <dl id="pdSpecs"></dl>
     <div class="btns">
-      <button class="btn gold full" id="pdBag">Add to bag</button>
+      <button class="btn solid full" id="pdBag">Add to bag</button>
       <div class="two">
         <button class="btn" id="pdHome">Home try-on</button>
         <button class="btn" id="pdTry">Try on</button>
       </div>
       <button class="btn full" id="pdCustom">Customise this piece</button>
     </div>
-    <p class="note">Hand delivered across the UAE in three to five days. Customised pieces are made to order in four to six weeks.</p>
+    <p class="note"><span class="dot"></span>In our Dubai atelier · hand delivered across the UAE in three to five days</p>
   </div>
   <button class="pd-close" id="pdClose">Close</button>
 </div>
@@ -309,7 +311,7 @@
   <div style="display:flex;justify-content:space-between;align-items:center"><p class="eyebrow">Your bag</p><button class="link" id="bagClose">Close</button></div>
   <div class="items" id="bagItems"></div>
   <div class="tot"><span>Total</span><span class="num" id="bagTotal">AED 0</span></div>
-  <button class="btn gold full" id="bagHome">Try these at home first</button>
+  <button class="btn solid full" id="bagHome">Try these at home first</button>
   <p class="note">Checkout opens in the full store. Prices include 5% VAT.</p>
 </aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
