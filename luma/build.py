@@ -32,5 +32,6 @@ if '--artifact' in sys.argv:
     (out / 'luma.html').write_text(head() + '\n' + body())
     (out / 'sample-portrait.jpg').write_bytes((ROOT / 'sample-portrait.jpg').read_bytes())
     (out / 'img').mkdir(exist_ok=True)
-    for f in (ROOT / 'img').glob('*.jpg'): (out / 'img' / f.name).write_bytes(f.read_bytes())
+    for f in (ROOT / 'img').rglob('*.jpg'):
+        dest = out / f.relative_to(ROOT); dest.parent.mkdir(parents=True, exist_ok=True); dest.write_bytes(f.read_bytes())
     print('wrote', out / 'luma.html')

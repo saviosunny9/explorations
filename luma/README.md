@@ -5,9 +5,9 @@ Open `luma/index.html` in Chrome; it needs an internet connection for three.js (
 
 ## What's on the page
 
-- **Hero**: a live 3D desert at golden hour.
-  - Setting: physically based sky with drifting clouds; crested dunes with wind ripples; date palms whose fronds sway in gusts; a camel moving its head and tail; fine sand blowing low over the ground.
-  - Carousel: five curated pieces float in front, one at a time, every seven seconds. Each shows its name, atelier, a one-line description and price, with arrows, progress bars and pause on hover. Drag to turn the piece.
+- **Hero**: real desert photographs, each paired with one of five curated pieces. The 3D piece floats in front and reflects its scene.
+  - Life in the photographs: a slow push-in, heat shimmer at the horizon, a slow drift in the sky, wind-blown sand streaks and drifting motes. A noise dissolve carries one scene into the next every 7.5 seconds.
+  - Controls and tone: text switches between light and dark to suit each photograph. Arrows, progress bars and pause on hover; drag to turn the piece.
 - **The edit**: 12 pieces from 12 made-up houses (Maison Verel, Atelier Caldera, Ondel…), filterable by Everyday / Occasion / Bridal. Card images are rendered from the same 3D models. Opening a card shows the piece in 3D (orbit, zoom, switch metal) with buttons for Add to bag, Home try-on, Try on and Customise.
 - **Black satin band**: a full-width moving black satin shader with a faint gold glint, behind the brand promise.
 - **Compose**: a configurator with piece (ring / pendant / earrings / bracelet), metal, stone, setting, cut, carat, band, size and engraving. The model and the AED price update live. Engraving is drawn on the inside of the band, and *Engraving* turns the camera to show it.
@@ -37,6 +37,11 @@ Editorial photographs are from [Pexels](https://www.pexels.com) under the Pexels
 | `img/worn-emerald.jpg` | https://www.pexels.com/photo/17298688/ |
 | `img/edit-earring.jpg` | https://www.pexels.com/photo/7615245/ |
 | `img/home-portrait.jpg` | https://www.pexels.com/photo/9509032/ |
+| `img/hero/dunes-clouds.jpg` | https://www.pexels.com/photo/35650512/ |
+| `img/hero/camels-sunset.jpg` | https://www.pexels.com/photo/17887613/ |
+| `img/hero/dune-crest.jpg` | https://www.pexels.com/photo/2403629/ |
+| `img/hero/pink-dunes.jpg` | https://www.pexels.com/photo/18672830/ |
+| `img/hero/caravan.jpg` | https://www.pexels.com/photo/3121285/ |
 
 The sample try-on portrait is from Unsplash (`photo-1523529831-3b6372bedacd`, Unsplash License).
 For a real launch, replace these with LUMA's own shoot: stock models must not appear to endorse the brand.
