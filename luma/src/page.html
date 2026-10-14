@@ -1,0 +1,315 @@
+<header class="nav wrap" id="nav">
+  <div class="left">
+    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="navLinks">Menu</button>
+    <nav class="links" id="navLinks" aria-label="Main">
+      <a href="#edit">The edit</a>
+      <a href="#compose">Compose</a>
+      <a href="#tryon">Try on</a>
+      <a href="#athome">Luma at home</a>
+    </nav>
+  </div>
+  <a class="brand" href="#top" aria-label="Luma, back to top">LUMA</a>
+  <div class="right">
+    <span class="cur">AED · EN</span>
+    <button id="bagBtn" aria-label="Open bag">Bag (<span id="bagCount" class="num">0</span>)</button>
+  </div>
+</header>
+
+<main id="top">
+  <!-- Hero and anatomy share one sticky 3D stage -->
+  <section class="story on-dark" id="story" aria-label="Octave halo ring">
+    <div class="stage">
+      <canvas id="heroCanvas" aria-label="Octave halo ring in 3D. Drag to turn it."></canvas>
+      <div class="grain"></div>
+      <div class="hint" id="hint"><span class="eyebrow">Drag to turn</span><span class="bar"></span><span class="eyebrow">Scroll</span></div>
+    </div>
+    <div class="story-label wrap" id="storyLabel"><p class="eyebrow">Octave · Atelier Caldera, Valenza</p></div>
+
+    <div class="hero-copy wrap">
+      <p class="eyebrow">Fine jewellery from Europe · Curated in Dubai</p>
+      <h1 class="display h1">The finest of Europe, <em>chosen</em> for you.</h1>
+      <div class="row">
+        <p class="lede">LUMA brings together pieces from twelve European ateliers, chosen for the women of the Emirates. Wear them every day, keep them for the evenings that matter, or try them on at home.</p>
+        <div class="ctas">
+          <a class="btn gold" href="#edit">Explore the edit</a>
+          <a class="btn" href="#athome">Book a home try-on</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="steps wrap" id="steps">
+      <article class="step" data-step="0">
+        <div class="card">
+          <span class="idx">I — The stone</span>
+          <h3 class="display h3">Cut like still water</h3>
+          <p>A 2.01 carat emerald cut. Its long step facets give a calm, mirrored light instead of sparkle, the cut Europe's high jewellers return to for evening pieces.</p>
+          <div class="spec"><span>2.01 ct</span><span>F colour</span><span>VS1</span><span>GIA</span></div>
+        </div>
+      </article>
+      <article class="step" data-step="1">
+        <div class="card">
+          <span class="idx">II — The halo</span>
+          <h3 class="display h3">Thirty-four brilliants</h3>
+          <p>Each stone is under one and a half millimetres, set by hand in a single frame so the centre stone reads half a size larger.</p>
+          <div class="spec"><span>0.42 ct total</span><span>Hand set</span></div>
+        </div>
+      </article>
+      <article class="step" data-step="2">
+        <div class="card">
+          <span class="idx">III — The claws</span>
+          <h3 class="display h3">Four points of platinum</h3>
+          <p>Claws are polished to a fine tip, so the setting almost disappears and light reaches the stone from every side.</p>
+          <div class="spec"><span>Platinum 950</span><span>Double gallery</span></div>
+        </div>
+      </article>
+      <article class="step" data-step="3">
+        <div class="card">
+          <span class="idx">IV — The band</span>
+          <h3 class="display h3">Made to be worn daily</h3>
+          <p>A comfort-fit band, rounded on the inside and pavé on the shoulders, finished in Valenza by Atelier Caldera. Resized free of charge in our Dubai atelier.</p>
+          <div class="spec"><span>2.1 mm</span><span>Sizes 46–62</span></div>
+          <p style="margin-top:24px"><button class="btn gold" data-open="octave">View the Octave ring</button></p>
+        </div>
+      </article>
+      <div class="story-end"></div>
+    </div>
+  </section>
+
+  <section class="houses wrap" id="houses" aria-labelledby="housesTitle">
+    <div class="head">
+      <h2 class="display h2 rv" id="housesTitle">Twelve ateliers. <em>One</em> edit.</h2>
+      <p class="lede muted rv">We visit the workshops of Paris, Valenza, Geneva and beyond, and choose a few pieces from each season. Every stone is certified, and every piece is checked in our Dubai atelier before it reaches you.</p>
+    </div>
+    <div class="marquee" aria-hidden="true"><div class="track" id="marquee"></div></div>
+  </section>
+
+  <section class="edit wrap" id="edit" aria-labelledby="editTitle">
+    <div class="head">
+      <div>
+        <p class="eyebrow muted" style="margin-bottom:16px">The edit · Autumn 2026</p>
+        <h2 class="display h2" id="editTitle">Every piece, <em>in 3D</em></h2>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Filter the edit" id="tabs">
+        <button class="tab" role="tab" aria-selected="true" data-cat="all">All</button>
+        <button class="tab" role="tab" aria-selected="false" data-cat="everyday">Everyday</button>
+        <button class="tab" role="tab" aria-selected="false" data-cat="occasion">Occasion</button>
+        <button class="tab" role="tab" aria-selected="false" data-cat="bridal">Bridal</button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="liquid" id="promise" aria-label="Our promise">
+    <canvas id="liquidCanvas" aria-hidden="true"></canvas>
+    <div class="copy wrap">
+      <p class="eyebrow">The LUMA promise</p>
+      <h2 class="display h2">Light, <em>held</em> in gold.</h2>
+      <p>Every stone over 0.3 carat comes with its certificate. Every piece is insured until it is in your hands, and cleaned for life.</p>
+    </div>
+  </section>
+
+  <section class="compose" id="compose" aria-labelledby="composeTitle">
+    <div class="head wrap">
+      <div>
+        <p class="eyebrow muted" style="margin-bottom:16px">Compose</p>
+        <h2 class="display h2" id="composeTitle">Make it <em>yours</em></h2>
+      </div>
+      <p class="lede muted" style="max-width:26em">Choose the piece, metal, stone and setting. The 3D model and the price update as you go. Made to order in Europe in four to six weeks.</p>
+    </div>
+    <div class="cfg">
+      <div class="cfg-stage">
+        <canvas id="cfgCanvas" aria-label="Your design in 3D. Drag to turn, scroll or pinch to zoom."></canvas>
+        <div class="carat-read eyebrow muted" id="cfgRead"></div>
+        <div class="views" id="cfgViews">
+          <button class="chip" data-view="front" aria-pressed="true">Front</button>
+          <button class="chip" data-view="side" aria-pressed="false">Side</button>
+          <button class="chip" data-view="top" aria-pressed="false">Above</button>
+          <button class="chip" data-view="inside" aria-pressed="false" id="insideBtn">Engraving</button>
+        </div>
+      </div>
+      <div class="cfg-panel" id="cfgPanel"></div>
+    </div>
+  </section>
+
+  <section class="tryon wrap" id="tryon" aria-labelledby="tryTitle">
+    <div class="head">
+      <div>
+        <p class="eyebrow muted" style="margin-bottom:16px">Virtual try-on</p>
+        <h2 class="display h2" id="tryTitle">See it <em>on you</em></h2>
+      </div>
+      <div class="seg" role="tablist" aria-label="Try-on mode">
+        <button role="tab" aria-selected="true" data-mode="tone" id="modeTone">On your skin tone</button>
+        <button role="tab" aria-selected="false" data-mode="photo" id="modePhoto">On your photo</button>
+      </div>
+    </div>
+    <div class="tr-grid">
+      <div class="tr-stage" id="trStage">
+        <canvas id="toneCanvas" aria-label="A necklace on a bust in your chosen skin tone. Drag to turn."></canvas>
+        <canvas id="photoCanvas" class="photo" hidden aria-label="Your photo with the jewellery placed on it. Drag pieces to move them."></canvas>
+        <div class="drop">Drop your photo</div>
+      </div>
+      <div class="tr-side">
+        <div id="toneSide" class="opt">
+          <div class="lab"><span>Skin tone</span><span id="toneName"></span></div>
+          <div class="tones" id="tones"></div>
+          <p class="note">Gold, platinum and each stone colour sit differently on every skin. Turn the bust to see how the metal catches light against yours.</p>
+        </div>
+        <div id="photoSide" class="opt" hidden>
+          <div class="lab"><span>Your photo</span><span>Stays on this device</span></div>
+          <div class="tr-actions">
+            <label class="btn" for="photoInput" style="cursor:pointer">Upload a photo</label>
+            <input type="file" id="photoInput" accept="image/*" hidden>
+            <button class="btn" id="saveLook">Save the look</button>
+          </div>
+          <div class="sliders" id="sliders">
+            <label>Size <input type="range" class="range" id="sScale" min="0.3" max="2.5" step="0.01" value="1"></label>
+            <label>Turn <input type="range" class="range" id="sRot" min="-45" max="45" step="1" value="0"></label>
+          </div>
+          <p class="note">Drag a piece to place it, then use the sliders to size it. Use a photo facing the camera with your neck and ears visible. The photo is never uploaded anywhere.</p>
+        </div>
+        <div class="opt">
+          <div class="lab"><span>Piece</span><span id="pieceName"></span></div>
+          <div class="pieces" id="pieces"></div>
+        </div>
+        <div class="tr-actions">
+          <button class="btn gold" id="tryAddHome">Add to home try-on</button>
+          <button class="btn" id="tryView">View in 3D</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="athome on-dark" id="athome" aria-labelledby="homeTitle">
+    <div class="wrap ah-grid">
+      <div>
+        <p class="eyebrow" style="color:var(--gold);margin-bottom:16px">Luma at home</p>
+        <h2 class="display h2" id="homeTitle">We bring the edit <em>to you</em></h2>
+        <p class="lede" style="margin-top:24px;opacity:.86">Choose up to six pieces. A LUMA stylist brings them to your home in a sealed, insured case, helps you try each one, and sizes rings on the spot. There is no charge and nothing to buy.</p>
+        <ol class="ah-steps">
+          <li><b>1</b><p><strong>Shortlist up to six pieces</strong>From the edit, from Compose, or from try-on.</p></li>
+          <li><b>2</b><p><strong>Choose a day and a time</strong>Every day from 10:00 to 22:00, across all seven emirates.</p></li>
+          <li><b>3</b><p><strong>A stylist visits for an hour</strong>Arabic and English speaking. Female stylists on request.</p></li>
+          <li><b>4</b><p><strong>Keep what you love</strong>Pay on the day, or reserve a piece for 48 hours.</p></li>
+        </ol>
+      </div>
+      <form class="form" id="homeForm" novalidate>
+        <div class="grp">
+          <div class="lab"><span>Your shortlist</span><span id="slCount" class="num"></span></div>
+          <div class="shortlist" id="shortlist"></div>
+        </div>
+        <div class="two">
+          <div class="grp">
+            <label class="lab" for="hEmirate"><span>Emirate</span></label>
+            <select class="field" id="hEmirate">
+              <option>Dubai</option><option>Abu Dhabi</option><option>Sharjah</option><option>Ajman</option>
+              <option>Ras Al Khaimah</option><option>Fujairah</option><option>Umm Al Quwain</option>
+            </select>
+          </div>
+          <div class="grp">
+            <label class="lab" for="hArea"><span>Area</span></label>
+            <input class="field" id="hArea" placeholder="e.g. Jumeirah 2" autocomplete="address-level3">
+          </div>
+        </div>
+        <div class="grp">
+          <div class="lab"><span>Day</span><span id="dayLabel"></span></div>
+          <div class="days" id="days"></div>
+        </div>
+        <div class="grp">
+          <div class="lab"><span>Time</span></div>
+          <div class="slots" id="slots"></div>
+        </div>
+        <div class="two">
+          <div class="grp">
+            <label class="lab" for="hName"><span>Name</span></label>
+            <input class="field" id="hName" autocomplete="name" placeholder="Your name">
+          </div>
+          <div class="grp">
+            <label class="lab" for="hPhone"><span>Mobile</span></label>
+            <input class="field" id="hPhone" inputmode="tel" autocomplete="tel" placeholder="+971 50 123 4567">
+          </div>
+        </div>
+        <div class="two">
+          <div class="grp">
+            <label class="lab" for="hLang"><span>Stylist speaks</span></label>
+            <select class="field" id="hLang"><option>English</option><option>Arabic</option><option>Arabic or English</option></select>
+          </div>
+          <div class="grp">
+            <label class="lab" for="hStylist"><span>Stylist</span></label>
+            <select class="field" id="hStylist"><option>No preference</option><option>Female stylist</option></select>
+          </div>
+        </div>
+        <p class="err" id="hErr" role="alert"></p>
+        <button class="btn gold full" type="submit">Request my home try-on</button>
+      </form>
+      <div class="form done" id="homeDone" hidden>
+        <p class="eyebrow">Request received</p>
+        <div class="ref num" id="homeRef"></div>
+        <p id="homeSummary"></p>
+        <p style="opacity:.8">Your stylist will call to confirm the address and the pieces the day before the visit.</p>
+        <button class="btn" id="homeAgain" type="button">Change the request</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="services wrap" aria-label="Services">
+    <div><h4>Certified stones</h4><p>GIA or IGI certificates for every stone over 0.3 carat, kept in your account.</p></div>
+    <div><h4>Insured delivery</h4><p>Hand delivered across the UAE in three to five days, insured to your door.</p></div>
+    <div><h4>Free resizing</h4><p>Rings resized free in our Dubai atelier within the first year.</p></div>
+    <div><h4>Cleaned for life</h4><p>Bring any piece back for a clean and claw check, as often as you like.</p></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h5>LUMA Atelier</h5>
+        <ul><li>Gate Village 4, DIFC, Dubai</li><li>Daily, 10:00 – 22:00</li><li class="copyable">+971 4 555 0142</li><li class="copyable">concierge@luma-jewellery.ae</li></ul>
+      </div>
+      <div><h5>Shop</h5><ul><li><a href="#edit">Everyday</a></li><li><a href="#edit">Occasion</a></li><li><a href="#edit">Bridal</a></li><li><a href="#compose">Compose your own</a></li></ul></div>
+      <div><h5>Services</h5><ul><li><a href="#athome">Home try-on</a></li><li><a href="#tryon">Virtual try-on</a></li><li>Ring sizing</li><li>Care and cleaning</li></ul></div>
+      <div><h5>Our houses</h5><ul><li>Paris · Valenza · Milan</li><li>Geneva · Copenhagen</li><li>London · Lisbon · Florence</li><li>Antwerp · Vienna · Munich · Arezzo</li></ul></div>
+    </div>
+    <div class="big" aria-hidden="true">LUMA</div>
+    <div class="fine"><span>© 2026 LUMA Jewellery Trading LLC, Dubai</span><span>Prices in AED, including 5% VAT</span></div>
+  </div>
+</footer>
+
+<!-- product overlay -->
+<div class="pd" id="pd" role="dialog" aria-modal="true" aria-labelledby="pdName" aria-hidden="true">
+  <div class="pd-stage">
+    <div class="bg" id="pdBg"></div>
+    <canvas id="pdCanvas" aria-label="The piece in 3D. Drag to turn, scroll or pinch to zoom."></canvas>
+    <div class="hint2">Drag to turn · Pinch to zoom</div>
+    <div class="views" id="pdMetals"></div>
+  </div>
+  <div class="pd-info">
+    <div>
+      <p class="eyebrow muted" id="pdHouse"></p>
+      <h2 class="display h3" id="pdName" style="font-size:clamp(32px,3vw,46px);margin:12px 0 10px"></h2>
+      <div class="price num" id="pdPrice"></div>
+    </div>
+    <p id="pdDesc" style="margin:0"></p>
+    <dl id="pdSpecs"></dl>
+    <div class="btns">
+      <button class="btn gold full" id="pdBag">Add to bag</button>
+      <div class="two">
+        <button class="btn" id="pdHome">Home try-on</button>
+        <button class="btn" id="pdTry">Try on</button>
+      </div>
+      <button class="btn full" id="pdCustom">Customise this piece</button>
+    </div>
+    <p class="note">Hand delivered across the UAE in three to five days. Customised pieces are made to order in four to six weeks.</p>
+  </div>
+  <button class="pd-close" id="pdClose">Close</button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="bag" id="bag" aria-label="Bag" aria-hidden="true">
+  <div style="display:flex;justify-content:space-between;align-items:center"><p class="eyebrow">Your bag</p><button class="link" id="bagClose">Close</button></div>
+  <div class="items" id="bagItems"></div>
+  <div class="tot"><span>Total</span><span class="num" id="bagTotal">AED 0</span></div>
+  <button class="btn gold full" id="bagHome">Try these at home first</button>
+  <p class="note">Checkout opens in the full store. Prices include 5% VAT.</p>
+</aside>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
