@@ -5,7 +5,9 @@ Open `luma/index.html` in Chrome; it needs an internet connection for three.js (
 
 ## What's on the page
 
-- **Hero + anatomy**: a white marble rotunda in soft haze, built in 3D, with the Octave emerald ring floating at its centre, after the Bulgari Eclettica style. A "Drag to explore" control turns the ring. Scrolling moves the camera in while the ring comes apart (stone, halo, claws, band), with a white card for each part.
+- **Hero**: a live 3D desert at golden hour.
+  - Setting: physically based sky with drifting clouds; crested dunes with wind ripples; date palms whose fronds sway in gusts; a camel moving its head and tail; fine sand blowing low over the ground.
+  - Carousel: five curated pieces float in front, one at a time, every seven seconds. Each shows its name, atelier, a one-line description and price, with arrows, progress bars and pause on hover. Drag to turn the piece.
 - **The edit**: 12 pieces from 12 made-up houses (Maison Verel, Atelier Caldera, Ondel…), filterable by Everyday / Occasion / Bridal. Card images are rendered from the same 3D models. Opening a card shows the piece in 3D (orbit, zoom, switch metal) with buttons for Add to bag, Home try-on, Try on and Customise.
 - **Black satin band**: a full-width moving black satin shader with a faint gold glint, behind the brand promise.
 - **Compose**: a configurator with piece (ring / pendant / earrings / bracelet), metal, stone, setting, cut, carat, band, size and engraving. The model and the AED price update live. Engraving is drawn on the inside of the band, and *Engraving* turns the camera to show it.
@@ -18,7 +20,7 @@ Open `luma/index.html` in Chrome; it needs an internet connection for three.js (
 ## How it's built
 
 - `src/page.html`, `src/style.css`, `src/app.js` are the sources. `python3 build.py` writes `index.html` with everything inlined. `--artifact DIR` writes the claude.ai artifact page.
-- Look: black and white first. Gold (`#B8A880`) appears only in small labels and hairlines; emerald (`#0f6b50`) only in the drag control, status dots, focus rings and one inlay on the rotunda steps. The configurator and product views follow a jeweller's layout: piece on a light grey studio ground beside a white card, square swatches, a black price-and-buy button. Titles use Bodoni Moda as the free stand-in for Argesta Hairline (commercial, not bundled); body text uses Hanken Grotesk in place of Helvetica Neue.
+- Look: black and white first. Gold (`#B8A880`) appears only in small labels and hairlines; emerald (`#0f6b50`) only in the drag control, status dots, focus rings and one inlay on the rotunda steps. The configurator and product views follow a jeweller's layout: piece on a light grey studio ground beside a white card, square swatches, a black price-and-buy button. Headings use Playfair Display; body and labels use Outfit (both Google Fonts).
 - Every piece is modelled in code (`buildRing`, `buildPendant`, `buildEarrings`, `buildBracelet`, `buildBrooch`, `buildNecklace`) from lathe-cut gems (round, oval, emerald, pear, marquise).
 - Stones use a shader that traces light through the pavilion facets, with per-channel dispersion, against a high-contrast light box. Metals are physical materials lit by a studio light tent.
 - Prices come from `priceOf(spec)` (carat^1.55 per stone type, metal factor, setting extras), so the edit and Compose always agree.

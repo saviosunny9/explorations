@@ -16,64 +16,27 @@
 </header>
 
 <main id="top">
-  <!-- Hero and anatomy share one sticky 3D stage -->
-  <section class="story" id="story" aria-label="Octave emerald ring">
-    <div class="stage">
-      <canvas id="heroCanvas" aria-label="The Octave emerald ring floating in a marble rotunda. Drag to turn it."></canvas>
-      <div class="explore" id="hint" aria-hidden="true">
-        <svg class="arc" viewBox="0 0 400 40" preserveAspectRatio="none"><path d="M2 3 Q200 52 398 3"/></svg>
-        <span class="knob"><svg viewBox="-12 -12 24 24"><path d="M0-9V9M-9 0H9M-6.4-6.4L6.4 6.4M-6.4 6.4L6.4-6.4"/><circle r="2.2"/></svg></span>
-        <span class="eyebrow">Drag to explore</span>
+  <!-- Hero: a 3D desert; the edit floats in one piece at a time -->
+  <section class="hero" id="story" aria-label="The edit, one piece at a time" aria-roledescription="carousel">
+    <canvas id="heroCanvas" aria-label="A desert of dunes and date palms at golden hour, with a piece of jewellery floating in front. Drag to turn the piece."></canvas>
+    <div class="hero-veil" aria-hidden="true"></div>
+    <p class="hero-kicker wrap">Fine jewellery from Europe, chosen for the Emirates</p>
+    <div class="hero-ui wrap">
+      <div class="hero-text" id="heroText" aria-live="polite">
+        <p class="eyebrow" id="hEyebrow"></p>
+        <h1 class="hero-name" id="hName"></h1>
+        <p class="hero-desc" id="hDesc"></p>
+        <div class="hero-cta">
+          <button class="btn solid" id="hOpen">Discover the piece</button>
+          <button class="link" id="hHome">Try it at home</button>
+          <span class="hero-price num" id="hPrice"></span>
+        </div>
       </div>
-    </div>
-    <div class="story-label wrap" id="storyLabel"><p class="eyebrow">Octave · Atelier Caldera, Valenza</p></div>
-
-    <div class="hero-copy wrap">
-      <div>
-        <p class="eyebrow accent">Fine jewellery from Europe · Curated in Dubai</p>
-        <h1 class="display hero-title">The finest of Europe, <em>chosen</em> for you.</h1>
+      <div class="hero-nav">
+        <div class="hero-count num"><span id="hIdx">01</span><span class="sep"></span><span id="hTotal">05</span></div>
+        <div class="hero-bars" id="hBars"></div>
+        <div class="hero-arrows"><button id="hPrev" aria-label="Previous piece">&#8592;</button><button id="hNext" aria-label="Next piece">&#8594;</button></div>
       </div>
-      <div class="hero-links">
-        <a class="link" href="#edit">Explore the edit</a>
-        <a class="link" href="#athome">Book a home try-on</a>
-      </div>
-    </div>
-
-    <div class="steps wrap" id="steps">
-      <article class="step" data-step="0">
-        <div class="card">
-          <span class="idx">I — The stone</span>
-          <h3 class="display h3">Cut like still water</h3>
-          <p>A 3.02 carat Colombian emerald. Its long step facets give a deep, calm light instead of sparkle, the cut Europe's high jewellers keep for their finest green stones.</p>
-          <div class="spec"><span>3.02 ct</span><span>Colombia</span><span>Minor oil</span><span>Certified</span></div>
-        </div>
-      </article>
-      <article class="step" data-step="1">
-        <div class="card">
-          <span class="idx">II — The halo</span>
-          <h3 class="display h3">A frame of brilliants</h3>
-          <p>Each stone is under one and a half millimetres, set by hand in a single frame so the centre stone reads half a size larger.</p>
-          <div class="spec"><span>0.48 ct total</span><span>F–G VS</span><span>Hand set</span></div>
-        </div>
-      </article>
-      <article class="step" data-step="2">
-        <div class="card">
-          <span class="idx">III — The claws</span>
-          <h3 class="display h3">Four points of gold</h3>
-          <p>Claws are polished to a fine tip, so the setting almost disappears and light reaches the stone from every side.</p>
-          <div class="spec"><span>18k yellow gold</span><span>Double gallery</span></div>
-        </div>
-      </article>
-      <article class="step" data-step="3">
-        <div class="card">
-          <span class="idx">IV — The band</span>
-          <h3 class="display h3">Made to be worn daily</h3>
-          <p>A comfort-fit band, rounded on the inside and pavé on the shoulders, finished in Valenza by Atelier Caldera. Resized free of charge in our Dubai atelier.</p>
-          <div class="spec"><span>2.1 mm</span><span>Sizes 46–62</span></div>
-          <p style="margin-top:24px"><button class="btn solid" data-open="octave">View the Octave ring</button></p>
-        </div>
-      </article>
-      <div class="story-end"></div>
     </div>
   </section>
 
