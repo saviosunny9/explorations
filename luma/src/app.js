@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 /* =========================================================================
    LUMA — catalogue, 3D jewellery builder, viewers and page interactions.
@@ -909,130 +912,168 @@ function updateNav() {
   nav.classList.toggle('solid', story.bottom < 70 || nav.classList.contains('menu-open'));
 }
 
-/* ---------- hero: real desert photographs brought to life; the edit floats in front ---------- */
-// Each piece is paired with a photograph. The plate gets a slow push-in, heat shimmer at the
-// horizon, a slow drift in the sky and wind-blown sand; a noise dissolve carries one scene into the next.
+/* ---------- hero: a real 3D desert — Sketchfab dunes, date palms and a camel under a photographed sky ---------- */
+// Models (CC BY, credited in the footer and README): dunes by Helindu and Rostenbach, date palms by evolveduk
+// and borsh_and, camel by omarme37. Sky: Poly Haven "Kloofendal 48d Partly Cloudy (Pure Sky)", CC0.
 const HERO_SLIDES = [
-  { id: 'octave', plate: 'img/hero/dunes-clouds.jpg', tone: 'light', horizon: 0.52, fx: 0.5, at: [0.7, 0.32], line: 'A Colombian emerald, step cut, framed in brilliants on a pavé band of yellow gold.' },
-  { id: 'goutte', plate: 'img/hero/camels-sunset.jpg', tone: 'light', horizon: 0.27, fx: 0.55, at: [0.87, 0.2], line: 'Pear-cut emeralds that swing from diamond studs, made in Paris.' },
-  { id: 'nenuphar', plate: 'img/hero/dune-crest.jpg', tone: 'light', horizon: 0.45, fx: 0.6, at: [0.72, 0.3], line: 'A water lily of twenty teal sapphires, worn on a lapel or as a pendant.' },
-  { id: 'ondine', plate: 'img/hero/pink-dunes.jpg', tone: 'dark', horizon: 0.5, fx: 0.55, at: [0.7, 0.3], line: 'A teal sapphire from Sri Lanka, haloed in diamonds, the colour of the Gulf at dusk.' },
-  { id: 'aube', plate: 'img/hero/caravan.jpg', tone: 'dark', horizon: 0.48, fx: 0.66, at: [0.7, 0.27], line: 'The Paris solitaire: one round brilliant raised on four fine claws.' },
+  { id: 'octave', line: 'A Colombian emerald, step cut, framed in brilliants on a pavé band of yellow gold.' },
+  { id: 'goutte', line: 'Pear-cut emeralds that swing from diamond studs, made in Paris.' },
+  { id: 'nenuphar', line: 'A water lily of twenty teal sapphires, worn on a lapel or as a pendant.' },
+  { id: 'ondine', line: 'A teal sapphire from Sri Lanka, haloed in diamonds, the colour of the Gulf at dusk.' },
+  { id: 'aube', line: 'The Paris solitaire: one round brilliant raised on four fine claws.' },
 ];
 const SLIDE_MS = 7500;
+const SKY_YAW = -1.05; // turns the photographed sky so the sun stands to the right of the view
 
-const PLATE_VERT = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
-const PLATE_FRAG = /* glsl */`
-uniform sampler2D texA, texB;
-uniform vec2 sizeA, sizeB;      // image pixel sizes
-uniform vec4 metaA, metaB;      // focal x, horizon, zoom, pan
-uniform vec2 screen;
-uniform float t, wipe, look;
-varying vec2 vUv;
-float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y); }
-float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ v += a * noise(p); p = p * 2.03 + 17.0; a *= 0.5; } return v; }
-vec3 plate(sampler2D tex, vec2 size, vec4 m){
-  vec2 uv = vUv;
-  float s = screen.x / screen.y, a = size.x / size.y;
-  // cover-fit around the focal point
-  if (s > a) uv.y = 0.5 + (uv.y - 0.5) * a / s;
-  else uv.x = clamp(m.x, 0.5 * s / a, 1.0 - 0.5 * s / a) + (uv.x - 0.5) * s / a;
-  // slow push-in and pan, plus a touch of parallax from the pointer
-  vec2 c = vec2(0.5 + m.w * 0.02, 1.0 - m.y);
-  uv = c + (uv - c) / m.z;
-  uv.x += look * 0.006;
-  float hy = 1.0 - m.y;              // horizon in uv space (uv.y grows upward)
-  // heat shimmer just above and below the horizon
-  float band = exp(-pow((uv.y - hy) * 22.0, 2.0));
-  uv.x += (noise(vec2(uv.y * 260.0, t * 2.2)) - 0.5) * 0.0016 * band;
-  uv.y += (noise(vec2(uv.x * 180.0, t * 1.7)) - 0.5) * 0.0010 * band;
-  // the sky drifts very slowly
-  float sky = smoothstep(hy + 0.02, hy + 0.2, uv.y);
-  uv.x += sky * sin(t * 0.06) * 0.006;
-  vec3 col = texture2D(tex, clamp(uv, 0.001, 0.999)).rgb;
-  // wind-blown sand: faint streaks travelling low over the ground
-  float ground = smoothstep(hy - 0.05, hy - 0.45, uv.y);
-  float streak = fbm(vec2(uv.x * 7.0 - t * 0.55, uv.y * 70.0 + t * 0.2));
-  col += vec3(1.0, 0.86, 0.68) * smoothstep(0.58, 0.85, streak) * 0.09 * ground;
-  return col;
-}
+const SKY_VERT = 'varying vec3 vDir; void main(){ vDir = normalize((modelMatrix * vec4(position, 0.0)).xyz); vec4 p = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); gl_Position = p.xyww; }';
+const SKY_FRAG = /* glsl */`
+uniform sampler2D band; uniform float yaw; uniform vec3 haze; uniform float t;
+varying vec3 vDir;
 void main(){
-  vec3 a = plate(texA, sizeA, metaA);
-  vec3 b = plate(texB, sizeB, metaB);
-  // organic dissolve, sweeping from right to left like wind over sand
-  float n = fbm(vUv * 3.5 + 4.0) * 0.6 + (1.0 - vUv.x) * 0.55;
-  float k = 1.0 - smoothstep(wipe * 1.3 - 0.15, wipe * 1.3, n);
-  vec3 col = mix(b, a, k);
-  // a soft lens vignette
-  vec2 q = vUv - 0.5; col *= 1.0 - dot(q * vec2(1.0, 1.25), q * vec2(1.0, 1.25)) * 0.55;
+  vec3 d = normalize(vDir);
+  float az = atan(d.z, d.x) + yaw;
+  float u = fract(az / 6.2831853 + 0.5 + t * 0.0004); // clouds creep across the sky
+  float elev = asin(clamp(d.y, -1.0, 1.0));
+  float top = radians(57.6);
+  vec3 col = texture2D(band, vec2(u, clamp(elev / top, 0.002, 0.998))).rgb;
+  // the photograph stops at 57.6 degrees; above it the sky deepens smoothly
+  vec3 zenith = texture2D(band, vec2(u, 0.995)).rgb * vec3(0.92, 0.95, 1.0);
+  col = mix(col, zenith, smoothstep(top * 0.92, top * 1.15, elev));
+  // a warm desert haze at the horizon, matching the fog on the dunes
+  col = mix(haze, col, smoothstep(-0.01, 0.12, elev));
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }`;
 
 function desertHero() {
-  const canvas = $('#heroCanvas');
-  const section = $('#story');
+  const canvas = $('#heroCanvas'), section = $('#story');
   const mobileQ = matchMedia('(max-width: 760px)');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.8;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.autoClear = false;
-
-  // background plate
-  const loader = new THREE.TextureLoader();
-  const plates = HERO_SLIDES.map(() => null);
-  const blank = new THREE.DataTexture(new Uint8Array([233, 205, 175, 255]), 1, 1); blank.needsUpdate = true;
-  const pu = {
-    texA: { value: blank }, texB: { value: blank }, sizeA: { value: new THREE.Vector2(1, 1) }, sizeB: { value: new THREE.Vector2(1, 1) },
-    metaA: { value: new THREE.Vector4(0.5, 0.5, 1, 0) }, metaB: { value: new THREE.Vector4(0.5, 0.5, 1, 0) },
-    screen: { value: new THREE.Vector2(1, 1) }, t: { value: 0 }, wipe: { value: 1 }, look: { value: 0 },
-  };
-  const bgScene = new THREE.Scene(), bgCam = new THREE.Camera();
-  const bgMat = new THREE.ShaderMaterial({ uniforms: pu, vertexShader: PLATE_VERT, fragmentShader: PLATE_FRAG, depthTest: false, depthWrite: false, toneMapped: false });
-  bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat));
-  const envs = [];
-  const pm = new THREE.PMREMGenerator(renderer);
-  function loadPlate(i) {
-    if (plates[i]) return plates[i];
-    plates[i] = new Promise(res => loader.load(HERO_SLIDES[i].plate, tex => {
-      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.minFilter = THREE.LinearMipmapLinearFilter;
-      const env = tex.clone(); env.mapping = THREE.EquirectangularReflectionMapping; env.needsUpdate = true;
-      envs[i] = pm.fromEquirectangular(env).texture; // the jewellery reflects its own scene
-      res(tex);
-    }, undefined, () => res(blank)));
-    return plates[i];
-  }
-
-  // jewellery
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 100);
-  camera.position.set(0, 0, 0);
-  const key = new THREE.DirectionalLight(0xfff1dc, 1.6); key.position.set(-2, 3, 2); scene.add(key);
-  const mats = new Mats(makeEnv(renderer, 'warm').cube);
-  const stand = new THREE.Group(); scene.add(stand);
-  const heroSparkles = [];
-  // drifting sand motes in front of the plate
-  const NP = 500, pp = [], ps = [];
-  for (let i = 0; i < NP; i++) { pp.push((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 7, -2 - Math.random() * 12); ps.push(Math.random()); }
+  const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 5000);
+  const HAZE = new THREE.Color(0xe9dccb);
+  scene.fog = new THREE.Fog(HAZE, 120, 900);
+  const wind = { value: 0 };
+
+  // sky
+  const tl = new THREE.TextureLoader();
+  const bandTex = tl.load('img/sky/sky_band.jpg', tx => { tx.colorSpace = THREE.SRGBColorSpace; });
+  bandTex.wrapS = THREE.RepeatWrapping; bandTex.anisotropy = 8;
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(2000, 64, 32), new THREE.ShaderMaterial({
+    uniforms: { band: { value: bandTex }, yaw: { value: SKY_YAW }, haze: { value: new THREE.Color(0xe2d8c8) }, t: wind },
+    vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, side: THREE.BackSide, depthWrite: false, fog: false, toneMapped: false,
+  }));
+  sky.renderOrder = -1; scene.add(sky);
+  new RGBELoader().load('img/sky/sky_1k.hdr', tex => {
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    const pm = new THREE.PMREMGenerator(renderer);
+    scene.environment = pm.fromEquirectangular(tex).texture; pm.dispose(); tex.dispose();
+    scene.environmentRotation.set(0, -SKY_YAW, 0);
+    scene.environmentIntensity = 0.75;
+  });
+  // sunlight from where the sun stands in the photograph
+  const sunDir = new THREE.Vector3(Math.cos(0.597 - SKY_YAW) * Math.cos(0.5), Math.sin(0.5), Math.sin(0.597 - SKY_YAW) * Math.cos(0.5)).normalize();
+  const sun = new THREE.DirectionalLight(0xffe2bc, 3.4);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.05;
+  Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 400 });
+  scene.add(sun, sun.target);
+  scene.add(new THREE.HemisphereLight(0xbcd4ee, 0xd9a070, 0.25));
+
+  // models
+  const gl = new GLTFLoader(); gl.setMeshoptDecoder(MeshoptDecoder);
+  const load = url => new Promise((res, rej) => gl.load(url, g => res(g.scene), undefined, rej));
+  const terrain = [];
+  const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0);
+  const groundY = (x, z) => { ray.set(new THREE.Vector3(x, 500, z), down); const hit = ray.intersectObjects(terrain, true)[0]; return hit ? hit.point.y : 0; };
+  const windy = mat => {
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uTime = wind;
+      sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec4 wpw = modelMatrix * vec4(position, 1.0);
+        float gust = 0.6 + 0.4 * sin(uTime * 0.33 + wpw.x * 0.02);
+        float sway = sin(uTime * 1.1 + wpw.x * 0.35 + wpw.z * 0.25) * 0.06 + sin(uTime * 3.3 + wpw.y * 1.7 + wpw.x * 0.9) * 0.018;
+        transformed += (inverse(mat3(modelMatrix)) * vec3(sway, sway * 0.4, sway * 0.6)) * gust;`);
+    };
+    mat.customProgramCacheKey = () => 'windy';
+  };
+  const prep = (root, { cast = true, receive = true, wave = false } = {}) => {
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      o.castShadow = cast; o.receiveShadow = receive;
+      const m = o.material;
+      if (wave && (m.alphaTest > 0 || m.transparent)) { windy(m); m.side = THREE.DoubleSide; }
+      if (m.map) m.map.anisotropy = 8;
+    });
+    return root;
+  };
+  const ready = (async () => {
+    const [dunes, far, palm, cluster, camelM] = await Promise.all(['models/sanddunes.glb', 'models/arrakis.glb', 'models/datepalm.glb', 'models/palmcluster.glb', 'models/camel.glb'].map(load));
+    // near dunes, scaled up to desert size; far dunes beyond them
+    const sandMat = m => {
+      m.color.setRGB(1.0, 0.74, 0.5); m.roughness = 0.95; m.metalness = 0; m.envMapIntensity = 0.5;
+      // wind ripples drawn from world position, strongest near the viewer
+      m.onBeforeCompile = sh => {
+        sh.vertexShader = 'varying vec3 vSandW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vSandW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+        sh.fragmentShader = 'varying vec3 vSandW;\n' + sh.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          { vec2 p = vSandW.xz;
+            float w = dot(p, vec2(0.83, 0.55)) * 11.0 + sin(p.y * 0.31 + p.x * 0.11) * 3.0 + sin(p.x * 0.19 - p.y * 0.07) * 2.0;
+            float g = cos(w) * pow(0.5 + 0.5 * sin(w), 0.7);
+            float fade = smoothstep(60.0, 3.0, length(vSandW - cameraPosition));
+            normal = normalize(normal + mat3(viewMatrix) * (vec3(0.83, 0.0, 0.55) * g * 0.2 * fade)); }`);
+      };
+      m.customProgramCacheKey = () => 'sand'; m.needsUpdate = true;
+    };
+    const sandify = root => root.traverse(o => { if (o.isMesh) sandMat(o.material); });
+    dunes.scale.setScalar(4.2); dunes.position.set(0, 0, -150); prep(dunes, { cast: false }); sandify(dunes); scene.add(dunes);
+    far.scale.setScalar(3.2); far.position.set(40, -12, -520); prep(far, { cast: false }); sandify(far); scene.add(far);
+    dunes.updateMatrixWorld(true); far.updateMatrixWorld(true);
+    terrain.push(dunes);
+    // sand all the way to the horizon under the models
+    const floorMat = dunes.getObjectByProperty('isMesh', true).material.clone(); sandMat(floorMat);
+    const fmap = floorMat.map ? floorMat.map.clone() : null; if (fmap) { fmap.wrapS = fmap.wrapT = THREE.RepeatWrapping; fmap.repeat.set(14, 14); floorMat.map = fmap; }
+    const fnrm = floorMat.normalMap ? floorMat.normalMap.clone() : null; if (fnrm) { fnrm.wrapS = fnrm.wrapT = THREE.RepeatWrapping; fnrm.repeat.set(14, 14); floorMat.normalMap = fnrm; }
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), floorMat);
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.05; floor.receiveShadow = true; scene.add(floor);
+    const place = (obj, x, z, s, ry, sink = 0) => { const o = obj.clone(true); o.scale.setScalar(s); o.position.set(x, groundY(x, z) - sink, z); o.rotation.y = ry; scene.add(o); return o; };
+    prep(palm, { wave: true }); prep(cluster, { wave: true }); prep(camelM);
+    place(palm, 13, 46, 1.25, 0.4);
+    place(palm, -19, 33, 1.05, 2.1);
+    place(palm, -27, 24, 0.9, 4.0);
+    place(cluster, -12, 16, 1.6, 1.2);
+    place(palm, 38, 5, 1.1, 5.1);
+    place(cluster, 58, -18, 1.4, 0.3);
+    place(palm, -55, -5, 1.0, 3.2);
+    const camel = place(camelM, -2, 44, 1.0, 0.25);
+    camel.userData.baseY = camel.position.y;
+    return { camel };
+  })();
+  ready.catch(e => console.error('hero models', e));
+
+  // drifting sand motes
+  const NP = 900, pp = [], ps = [];
+  for (let i = 0; i < NP; i++) { pp.push((Math.random() - 0.5) * 60, Math.random() * 3, 66 - Math.random() * 45); ps.push(Math.random()); }
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.Float32BufferAttribute(pp, 3)); pg.setAttribute('seed', new THREE.Float32BufferAttribute(ps, 1));
   const motes = new THREE.Points(pg, new THREE.ShaderMaterial({
-    uniforms: { t: pu.t, px: { value: renderer.getPixelRatio() } }, transparent: true, depthWrite: false, depthTest: false,
-    vertexShader: `attribute float seed; uniform float t; uniform float px; varying float a;
-      void main(){ vec3 p = position; float sp = 0.25 + seed * 0.6;
-        p.x = mod(p.x + 8.0 + t * sp, 16.0) - 8.0; p.y += sin(t * 0.7 + seed * 30.0) * 0.15 - 1.2 * seed * seed;
+    uniforms: { t: wind, px: { value: renderer.getPixelRatio() }, base: { value: 0 } }, transparent: true, depthWrite: false,
+    vertexShader: `attribute float seed; uniform float t; uniform float px; uniform float base; varying float a;
+      void main(){ vec3 p = position; float sp = 1.2 + seed * 2.5;
+        p.x = mod(p.x + 30.0 + t * sp, 60.0) - 30.0; p.y = base + 0.1 + pow(fract(seed * 7.1 + t * 0.03), 2.0) * 2.4;
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
-        a = (0.25 + 0.5 * seed) * smoothstep(-14.0, -3.0, mv.z) * (0.6 + 0.4 * sin(t * 1.3 + seed * 50.0));
-        gl_PointSize = px * (1.0 + seed * 2.4) * (5.0 / -mv.z); gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: `varying float a; void main(){ float d = length(gl_PointCoord - 0.5); gl_FragColor = vec4(1.0, 0.93, 0.82, a * smoothstep(0.5, 0.0, d)); }`,
+        a = 0.55 * smoothstep(50.0, 6.0, -mv.z) * (0.5 + 0.5 * sin(t * 1.3 + seed * 40.0));
+        gl_PointSize = px * (1.0 + seed * 2.0) * (12.0 / -mv.z); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `varying float a; void main(){ float d = length(gl_PointCoord - 0.5); gl_FragColor = vec4(0.98, 0.88, 0.74, a * smoothstep(0.5, 0.0, d)); }`,
   }));
   motes.frustumCulled = false; scene.add(motes);
 
-  let current = null, leaving = null, idx = 0, tStart = 0, spin = 0, spinV = 0, wipeStart = -1;
-  const target = new THREE.Vector3(), place = new THREE.Vector3();
-  let placed = false;
+  // jewellery
+  const mats = new Mats(makeEnv(renderer, 'warm').cube);
+  const stand = new THREE.Group(); scene.add(stand);
+  const heroSparkles = [];
+  let current = null, leaving = null, idx = 0, tStart = 0, spin = 0, spinV = 0;
   function buildSlide(i) {
     const p = byId(HERO_SLIDES[i].id), B = { mats, own: [] };
     const obj = buildPiece(B, p.spec);
@@ -1048,29 +1089,15 @@ function desertHero() {
     stand.add(holder);
     return holder;
   }
-  async function show(i, dir = 1) {
+  function show(i, dir = 1) {
     const n = HERO_SLIDES.length; idx = (i + n) % n;
-    const my = idx, s = HERO_SLIDES[my];
-    heroText(my);
-    const tex = await loadPlate(my);
-    loadPlate((my + 1) % n); // warm the next one
-    if (my !== idx) return;  // the visitor moved on while it loaded
-    // the old plate becomes B, the new one A; the wipe reveals A
-    pu.texB.value = pu.texA.value; pu.sizeB.value.copy(pu.sizeA.value); pu.metaB.value.copy(pu.metaA.value);
-    pu.texA.value = tex; pu.sizeA.value.set(tex.image.width, tex.image.height);
-    pu.metaA.value.set(s.fx, s.horizon, 1.0, dir);
-    wipeStart = pu.texB.value === blank ? -1 : performance.now(); if (wipeStart < 0) pu.wipe.value = 1; else pu.wipe.value = 0;
-    scene.environment = envs[my] || null; scene.environmentIntensity = 1.0;
+    heroText(idx);
     if (leaving) { stand.remove(leaving); leaving.userData.own.forEach(o => o.dispose?.()); }
     leaving = current; if (leaving) leaving.userData.leftAt = performance.now() / 1000, leaving.userData.dir = dir;
-    current = buildSlide(my); current.userData.dir = dir;
+    current = buildSlide(idx); current.userData.dir = dir;
     heroSparkles.splice(0, Math.max(0, heroSparkles.length - 2));
     tStart = 0; spin = 0;
-    section.dataset.tone = s.tone;
-    nav.dataset.tone = s.tone;
   }
-
-  // words
   const els = { eyebrow: $('#hEyebrow'), name: $('#hName'), desc: $('#hDesc'), price: $('#hPrice'), idx: $('#hIdx'), bars: $('#hBars'), text: $('#heroText') };
   $('#hTotal').textContent = String(HERO_SLIDES.length).padStart(2, '0');
   HERO_SLIDES.forEach((s, i) => els.bars.append(h('button', { 'aria-label': `Show ${byId(s.id).name}`, onclick: () => go(i) }, h('i'))));
@@ -1078,17 +1105,13 @@ function desertHero() {
   function heroText(i) {
     const s = HERO_SLIDES[i], p = byId(s.id);
     const fill = () => {
-      els.eyebrow.textContent = `${p.house} · ${p.city}`;
-      els.name.textContent = p.name;
-      els.desc.textContent = s.line;
-      els.price.textContent = aed(priceOf(p.spec));
-      els.text.classList.remove('out');
+      els.eyebrow.textContent = `${p.house} · ${p.city}`; els.name.textContent = p.name; els.desc.textContent = s.line;
+      els.price.textContent = aed(priceOf(p.spec)); els.text.classList.remove('out');
     };
     clearTimeout(textT);
     if (firstText) { firstText = false; fill(); } else { els.text.classList.add('out'); textT = setTimeout(fill, 420); }
     els.idx.textContent = String(i + 1).padStart(2, '0');
     [...els.bars.children].forEach((b, j) => { b.classList.toggle('on', j === i); b.classList.toggle('done', j < i); b.style.setProperty('--dur', SLIDE_MS + 'ms'); });
-    // restart the progress bar animation
     const on = els.bars.children[i]?.querySelector('i'); if (on) { on.style.animation = 'none'; void on.offsetWidth; on.style.animation = ''; }
   }
   function go(i, dir) { show(i, dir ?? (i >= idx ? 1 : -1)); }
@@ -1099,60 +1122,63 @@ function desertHero() {
   let paused = false;
   els.text.addEventListener('pointerenter', () => { paused = true; section.classList.add('paused'); });
   els.text.addEventListener('pointerleave', () => { paused = false; section.classList.remove('paused'); });
+  section.dataset.tone = 'dark'; nav.dataset.tone = 'dark';
 
-  let down = false, lx = 0;
-  canvas.addEventListener('pointerdown', e => { down = true; lx = e.clientX; });
-  addEventListener('pointermove', e => { if (!down) return; spinV = (e.clientX - lx) * 0.01; spin += spinV; lx = e.clientX; });
-  addEventListener('pointerup', () => { down = false; });
+  let dragging = false, lx = 0;
+  canvas.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; });
+  addEventListener('pointermove', e => { if (!dragging) return; spinV = (e.clientX - lx) * 0.01; spin += spinV; lx = e.clientX; });
+  addEventListener('pointerup', () => { dragging = false; });
   const look = { x: 0, tx: 0, y: 0, ty: 0 };
   addEventListener('pointermove', e => { look.tx = e.clientX / innerWidth - 0.5; look.ty = e.clientY / innerHeight - 0.5; });
 
   const ease = x => 1 - Math.pow(1 - clamp(x), 3), easeIn = x => Math.pow(clamp(x), 3);
-  let lastNow = performance.now();
+  const tv1 = new THREE.Vector3(), tv2 = new THREE.Vector3(), tv3 = new THREE.Vector3(), anchor = new THREE.Vector3();
+  let camGround = null, lastNow = performance.now(), parts = null;
+  ready.then(p => { parts = p; camGround = groundY(0, 70); motes.material.uniforms.base.value = groundY(0, 55); });
   const v = {
     canvas, renderer, visible: true,
     render(t) {
       const now = performance.now(), dtMs = now - lastNow; lastNow = now;
-      const w = canvas.clientWidth, hh = canvas.clientHeight;
-      const sz = renderer.getSize(new THREE.Vector2());
+      const w = canvas.clientWidth, hh = canvas.clientHeight, sz = renderer.getSize(tv1);
       if (w && hh && (sz.x !== w || sz.y !== hh)) { renderer.setSize(w, hh, false); camera.aspect = w / hh; camera.updateProjectionMatrix(); }
-      pu.screen.value.set(w || 1, hh || 1);
-      pu.t.value = reduced ? 0 : t;
+      wind.value = reduced ? 0 : t;
+      heroSparkles.forEach(m => { m.uniforms.t.value = t; });
       look.x += (look.tx - look.x) * 0.04; look.y += (look.ty - look.y) * 0.04;
-      pu.look.value = reduced ? 0 : look.x;
+      const wide = camera.aspect > 1, drift = reduced ? 0 : Math.sin(t * 0.04);
+      const gy = camGround ?? 0;
+      if (wide) {
+        camera.position.set(drift * 2 + look.x * 1.5, gy + 2.2 - look.y * 0.4, 70);
+        camera.lookAt(drift * 1 + look.x * 3, gy + 5.5, -100);
+      } else {
+        camera.position.set(-2 + drift, gy + 2.4, 72);
+        camera.lookAt(-10 + drift, gy + 7, -100);
+      }
+      sun.position.copy(camera.position).addScaledVector(sunDir, 150); sun.target.position.copy(camera.position).add(tv3.set(0, 0, -40));
+      // the camel shifts its weight
+      if (parts) parts.camel.position.y = parts.camel.userData.baseY + Math.sin(t * 0.6) * 0.01;
+      // the piece keeps its place in the frame
+      camera.updateMatrixWorld();
+      const fwd = camera.getWorldDirection(tv1), right = tv2.setFromMatrixColumn(camera.matrixWorld, 0), up = tv3.setFromMatrixColumn(camera.matrixWorld, 1);
+      anchor.copy(camera.position).addScaledVector(fwd, 6).addScaledVector(right, wide ? 1.15 : 0).addScaledVector(up, wide ? 0.05 : 0.75);
+      stand.position.copy(anchor); stand.quaternion.copy(camera.quaternion);
+      const halfH = 6 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), R = Math.min(halfH * 0.34, halfH * camera.aspect * 0.42);
       if (!tStart) tStart = now;
       if (paused || document.hidden || reduced) tStart += dtMs;
-      const prog = clamp((now - tStart) / SLIDE_MS);
-      pu.metaA.value.z = 1.0 + (reduced ? 0 : 0.07 * ease(prog * 0.85 + 0.15)); // push-in
-      if (wipeStart > 0) { pu.wipe.value = ease((now - wipeStart) / 1600); if (pu.wipe.value >= 1) wipeStart = -1; }
+      else if (dtMs > 120) tStart += dtMs - 16; // a stalled frame does not count towards the slide
       if (now - tStart > SLIDE_MS) go(idx + 1, 1);
-      heroSparkles.forEach(m => { m.uniforms.t.value = t; });
-      // where the piece floats, in screen terms, then at a fixed depth
-      const s = HERO_SLIDES[idx], mobile = mobileQ.matches || camera.aspect < 0.9;
-      const at = mobile ? [0.5, 0.3] : s.at, D = 6;
-      const halfH = D * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), halfW = halfH * camera.aspect;
-      target.set((at[0] * 2 - 1) * halfW, (1 - at[1] * 2) * halfH, -D);
-      if (!placed) { place.copy(target); placed = true; } else place.lerp(target, 0.05);
-      stand.position.copy(place);
-      const R = Math.min(halfH * 0.36, halfW * 0.42);
-      if (!down) { spinV *= 0.94; spin += spinV; }
+      if (!dragging) { spinV *= 0.94; spin += spinV; }
       const nowS = now / 1000;
       if (current) {
         const u = current.userData, a = ease((nowS - u.born) / 1.4);
         current.scale.setScalar(R * u.k * lerp(0.25, 1, a) + 1e-4);
-        current.position.y = lerp(-0.6, 0, a) + (reduced ? 0 : Math.sin(t * 0.9) * 0.05);
-        current.rotation.set(u.base + (reduced ? 0 : Math.sin(t * 0.5) * 0.08) + look.y * 0.2, (1 - a) * -2.2 * u.dir + (reduced ? 0 : t * 0.3) + spin + look.x * 0.4, 0);
+        current.position.y = lerp(-0.5, 0, a) + (reduced ? 0 : Math.sin(t * 0.9) * 0.04);
+        current.rotation.set(u.base + (reduced ? 0 : Math.sin(t * 0.5) * 0.08), (1 - a) * -2.2 * u.dir + (reduced ? 0 : t * 0.3) + spin, 0);
       }
       if (leaving) {
         const u = leaving.userData, a = easeIn((nowS - u.leftAt) / 0.8);
-        leaving.scale.setScalar(R * u.k * (1 - a) + 1e-4);
-        leaving.position.y = a * 0.7;
-        leaving.rotation.y += 0.06 * u.dir;
+        leaving.scale.setScalar(R * u.k * (1 - a) + 1e-4); leaving.position.y = a * 0.6; leaving.rotation.y += 0.06 * u.dir;
         if (a >= 1) { stand.remove(leaving); u.own.forEach(o => o.dispose?.()); leaving = null; }
       }
-      renderer.clear();
-      renderer.render(bgScene, bgCam);
-      renderer.clearDepth();
       renderer.render(scene, camera);
     },
   };
@@ -1162,6 +1188,7 @@ function desertHero() {
   return v;
 }
 const hero = desertHero();
+
 
 
 

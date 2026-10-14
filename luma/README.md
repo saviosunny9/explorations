@@ -5,9 +5,9 @@ Open `luma/index.html` in Chrome; it needs an internet connection for three.js (
 
 ## What's on the page
 
-- **Hero**: real desert photographs, each paired with one of five curated pieces. The 3D piece floats in front and reflects its scene.
-  - Life in the photographs: a slow push-in, heat shimmer at the horizon, a slow drift in the sky, wind-blown sand streaks and drifting motes. A noise dissolve carries one scene into the next every 7.5 seconds.
-  - Controls and tone: text switches between light and dark to suit each photograph. Arrows, progress bars and pause on hover; drag to turn the piece.
+- **Hero**: a real-time 3D desert built from downloaded models, with five curated pieces floating in front one at a time.
+  - Scene: a photographed sky (Poly Haven HDRI) for the backdrop and lighting; Sketchfab dunes as terrain with wind ripples near the viewer; date palms and an oasis cluster whose leaves move in the wind; a saddled camel; drifting sand motes.
+  - Carousel: a new piece every 7.5 seconds, with arrows, progress bars and pause on hover. Drag to turn the piece.
 - **The edit**: 12 pieces from 12 made-up houses (Maison Verel, Atelier Caldera, Ondel…), filterable by Everyday / Occasion / Bridal. Card images are rendered from the same 3D models. Opening a card shows the piece in 3D (orbit, zoom, switch metal) with buttons for Add to bag, Home try-on, Try on and Customise.
 - **Black satin band**: a full-width moving black satin shader with a faint gold glint, behind the brand promise.
 - **Compose**: a configurator with piece (ring / pendant / earrings / bracelet), metal, stone, setting, cut, carat, band, size and engraving. The model and the AED price update live. Engraving is drawn on the inside of the band, and *Engraving* turns the camera to show it.
@@ -24,6 +24,20 @@ Open `luma/index.html` in Chrome; it needs an internet connection for three.js (
 - Every piece is modelled in code (`buildRing`, `buildPendant`, `buildEarrings`, `buildBracelet`, `buildBrooch`, `buildNecklace`) from lathe-cut gems (round, oval, emerald, pear, marquise).
 - Stones use a shader that traces light through the pavilion facets, with per-channel dispersion, against a high-contrast light box. Metals are physical materials lit by a studio light tent.
 - Prices come from `priceOf(spec)` (carat^1.55 per stone type, metal factor, setting extras), so the edit and Compose always agree.
+
+## 3D models and sky
+
+Downloaded through the Sketchfab API, optimised with gltf-transform (meshopt geometry, WebP textures) into `models/`. All are CC BY 4.0 and credited in the site footer:
+
+| File | Model | Author |
+| --- | --- | --- |
+| `models/sanddunes.glb` | [Sand Dunes](https://sketchfab.com/3d-models/6bd9a0d96ef4463a8efd45af2be595ac) | Helindu |
+| `models/arrakis.glb` | [Dune - Arrakis (WIP)](https://sketchfab.com/3d-models/58bd8be249944f1b892a52eb52e06024) | Rostenbach |
+| `models/datepalm.glb` | [Date Palm](https://sketchfab.com/3d-models/11acf710e6c149daa8d6fb8cdc5d087f) | evolveduk |
+| `models/palmcluster.glb` | [Date palm and vegetation](https://sketchfab.com/3d-models/734c4537ca8547209a54df49f134824a) | borsh_and |
+| `models/camel.glb` | [camel](https://sketchfab.com/3d-models/44ef2ea4b50a49e395e5e3ebbdc99f98) | omarme37 |
+
+Sky: [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), Poly Haven, CC0. `img/sky/sky_band.jpg` is the visible band of the tonemapped panorama; `img/sky/sky_1k.hdr` lights the scene.
 
 ## Photos
 
