@@ -5,9 +5,10 @@ Open `luma/index.html` in Chrome; it needs an internet connection for three.js (
 
 ## What's on the page
 
-- **Hero**: a real-time 3D desert built from downloaded models, with five curated pieces floating in front one at a time.
-  - Scene: a photographed sky (Poly Haven HDRI) for the backdrop and lighting; Sketchfab dunes as terrain with wind ripples near the viewer; date palms and an oasis cluster whose leaves move in the wind; a saddled camel; drifting sand motes.
-  - Carousel: a new piece every 7.5 seconds, with arrows, progress bars and pause on hover. Drag to turn the piece.
+- **Hero**: five 3D desert sets in the light of an editorial shoot, one per curated piece. Each piece floats at the centre above a sculptural plinth.
+  - Sets: a drum plinth before a sun on the horizon with fluted towers and curved terraces; a raised runway between monoliths under a low side sun; fluted columns, buried blocks and a dome at dusk; pale dunes with a stepped plinth and an oasis; a cube between monoliths with a row of backlit palms.
+  - Look: sky, sun disk, light, fog and sand colours sampled from the reference shoot; smooth sand with fine wind ripples; matte plaster forms with a faint mottle; long shadows; palms whose leaves move in the wind; drifting sand motes.
+  - Motion: a slow push-in on each set. A warm sand haze carries one set into the next every 8 seconds. Arrows, progress bars and pause on hover; drag to turn the piece.
 - **The edit**: 12 pieces from 12 made-up houses (Maison Verel, Atelier Caldera, Ondel…), filterable by Everyday / Occasion / Bridal. Card images are rendered from the same 3D models. Opening a card shows the piece in 3D (orbit, zoom, switch metal) with buttons for Add to bag, Home try-on, Try on and Customise.
 - **Black satin band**: a full-width moving black satin shader with a faint gold glint, behind the brand promise.
 - **Compose**: a configurator with piece (ring / pendant / earrings / bracelet), metal, stone, setting, cut, carat, band, size and engraving. The model and the AED price update live. Engraving is drawn on the inside of the band, and *Engraving* turns the camera to show it.
@@ -25,19 +26,15 @@ Open `luma/index.html` in Chrome; it needs an internet connection for three.js (
 - Stones use a shader that traces light through the pavilion facets, with per-channel dispersion, against a high-contrast light box. Metals are physical materials lit by a studio light tent.
 - Prices come from `priceOf(spec)` (carat^1.55 per stone type, metal factor, setting extras), so the edit and Compose always agree.
 
-## 3D models and sky
+## 3D models
 
-Downloaded through the Sketchfab API, optimised with gltf-transform (meshopt geometry, WebP textures) into `models/`. All are CC BY 4.0 and credited in the site footer:
+Downloaded through the Sketchfab API and optimised with gltf-transform (meshopt geometry, WebP textures) into `models/`. All are CC BY 4.0 and credited in the site footer. The plinths, monoliths, columns, terraces, sky and sand are modelled in code.
 
 | File | Model | Author |
 | --- | --- | --- |
-| `models/sanddunes.glb` | [Sand Dunes](https://sketchfab.com/3d-models/6bd9a0d96ef4463a8efd45af2be595ac) | Helindu |
-| `models/arrakis.glb` | [Dune - Arrakis (WIP)](https://sketchfab.com/3d-models/58bd8be249944f1b892a52eb52e06024) | Rostenbach |
 | `models/datepalm.glb` | [Date Palm](https://sketchfab.com/3d-models/11acf710e6c149daa8d6fb8cdc5d087f) | evolveduk |
 | `models/palmcluster.glb` | [Date palm and vegetation](https://sketchfab.com/3d-models/734c4537ca8547209a54df49f134824a) | borsh_and |
-| `models/camel.glb` | [camel](https://sketchfab.com/3d-models/44ef2ea4b50a49e395e5e3ebbdc99f98) | omarme37 |
-
-Sky: [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), Poly Haven, CC0. `img/sky/sky_band.jpg` is the visible band of the tonemapped panorama; `img/sky/sky_1k.hdr` lights the scene.
+| `models/sanddunes.glb` | [Sand Dunes](https://sketchfab.com/3d-models/6bd9a0d96ef4463a8efd45af2be595ac) | Helindu |
 
 ## Photos
 
@@ -51,11 +48,6 @@ Editorial photographs are from [Pexels](https://www.pexels.com) under the Pexels
 | `img/worn-emerald.jpg` | https://www.pexels.com/photo/17298688/ |
 | `img/edit-earring.jpg` | https://www.pexels.com/photo/7615245/ |
 | `img/home-portrait.jpg` | https://www.pexels.com/photo/9509032/ |
-| `img/hero/dunes-clouds.jpg` | https://www.pexels.com/photo/35650512/ |
-| `img/hero/camels-sunset.jpg` | https://www.pexels.com/photo/17887613/ |
-| `img/hero/dune-crest.jpg` | https://www.pexels.com/photo/2403629/ |
-| `img/hero/pink-dunes.jpg` | https://www.pexels.com/photo/18672830/ |
-| `img/hero/caravan.jpg` | https://www.pexels.com/photo/3121285/ |
 
 The sample try-on portrait is from Unsplash (`photo-1523529831-3b6372bedacd`, Unsplash License).
 For a real launch, replace these with LUMA's own shoot: stock models must not appear to endorse the brand.
