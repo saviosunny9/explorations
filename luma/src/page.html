@@ -16,27 +16,60 @@
 </header>
 
 <main id="top">
-  <!-- Hero: a 3D desert; the edit floats in one piece at a time -->
-  <section class="hero" id="story" aria-label="The edit, one piece at a time" aria-roledescription="carousel">
-    <canvas id="heroCanvas" aria-label="A desert of dunes and date palms at golden hour, with a piece of jewellery floating in front. Drag to turn the piece."></canvas>
-    <div class="hero-veil" aria-hidden="true"></div>
-    <p class="hero-kicker wrap">Fine jewellery from Europe, chosen for the Emirates</p>
-    <div class="hero-ui wrap">
-      <div class="hero-text" id="heroText" aria-live="polite">
-        <p class="eyebrow" id="hEyebrow"></p>
-        <h1 class="hero-name" id="hName"></h1>
-        <p class="hero-desc" id="hDesc"></p>
-        <div class="hero-cta">
-          <button class="btn solid" id="hOpen">Discover the piece</button>
-          <button class="link" id="hHome">Try it at home</button>
-          <span class="hero-price num" id="hPrice"></span>
+  <!-- Hero: two styles, switched with the small control at the top right.
+       Campaign: the house photographs, one after another, under one brand headline.
+       3D sets: a desert in the light of the shoot; the edit floats in one piece at a time. -->
+  <section class="hero" id="story" data-hero="campaign" data-tone="light" aria-label="LUMA">
+    <div class="hv hv-campaign on" id="heroCampaign" aria-roledescription="carousel" aria-label="The LUMA campaign">
+      <div class="cp-stage" id="cpStage"></div>
+      <div class="cp-veil" aria-hidden="true"></div>
+      <i class="cp-edge" id="cpEdge" aria-hidden="true"></i>
+      <div class="cp-pin" id="cpPin" aria-hidden="true"><i></i></div>
+      <i class="cp-line" id="cpLine" aria-hidden="true"></i>
+      <div class="cp-tag" id="cpTag" aria-live="polite">
+        <p class="cp-house" id="cpHouse"></p>
+        <p class="cp-name" id="cpName"></p>
+        <div class="cp-buy"><span class="num" id="cpPrice"></span><button id="cpBuy">Buy</button></div>
+      </div>
+      <div class="hero-ui wrap">
+        <div class="hero-text cp-text">
+          <p class="eyebrow">Fine jewellery from Europe, chosen for the Emirates</p>
+          <h1 class="hero-name cp-title"><span>Made for the</span> <em>golden hour</em></h1>
+          <p class="hero-desc">Rare stones from the ateliers of Paris, Geneva and Valenza, brought to the women of the Emirates.</p>
+          <div class="hero-cta"><a class="btn solid" href="#edit" id="cpDiscover">Discover luxury</a></div>
+        </div>
+        <div class="hero-nav">
+          <div class="hero-count num"><span id="cpIdx">01</span><span class="sep"></span><span id="cpTotal">04</span></div>
+          <div class="hero-bars" id="cpBars"></div>
+          <div class="hero-arrows"><button id="cpPrev" aria-label="Previous photograph">&#8592;</button><button id="cpNext" aria-label="Next photograph">&#8594;</button></div>
         </div>
       </div>
-      <div class="hero-nav">
-        <div class="hero-count num"><span id="hIdx">01</span><span class="sep"></span><span id="hTotal">05</span></div>
-        <div class="hero-bars" id="hBars"></div>
-        <div class="hero-arrows"><button id="hPrev" aria-label="Previous piece">&#8592;</button><button id="hNext" aria-label="Next piece">&#8594;</button></div>
+    </div>
+    <div class="hv hv-3d" id="hero3d" aria-roledescription="carousel" aria-label="The edit, one piece at a time">
+      <canvas id="heroCanvas" aria-label="A desert of dunes and date palms at golden hour, with a piece of jewellery floating in front. Drag to turn the piece."></canvas>
+      <div class="hero-veil" aria-hidden="true"></div>
+      <p class="hero-kicker wrap">Fine jewellery from Europe, chosen for the Emirates</p>
+      <div class="hero-ui wrap">
+        <div class="hero-text" id="heroText" aria-live="polite">
+          <p class="eyebrow" id="hEyebrow"></p>
+          <h2 class="hero-name" id="hName"></h2>
+          <p class="hero-desc" id="hDesc"></p>
+          <div class="hero-cta">
+            <button class="btn solid" id="hOpen">Discover the piece</button>
+            <button class="link" id="hHome">Try it at home</button>
+            <span class="hero-price num" id="hPrice"></span>
+          </div>
+        </div>
+        <div class="hero-nav">
+          <div class="hero-count num"><span id="hIdx">01</span><span class="sep"></span><span id="hTotal">05</span></div>
+          <div class="hero-bars" id="hBars"></div>
+          <div class="hero-arrows"><button id="hPrev" aria-label="Previous piece">&#8592;</button><button id="hNext" aria-label="Next piece">&#8594;</button></div>
+        </div>
       </div>
+    </div>
+    <div class="hero-switch" role="group" aria-label="Hero style">
+      <button data-hero="campaign" aria-pressed="true">Campaign</button>
+      <button data-hero="3d" aria-pressed="false">3D sets</button>
     </div>
   </section>
 

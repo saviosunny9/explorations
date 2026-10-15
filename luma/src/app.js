@@ -1198,7 +1198,7 @@ function desertHero() {
   });
 
   // apply a set's light, sky and camera
-  let setIdx = -1, setT0 = 0;
+  let setIdx = -1, setT0 = 0, tone = 'light', active = false, inView = true;
   function applySet(i) {
     const s = HERO_SLIDES[i]; setIdx = i; setT0 = performance.now();
     skyU.top.value.set(s.sky.top); skyU.mid.value.set(s.sky.mid); skyU.hor.value.set(s.sky.hor);
@@ -1209,7 +1209,7 @@ function desertHero() {
     renderer.toneMappingExposure = s.exposure;
     scene.environment = envs[i]; scene.environmentIntensity = 0.9;
     moteCol.value.set(s.light.color).lerp(C('#ffffff'), 0.5);
-    section.dataset.tone = s.tone; nav.dataset.tone = s.tone;
+    tone = s.tone; if (active) setHeroTone(tone);
   }
 
   // jewellery
@@ -1281,7 +1281,9 @@ function desertHero() {
   const tv1 = new THREE.Vector3(), lookAt = new THREE.Vector3();
   let lastNow = performance.now();
   const v = {
-    canvas, renderer, visible: true,
+    canvas, renderer,
+    get visible() { return active && inView; },
+    setActive(on) { active = on; if (on) { setHeroTone(tone); lastNow = performance.now(); } },
     render(t) {
       const now = performance.now(), dtMs = now - lastNow; lastNow = now;
       const w = canvas.clientWidth, hh = canvas.clientHeight, sz = renderer.getSize(tv1);
@@ -1334,12 +1336,181 @@ function desertHero() {
       renderer.render(scene, camera);
     },
   };
-  new IntersectionObserver(([e]) => { v.visible = e.isIntersecting; }).observe(canvas);
+  new IntersectionObserver(([e]) => { inView = e.isIntersecting; }).observe(canvas);
   viewers.add(v);
   show(0);
   return v;
 }
-const hero = desertHero();
+
+/* ---------- hero: the campaign photographs, one after another under one brand headline ---------- */
+// spot: the jewel in the photograph (fractions of the image); tag: which way the name and Buy sit from it
+const CAMPAIGN = [
+  { key: 'lagune', name: 'Lagune collar', house: 'Maison Verel', city: 'Paris', price: 148000, metal: 'yellow', type: 'necklace',
+    spot: [0.657, 0.535], tag: [1, -0.1], len: 1.5, alt: 'A woman in a grey draped gown rests against a stone wall at sunset, wearing a gold collar of blue-green step-cut stones and matching drop earrings.' },
+  { key: 'octave', id: 'octave', spot: [0.684, 0.395], tag: [1, 0.15], len: 1.3,
+    alt: 'A woman in a grey draped gown leans on stone steps at sunset, her hand at her chin wearing a step-cut emerald ring in gold.' },
+  { key: 'rosace', name: 'Rosace ruby necklace', house: 'Orsini & Figli', city: 'Milan', price: 212000, metal: 'rose', type: 'necklace',
+    spot: [0.527, 0.39], tag: [-1, -0.2], len: 1.4, alt: 'A woman in a flowing grey gown walks between stone arches in the dunes at sunset, wearing a ruby and diamond necklace and a matching bracelet.' },
+  { key: 'zahra', name: 'Zahra emerald necklace', house: 'Atelier Caldera', city: 'Valenza', price: 186000, metal: 'yellow', type: 'necklace',
+    spot: [0.612, 0.445], tag: [1, -0.2], len: 1.5, alt: 'A woman in a grey draped gown sits among sandstone blocks and columns at sunset, wearing an emerald and diamond necklace with drop earrings.' },
+].map(c => {
+  const p = c.id && byId(c.id);
+  return { ...c, img: `img/campaign/${c.key}.jpg`, thumb: `img/campaign/${c.key}-thumb.jpg`,
+    ...(p ? { name: p.name, house: p.house, city: p.city, price: priceOf(p.spec), metal: p.spec.metal, type: p.spec.type } : {}) };
+});
+const IMG_ASPECT = 1672 / 941;
+function campaignHero() {
+  const root = $('#heroCampaign'), stage = $('#cpStage'), edge = $('#cpEdge'), pin = $('#cpPin'), line = $('#cpLine'), tag = $('#cpTag');
+  const SHOW = 7000, WIPE = 1500;
+  const slides = CAMPAIGN.map((c, i) => {
+    const img = h('img', { src: c.img, alt: c.alt, decoding: 'async', draggable: 'false', fetchpriority: i ? 'low' : 'high' });
+    const inner = h('div.cp-img', {}, img), shade = h('i.cp-shade');
+    const fig = h('figure.cp-slide', { 'aria-hidden': 'true' }, inner, shade);
+    stage.append(fig);
+    const ready = img.decode ? img.decode().catch(() => {}) : Promise.resolve();
+    return { c, fig, inner, shade, ready, box: null };
+  });
+  const bars = $('#cpBars');
+  $('#cpTotal').textContent = String(slides.length).padStart(2, '0');
+  slides.forEach((sl, i) => bars.append(h('button', { 'aria-label': `Show ${sl.c.name}`, onclick: () => go(i) }, h('i'))));
+
+  // cover the hero, keeping the jewel as near the middle as the crop allows
+  let W = 0, H = 0;
+  function layout() {
+    W = stage.clientWidth; H = stage.clientHeight;
+    const tall = W / H < 1; // phones: a little closer, so the jewel can sit above the headline
+    for (const sl of slides) {
+      const w = Math.max(W, H * IMG_ASPECT) * (tall ? 1.14 : 1), hh = w / IMG_ASPECT;
+      const [fx, fy] = sl.c.spot;
+      const x = clamp(W / 2 - fx * w, W - w, 0), y = clamp(H * (tall ? 0.36 : 0.42) - fy * hh, H - hh, 0);
+      sl.box = { x, y, w, h: hh, px: x + fx * w, py: y + fy * hh };
+      Object.assign(sl.inner.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: hh + 'px', transformOrigin: `${fx * w}px ${fy * hh}px` });
+    }
+    placeTag();
+  }
+  // the pin sits on the jewel; a hairline runs out to the name, clamped inside the hero
+  function placeTag() {
+    const sl = slides[idx]; if (!sl.box || !W) return;
+    const { px, py } = sl.box, small = W < 760;
+    const [dx, dy] = sl.c.tag, len = (small ? 44 : 80) * (sl.c.len || 1), n = Math.hypot(dx, dy);
+    let ex = px + dx / n * len, ey = py + dy / n * len;
+    const tw = tag.offsetWidth, th = tag.offsetHeight, m = small ? 16 : 28, right = dx < 0;
+    let tx = right ? ex - 10 - tw : ex + 10;
+    let ty = ey - th / 2;
+    const textTop = $('#heroCampaign .hero-text').getBoundingClientRect().top - stage.getBoundingClientRect().top || H;
+    tx = clamp(tx, m, W - m - tw); ty = clamp(ty, small ? 110 : 120, (small ? textTop : H - 200) - th - 18);
+    ex = right ? tx + tw + 10 : tx - 10; ey = clamp(ey, ty + 6, ty + th - 6);
+    pin.style.transform = `translate(${px}px, ${py}px)`;
+    const lx = ex - px, ly = ey - py;
+    line.style.width = Math.hypot(lx, ly) + 'px';
+    line.style.transform = `translate(${px}px, ${py}px) rotate(${Math.atan2(ly, lx)}rad)`;
+    tag.classList.toggle('r', right);
+    tag.style.left = tx + 'px'; tag.style.top = ty + 'px';
+  }
+  function fillTag() {
+    const c = slides[idx].c;
+    $('#cpHouse').textContent = `${c.house} · ${c.city}`; $('#cpName').textContent = c.name; $('#cpPrice').textContent = aed(c.price);
+    $('#cpBuy').setAttribute('aria-label', `Buy the ${c.name}`);
+  }
+  $('#cpBuy').addEventListener('click', () => {
+    const c = slides[idx].c;
+    addToBag({ id: c.id || 'cp-' + c.key, name: c.name, price: c.price, img: c.thumb, spec: { type: c.type, metal: c.metal } });
+    openBag();
+  });
+  $('#cpDiscover').addEventListener('click', e => { e.preventDefault(); $('#edit').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); });
+
+  let idx = 0, from = -1, dir = 1, tSwitch = performance.now(), shown = 0, goTok = 0, paused = false, active = false, inView = true, raf = 0, lastNow = 0, tagged = false;
+  function bar(i) {
+    [...bars.children].forEach((b, j) => { b.classList.toggle('on', j === i); b.classList.toggle('done', j < i); b.style.setProperty('--dur', SHOW + 'ms'); });
+    const on = bars.children[i]?.querySelector('i'); if (on) { on.style.animation = 'none'; void on.offsetWidth; on.style.animation = ''; }
+    $('#cpIdx').textContent = String(i + 1).padStart(2, '0');
+  }
+  async function go(i, d) {
+    const n = slides.length; i = (i + n) % n;
+    if (i === idx) return;
+    d = d ?? (i > idx ? 1 : -1);
+    const tok = ++goTok; await slides[i].ready; if (tok !== goTok) return;
+    if (from >= 0) { slides[from].fig.classList.remove('live'); slides[from].shade.style.opacity = 0; }
+    slides[idx].fig.style.clipPath = 'none';
+    from = idx; idx = i; dir = d; tSwitch = performance.now(); shown = 0;
+    slides.forEach((sl, j) => { sl.fig.style.zIndex = j === idx ? 2 : j === from ? 1 : 0; sl.fig.setAttribute('aria-hidden', j === idx ? 'false' : 'true'); });
+    slides[idx].fig.classList.add('live');
+    root.classList.remove('tagged'); tagged = false;
+    bar(idx);
+  }
+  $('#cpPrev').addEventListener('click', () => go(idx - 1, -1));
+  $('#cpNext').addEventListener('click', () => go(idx + 1, 1));
+  // hold still while the visitor reads a name or the headline
+  for (const el of [tag, $('#heroCampaign .hero-text')]) {
+    el.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { paused = true; root.classList.add('paused'); } });
+    el.addEventListener('pointerleave', () => { paused = false; root.classList.remove('paused'); });
+  }
+  // swipe on phones
+  let sx = null, sy = 0;
+  stage.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; });
+  stage.addEventListener('pointerup', e => {
+    if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(idx + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+  });
+
+  const easeW = x => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const drift = x => 1 - Math.pow(1 - clamp(x), 2);
+  function frame(now) {
+    raf = 0;
+    if (!active) return;
+    const dt = Math.min(now - lastNow, 60); lastNow = now;
+    if (!paused && !document.hidden && inView) shown += dt;
+    const age = now - tSwitch, k = reduced ? 1 : easeW(age / WIPE);
+    // the new photograph is uncovered by a wipe with a gold hairline at its edge; both push slowly towards the jewel
+    const cur = slides[idx], push = reduced ? 1 : 1 + 0.075 * drift(age / (SHOW + WIPE));
+    cur.inner.style.transform = `translateX(${(1 - k) * 6 * dir}%) scale(${push})`;
+    cur.shade.style.opacity = 0;
+    if (reduced) cur.fig.style.opacity = clamp(age / 700);
+    else cur.fig.style.clipPath = k >= 1 ? 'none' : dir > 0 ? `inset(0 0 0 ${(1 - k) * 100}%)` : `inset(0 ${(1 - k) * 100}% 0 0)`;
+    if (from >= 0) {
+      const old = slides[from], oa = now - tSwitch + SHOW;
+      old.inner.style.transform = `translateX(${-k * 9 * dir}%) scale(${reduced ? 1 : 1 + 0.075 * drift(oa / (SHOW + WIPE))})`;
+      old.shade.style.opacity = k * 0.55;
+      if (k >= 1) { old.fig.classList.remove('live'); old.fig.style.clipPath = 'none'; old.shade.style.opacity = 0; from = -1; }
+    }
+    const ex = dir > 0 ? (1 - k) * W : k * W;
+    edge.style.transform = `translateX(${ex}px)`; edge.style.opacity = k > 0 && k < 1 ? Math.sin(k * Math.PI) : 0;
+    if (!tagged && k >= 1) { fillTag(); placeTag(); requestAnimationFrame(() => root.classList.add('tagged')); tagged = true; }
+    if (shown > SHOW) { shown = 0; go(idx + 1, 1); }
+    raf = requestAnimationFrame(frame);
+  }
+  new ResizeObserver(layout).observe(stage);
+  new IntersectionObserver(([e]) => { inView = e.isIntersecting; }).observe(stage);
+  slides[0].fig.classList.add('live'); slides[0].fig.setAttribute('aria-hidden', 'false'); slides[0].fig.style.zIndex = 2;
+  tSwitch = performance.now() - WIPE; // the first photograph is already in place
+  bar(0); layout();
+  return {
+    slides,
+    get index() { return idx; },
+    go,
+    setActive(on) {
+      active = on; root.classList.toggle('on', on);
+      if (on) { setHeroTone('light'); lastNow = performance.now(); if (!raf) raf = requestAnimationFrame(frame); bar(idx); }
+    },
+  };
+}
+
+/* ---------- hero: the switch between the two styles ---------- */
+function setHeroTone(t) { $('#story').dataset.tone = t; nav.dataset.tone = t; }
+const campaign = campaignHero();
+let hero = null;
+function setHero(mode) {
+  if (mode !== '3d') mode = 'campaign';
+  $('#story').dataset.hero = mode;
+  $$('.hero-switch button').forEach(b => b.setAttribute('aria-pressed', b.dataset.hero === mode));
+  campaign.setActive(mode === 'campaign');
+  if (mode === '3d' && !hero) hero = desertHero();
+  $('#hero3d').classList.toggle('on', mode === '3d');
+  hero?.setActive(mode === '3d');
+  store.set('hero', mode);
+}
+$$('.hero-switch button').forEach(b => b.addEventListener('click', () => setHero(b.dataset.hero)));
+setHero(new URLSearchParams(location.search).get('hero') || store.get('hero', 'campaign'));
 
 
 
@@ -1526,7 +1697,7 @@ $$('[data-open]').forEach(b => b.addEventListener('click', () => openProduct(b.d
 
 /* ---------- bag ---------- */
 function addToBag(item) {
-  state.bag.push({ ...item, price: priceOf(item.spec) }); saveState(); renderBag();
+  state.bag.push({ ...item, price: item.price ?? priceOf(item.spec) }); saveState(); renderBag();
   toast(`${item.name} added to your bag`);
 }
 function renderBag() {
@@ -1534,7 +1705,7 @@ function renderBag() {
   const list = $('#bagItems'); list.textContent = '';
   if (!state.bag.length) list.append(h('p.note', { text: 'Your bag is empty. Pieces you add from the edit or from Compose appear here.' }));
   state.bag.forEach((it, i) => list.append(h('div.it', {},
-    h('img', { src: thumbnail(it.spec, { w: 280, hgt: 280, pad: 1.15 }), alt: '' }),
+    h('img', { src: it.img || thumbnail(it.spec, { w: 280, hgt: 280, pad: 1.15 }), alt: '' }),
     h('div', {}, h('div', { text: it.name }), h('div.note', { text: `${METALS[it.spec.metal].short}${it.spec.engraving ? ' · “' + it.spec.engraving + '”' : ''}` }), h('div.num', { text: aed(it.price) })),
     h('button', { text: 'Remove', onclick: () => { state.bag.splice(i, 1); saveState(); renderBag(); } }))));
   $('#bagTotal').textContent = aed(state.bag.reduce((a, b) => a + b.price, 0));
@@ -1993,4 +2164,4 @@ requestAnimationFrame(loop); requestAnimationFrame(tick);
   renderPieces(); renderShortlist();
   if (cfg.engraving) cfgRebuild();
 });
-window.LUMA = { PRODUCTS, priceOf, hero, cfgV, viewers, thumbnail, openProduct, setMode, selectTry };
+window.LUMA = { PRODUCTS, priceOf, get hero() { return hero; }, campaign, setHero, cfgV, viewers, thumbnail, openProduct, setMode, selectTry };

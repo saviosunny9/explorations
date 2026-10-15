@@ -166,11 +166,65 @@ a { color: inherit; }
 .hero-bars i::after { content: ""; position: absolute; inset: 0; background: var(--ink); transform: scaleX(0); transform-origin: left; }
 .hero-bars .done i::after { transform: scaleX(1); }
 .hero-bars .on i::after { animation: fill var(--dur, 7s) linear forwards; }
-.hero.paused .hero-bars .on i::after { animation-play-state: paused; }
+.paused .hero-bars .on i::after { animation-play-state: paused; }
 @keyframes fill { to { transform: scaleX(1); } }
 .hero-arrows { display: flex; gap: 8px; }
 .hero-arrows button { width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(11, 11, 11, .25); background: rgba(255, 255, 255, .35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); font-size: 16px; transition: background .3s, color .3s; }
 .hero-arrows button:hover { background: var(--ink); color: var(--white); border-color: var(--ink); }
+
+/* hero styles: a layer each, cross-faded by the switch */
+.hv { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .7s ease, visibility 0s .7s; }
+.hv.on { opacity: 1; visibility: visible; transition: opacity .7s ease; }
+.hero[data-hero="campaign"] { background: #1b120b; }
+.hero-switch { position: absolute; z-index: 3; top: calc(env(safe-area-inset-top, 0px) + 78px); right: max(var(--gutter), env(safe-area-inset-right, 0px)); display: flex; padding: 3px; border-radius: 999px; border: 1px solid rgba(11, 11, 11, .16); background: rgba(255, 255, 255, .3); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.hero-switch button { border: 0; background: none; color: inherit; font: 400 10px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; padding: 8px 12px; border-radius: 999px; opacity: .7; transition: background .3s, color .3s, opacity .3s; }
+.hero-switch button:hover { opacity: 1; }
+.hero-switch button[aria-pressed="true"] { background: var(--ink); color: var(--white); opacity: 1; }
+.hero[data-tone="light"] .hero-switch { border-color: rgba(255, 255, 255, .28); background: rgba(20, 12, 6, .18); }
+.hero[data-tone="light"] .hero-switch button[aria-pressed="true"] { background: var(--white); color: var(--ink); }
+
+/* campaign: the photographs */
+.cp-stage { position: absolute; inset: 0; z-index: 0; overflow: hidden; touch-action: pan-y; }
+.cp-slide { position: absolute; inset: 0; margin: 0; overflow: hidden; visibility: hidden; }
+.cp-slide.live { visibility: visible; }
+.cp-img { position: absolute; will-change: transform; }
+.cp-img img { width: 100%; height: 100%; display: block; -webkit-user-drag: none; user-select: none; }
+.cp-shade { position: absolute; inset: 0; background: #0d0804; opacity: 0; pointer-events: none; }
+.cp-veil { position: absolute; inset: 0; pointer-events: none; background:
+  linear-gradient(180deg, rgba(14, 8, 3, .42) 0%, rgba(14, 8, 3, 0) 20%, rgba(14, 8, 3, 0) 46%, rgba(14, 8, 3, .66) 100%),
+  linear-gradient(90deg, rgba(14, 8, 3, .38) 0%, rgba(14, 8, 3, 0) 48%); }
+.cp-edge { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: linear-gradient(180deg, rgba(184, 168, 128, 0), var(--gold) 30%, var(--gold) 70%, rgba(184, 168, 128, 0)); opacity: 0; pointer-events: none; will-change: transform, opacity; }
+.cp-text { color: var(--white); }
+.cp-text .eyebrow { color: var(--white); opacity: .78; }
+.cp-title em { font-style: italic; }
+.cp-title > span { display: inline; }
+.hv-campaign .hero-text > * { animation: cpIn 1.1s cubic-bezier(.2, .7, .2, 1) both; }
+.hv-campaign .hero-text > :nth-child(2) { animation-delay: .12s; }
+.hv-campaign .hero-text > :nth-child(3) { animation-delay: .26s; }
+.hv-campaign .hero-text > :nth-child(4) { animation-delay: .38s; }
+@keyframes cpIn { from { opacity: 0; transform: translateY(18px); } }
+.hv-campaign .hero-text { text-shadow: 0 1px 30px rgba(20, 10, 2, .35); }
+
+/* campaign: the piece in each photograph — a pin on the jewel, a hairline, name and Buy */
+.cp-pin, .cp-line, .cp-tag { position: absolute; left: 0; top: 0; z-index: 2; opacity: 0; transition: opacity .5s ease; }
+.cp-pin { width: 0; height: 0; pointer-events: none; }
+.cp-pin i { position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--white); box-shadow: 0 0 0 4px rgba(255, 255, 255, .22), 0 1px 8px rgba(0, 0, 0, .3); }
+.cp-pin i::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .7); animation: cpPulse 2.4s ease-out infinite; }
+@keyframes cpPulse { from { transform: scale(.5); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+.cp-line { height: 1px; background: rgba(255, 255, 255, .75); transform-origin: 0 50%; pointer-events: none; transition: opacity .5s ease, scale .7s cubic-bezier(.2, .7, .2, 1); scale: 0 1; }
+.cp-tag { color: var(--white); white-space: nowrap; padding: 12px 14px 12px; border: 1px solid rgba(255, 255, 255, .22); background: rgba(16, 10, 5, .32); -webkit-backdrop-filter: blur(12px) saturate(1.1); backdrop-filter: blur(12px) saturate(1.1); transform: translateY(6px); transition: opacity .5s ease .25s, transform .7s cubic-bezier(.2, .7, .2, 1) .25s; }
+.cp-tag p { margin: 0; }
+.cp-house { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; opacity: .78; }
+.cp-name { font-family: var(--display); font-size: 17px; line-height: 1.25; margin-top: 5px !important; }
+.cp-buy { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 12px; letter-spacing: .04em; }
+.cp-buy span { opacity: .85; }
+.cp-buy button { border: 1px solid rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .08); color: var(--white); font: 400 10px/1 var(--body); letter-spacing: .2em; text-transform: uppercase; padding: 7px 14px; border-radius: 999px; text-shadow: none; transition: background .3s, color .3s; }
+.cp-buy button:hover { background: var(--white); color: var(--ink); }
+.hv-campaign.tagged .cp-pin, .hv-campaign.tagged .cp-tag, .hv-campaign.tagged .cp-line { opacity: 1; }
+.hv-campaign.tagged .cp-line { scale: 1 1; }
+.hv-campaign.tagged .cp-tag { transform: none; }
+.hv-campaign .hero-arrows button { border-color: rgba(255, 255, 255, .5); background: rgba(255, 255, 255, .1); color: var(--white); }
+.hv-campaign .hero-arrows button:hover { background: var(--white); color: var(--ink); }
 
 /* ---------- houses ---------- */
 .houses { padding-block: clamp(80px, 12vw, 160px) clamp(60px, 8vw, 110px); overflow: hidden; }
@@ -409,7 +463,13 @@ footer .fine { display: flex; justify-content: space-between; gap: 20px; flex-wr
   .pd { grid-template-columns: 1fr; grid-template-rows: 50vh 1fr; padding: 0; gap: 0; }
   .pd-info { padding-top: 30px; }
   .hero-nav { justify-items: start; grid-auto-flow: column; align-items: center; }
-  .hero-kicker { top: calc(env(safe-area-inset-top, 0px) + 66px); font-size: 10px; padding-inline: 24px; }
+  .hero-kicker { top: calc(env(safe-area-inset-top, 0px) + 112px); font-size: 10px; padding-inline: 24px; }
+  .hero-switch { top: calc(env(safe-area-inset-top, 0px) + 64px); right: auto; left: 50%; transform: translateX(-50%); }
+  .hero-switch button { padding: 7px 11px; font-size: 9px; }
+  .cp-name { font-size: 15px; }
+  .hero-bars button { width: 22px; }
+  .hv-campaign .hero-desc { display: none; }
+  .cp-house { font-size: 9px; }
 }
 @media (max-width: 520px) {
   .grid { grid-template-columns: 1fr; }
@@ -448,27 +508,60 @@ footer .fine { display: flex; justify-content: space-between; gap: 20px; flex-wr
 </header>
 
 <main id="top">
-  <!-- Hero: a 3D desert; the edit floats in one piece at a time -->
-  <section class="hero" id="story" aria-label="The edit, one piece at a time" aria-roledescription="carousel">
-    <canvas id="heroCanvas" aria-label="A desert of dunes and date palms at golden hour, with a piece of jewellery floating in front. Drag to turn the piece."></canvas>
-    <div class="hero-veil" aria-hidden="true"></div>
-    <p class="hero-kicker wrap">Fine jewellery from Europe, chosen for the Emirates</p>
-    <div class="hero-ui wrap">
-      <div class="hero-text" id="heroText" aria-live="polite">
-        <p class="eyebrow" id="hEyebrow"></p>
-        <h1 class="hero-name" id="hName"></h1>
-        <p class="hero-desc" id="hDesc"></p>
-        <div class="hero-cta">
-          <button class="btn solid" id="hOpen">Discover the piece</button>
-          <button class="link" id="hHome">Try it at home</button>
-          <span class="hero-price num" id="hPrice"></span>
+  <!-- Hero: two styles, switched with the small control at the top right.
+       Campaign: the house photographs, one after another, under one brand headline.
+       3D sets: a desert in the light of the shoot; the edit floats in one piece at a time. -->
+  <section class="hero" id="story" data-hero="campaign" data-tone="light" aria-label="LUMA">
+    <div class="hv hv-campaign on" id="heroCampaign" aria-roledescription="carousel" aria-label="The LUMA campaign">
+      <div class="cp-stage" id="cpStage"></div>
+      <div class="cp-veil" aria-hidden="true"></div>
+      <i class="cp-edge" id="cpEdge" aria-hidden="true"></i>
+      <div class="cp-pin" id="cpPin" aria-hidden="true"><i></i></div>
+      <i class="cp-line" id="cpLine" aria-hidden="true"></i>
+      <div class="cp-tag" id="cpTag" aria-live="polite">
+        <p class="cp-house" id="cpHouse"></p>
+        <p class="cp-name" id="cpName"></p>
+        <div class="cp-buy"><span class="num" id="cpPrice"></span><button id="cpBuy">Buy</button></div>
+      </div>
+      <div class="hero-ui wrap">
+        <div class="hero-text cp-text">
+          <p class="eyebrow">Fine jewellery from Europe, chosen for the Emirates</p>
+          <h1 class="hero-name cp-title"><span>Made for the</span> <em>golden hour</em></h1>
+          <p class="hero-desc">Rare stones from the ateliers of Paris, Geneva and Valenza, brought to the women of the Emirates.</p>
+          <div class="hero-cta"><a class="btn solid" href="#edit" id="cpDiscover">Discover luxury</a></div>
+        </div>
+        <div class="hero-nav">
+          <div class="hero-count num"><span id="cpIdx">01</span><span class="sep"></span><span id="cpTotal">04</span></div>
+          <div class="hero-bars" id="cpBars"></div>
+          <div class="hero-arrows"><button id="cpPrev" aria-label="Previous photograph">&#8592;</button><button id="cpNext" aria-label="Next photograph">&#8594;</button></div>
         </div>
       </div>
-      <div class="hero-nav">
-        <div class="hero-count num"><span id="hIdx">01</span><span class="sep"></span><span id="hTotal">05</span></div>
-        <div class="hero-bars" id="hBars"></div>
-        <div class="hero-arrows"><button id="hPrev" aria-label="Previous piece">&#8592;</button><button id="hNext" aria-label="Next piece">&#8594;</button></div>
+    </div>
+    <div class="hv hv-3d" id="hero3d" aria-roledescription="carousel" aria-label="The edit, one piece at a time">
+      <canvas id="heroCanvas" aria-label="A desert of dunes and date palms at golden hour, with a piece of jewellery floating in front. Drag to turn the piece."></canvas>
+      <div class="hero-veil" aria-hidden="true"></div>
+      <p class="hero-kicker wrap">Fine jewellery from Europe, chosen for the Emirates</p>
+      <div class="hero-ui wrap">
+        <div class="hero-text" id="heroText" aria-live="polite">
+          <p class="eyebrow" id="hEyebrow"></p>
+          <h2 class="hero-name" id="hName"></h2>
+          <p class="hero-desc" id="hDesc"></p>
+          <div class="hero-cta">
+            <button class="btn solid" id="hOpen">Discover the piece</button>
+            <button class="link" id="hHome">Try it at home</button>
+            <span class="hero-price num" id="hPrice"></span>
+          </div>
+        </div>
+        <div class="hero-nav">
+          <div class="hero-count num"><span id="hIdx">01</span><span class="sep"></span><span id="hTotal">05</span></div>
+          <div class="hero-bars" id="hBars"></div>
+          <div class="hero-arrows"><button id="hPrev" aria-label="Previous piece">&#8592;</button><button id="hNext" aria-label="Next piece">&#8594;</button></div>
+        </div>
       </div>
+    </div>
+    <div class="hero-switch" role="group" aria-label="Hero style">
+      <button data-hero="campaign" aria-pressed="true">Campaign</button>
+      <button data-hero="3d" aria-pressed="false">3D sets</button>
     </div>
   </section>
 
@@ -1941,7 +2034,7 @@ function desertHero() {
   });
 
   // apply a set's light, sky and camera
-  let setIdx = -1, setT0 = 0;
+  let setIdx = -1, setT0 = 0, tone = 'light', active = false, inView = true;
   function applySet(i) {
     const s = HERO_SLIDES[i]; setIdx = i; setT0 = performance.now();
     skyU.top.value.set(s.sky.top); skyU.mid.value.set(s.sky.mid); skyU.hor.value.set(s.sky.hor);
@@ -1952,7 +2045,7 @@ function desertHero() {
     renderer.toneMappingExposure = s.exposure;
     scene.environment = envs[i]; scene.environmentIntensity = 0.9;
     moteCol.value.set(s.light.color).lerp(C('#ffffff'), 0.5);
-    section.dataset.tone = s.tone; nav.dataset.tone = s.tone;
+    tone = s.tone; if (active) setHeroTone(tone);
   }
 
   // jewellery
@@ -2024,7 +2117,9 @@ function desertHero() {
   const tv1 = new THREE.Vector3(), lookAt = new THREE.Vector3();
   let lastNow = performance.now();
   const v = {
-    canvas, renderer, visible: true,
+    canvas, renderer,
+    get visible() { return active && inView; },
+    setActive(on) { active = on; if (on) { setHeroTone(tone); lastNow = performance.now(); } },
     render(t) {
       const now = performance.now(), dtMs = now - lastNow; lastNow = now;
       const w = canvas.clientWidth, hh = canvas.clientHeight, sz = renderer.getSize(tv1);
@@ -2077,12 +2172,181 @@ function desertHero() {
       renderer.render(scene, camera);
     },
   };
-  new IntersectionObserver(([e]) => { v.visible = e.isIntersecting; }).observe(canvas);
+  new IntersectionObserver(([e]) => { inView = e.isIntersecting; }).observe(canvas);
   viewers.add(v);
   show(0);
   return v;
 }
-const hero = desertHero();
+
+/* ---------- hero: the campaign photographs, one after another under one brand headline ---------- */
+// spot: the jewel in the photograph (fractions of the image); tag: which way the name and Buy sit from it
+const CAMPAIGN = [
+  { key: 'lagune', name: 'Lagune collar', house: 'Maison Verel', city: 'Paris', price: 148000, metal: 'yellow', type: 'necklace',
+    spot: [0.657, 0.535], tag: [1, -0.1], len: 1.5, alt: 'A woman in a grey draped gown rests against a stone wall at sunset, wearing a gold collar of blue-green step-cut stones and matching drop earrings.' },
+  { key: 'octave', id: 'octave', spot: [0.684, 0.395], tag: [1, 0.15], len: 1.3,
+    alt: 'A woman in a grey draped gown leans on stone steps at sunset, her hand at her chin wearing a step-cut emerald ring in gold.' },
+  { key: 'rosace', name: 'Rosace ruby necklace', house: 'Orsini & Figli', city: 'Milan', price: 212000, metal: 'rose', type: 'necklace',
+    spot: [0.527, 0.39], tag: [-1, -0.2], len: 1.4, alt: 'A woman in a flowing grey gown walks between stone arches in the dunes at sunset, wearing a ruby and diamond necklace and a matching bracelet.' },
+  { key: 'zahra', name: 'Zahra emerald necklace', house: 'Atelier Caldera', city: 'Valenza', price: 186000, metal: 'yellow', type: 'necklace',
+    spot: [0.612, 0.445], tag: [1, -0.2], len: 1.5, alt: 'A woman in a grey draped gown sits among sandstone blocks and columns at sunset, wearing an emerald and diamond necklace with drop earrings.' },
+].map(c => {
+  const p = c.id && byId(c.id);
+  return { ...c, img: `img/campaign/${c.key}.jpg`, thumb: `img/campaign/${c.key}-thumb.jpg`,
+    ...(p ? { name: p.name, house: p.house, city: p.city, price: priceOf(p.spec), metal: p.spec.metal, type: p.spec.type } : {}) };
+});
+const IMG_ASPECT = 1672 / 941;
+function campaignHero() {
+  const root = $('#heroCampaign'), stage = $('#cpStage'), edge = $('#cpEdge'), pin = $('#cpPin'), line = $('#cpLine'), tag = $('#cpTag');
+  const SHOW = 7000, WIPE = 1500;
+  const slides = CAMPAIGN.map((c, i) => {
+    const img = h('img', { src: c.img, alt: c.alt, decoding: 'async', draggable: 'false', fetchpriority: i ? 'low' : 'high' });
+    const inner = h('div.cp-img', {}, img), shade = h('i.cp-shade');
+    const fig = h('figure.cp-slide', { 'aria-hidden': 'true' }, inner, shade);
+    stage.append(fig);
+    const ready = img.decode ? img.decode().catch(() => {}) : Promise.resolve();
+    return { c, fig, inner, shade, ready, box: null };
+  });
+  const bars = $('#cpBars');
+  $('#cpTotal').textContent = String(slides.length).padStart(2, '0');
+  slides.forEach((sl, i) => bars.append(h('button', { 'aria-label': `Show ${sl.c.name}`, onclick: () => go(i) }, h('i'))));
+
+  // cover the hero, keeping the jewel as near the middle as the crop allows
+  let W = 0, H = 0;
+  function layout() {
+    W = stage.clientWidth; H = stage.clientHeight;
+    const tall = W / H < 1; // phones: a little closer, so the jewel can sit above the headline
+    for (const sl of slides) {
+      const w = Math.max(W, H * IMG_ASPECT) * (tall ? 1.14 : 1), hh = w / IMG_ASPECT;
+      const [fx, fy] = sl.c.spot;
+      const x = clamp(W / 2 - fx * w, W - w, 0), y = clamp(H * (tall ? 0.36 : 0.42) - fy * hh, H - hh, 0);
+      sl.box = { x, y, w, h: hh, px: x + fx * w, py: y + fy * hh };
+      Object.assign(sl.inner.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: hh + 'px', transformOrigin: `${fx * w}px ${fy * hh}px` });
+    }
+    placeTag();
+  }
+  // the pin sits on the jewel; a hairline runs out to the name, clamped inside the hero
+  function placeTag() {
+    const sl = slides[idx]; if (!sl.box || !W) return;
+    const { px, py } = sl.box, small = W < 760;
+    const [dx, dy] = sl.c.tag, len = (small ? 44 : 80) * (sl.c.len || 1), n = Math.hypot(dx, dy);
+    let ex = px + dx / n * len, ey = py + dy / n * len;
+    const tw = tag.offsetWidth, th = tag.offsetHeight, m = small ? 16 : 28, right = dx < 0;
+    let tx = right ? ex - 10 - tw : ex + 10;
+    let ty = ey - th / 2;
+    const textTop = $('#heroCampaign .hero-text').getBoundingClientRect().top - stage.getBoundingClientRect().top || H;
+    tx = clamp(tx, m, W - m - tw); ty = clamp(ty, small ? 110 : 120, (small ? textTop : H - 200) - th - 18);
+    ex = right ? tx + tw + 10 : tx - 10; ey = clamp(ey, ty + 6, ty + th - 6);
+    pin.style.transform = `translate(${px}px, ${py}px)`;
+    const lx = ex - px, ly = ey - py;
+    line.style.width = Math.hypot(lx, ly) + 'px';
+    line.style.transform = `translate(${px}px, ${py}px) rotate(${Math.atan2(ly, lx)}rad)`;
+    tag.classList.toggle('r', right);
+    tag.style.left = tx + 'px'; tag.style.top = ty + 'px';
+  }
+  function fillTag() {
+    const c = slides[idx].c;
+    $('#cpHouse').textContent = `${c.house} · ${c.city}`; $('#cpName').textContent = c.name; $('#cpPrice').textContent = aed(c.price);
+    $('#cpBuy').setAttribute('aria-label', `Buy the ${c.name}`);
+  }
+  $('#cpBuy').addEventListener('click', () => {
+    const c = slides[idx].c;
+    addToBag({ id: c.id || 'cp-' + c.key, name: c.name, price: c.price, img: c.thumb, spec: { type: c.type, metal: c.metal } });
+    openBag();
+  });
+  $('#cpDiscover').addEventListener('click', e => { e.preventDefault(); $('#edit').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); });
+
+  let idx = 0, from = -1, dir = 1, tSwitch = performance.now(), shown = 0, goTok = 0, paused = false, active = false, inView = true, raf = 0, lastNow = 0, tagged = false;
+  function bar(i) {
+    [...bars.children].forEach((b, j) => { b.classList.toggle('on', j === i); b.classList.toggle('done', j < i); b.style.setProperty('--dur', SHOW + 'ms'); });
+    const on = bars.children[i]?.querySelector('i'); if (on) { on.style.animation = 'none'; void on.offsetWidth; on.style.animation = ''; }
+    $('#cpIdx').textContent = String(i + 1).padStart(2, '0');
+  }
+  async function go(i, d) {
+    const n = slides.length; i = (i + n) % n;
+    if (i === idx) return;
+    d = d ?? (i > idx ? 1 : -1);
+    const tok = ++goTok; await slides[i].ready; if (tok !== goTok) return;
+    if (from >= 0) { slides[from].fig.classList.remove('live'); slides[from].shade.style.opacity = 0; }
+    slides[idx].fig.style.clipPath = 'none';
+    from = idx; idx = i; dir = d; tSwitch = performance.now(); shown = 0;
+    slides.forEach((sl, j) => { sl.fig.style.zIndex = j === idx ? 2 : j === from ? 1 : 0; sl.fig.setAttribute('aria-hidden', j === idx ? 'false' : 'true'); });
+    slides[idx].fig.classList.add('live');
+    root.classList.remove('tagged'); tagged = false;
+    bar(idx);
+  }
+  $('#cpPrev').addEventListener('click', () => go(idx - 1, -1));
+  $('#cpNext').addEventListener('click', () => go(idx + 1, 1));
+  // hold still while the visitor reads a name or the headline
+  for (const el of [tag, $('#heroCampaign .hero-text')]) {
+    el.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { paused = true; root.classList.add('paused'); } });
+    el.addEventListener('pointerleave', () => { paused = false; root.classList.remove('paused'); });
+  }
+  // swipe on phones
+  let sx = null, sy = 0;
+  stage.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; });
+  stage.addEventListener('pointerup', e => {
+    if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(idx + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+  });
+
+  const easeW = x => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const drift = x => 1 - Math.pow(1 - clamp(x), 2);
+  function frame(now) {
+    raf = 0;
+    if (!active) return;
+    const dt = Math.min(now - lastNow, 60); lastNow = now;
+    if (!paused && !document.hidden && inView) shown += dt;
+    const age = now - tSwitch, k = reduced ? 1 : easeW(age / WIPE);
+    // the new photograph is uncovered by a wipe with a gold hairline at its edge; both push slowly towards the jewel
+    const cur = slides[idx], push = reduced ? 1 : 1 + 0.075 * drift(age / (SHOW + WIPE));
+    cur.inner.style.transform = `translateX(${(1 - k) * 6 * dir}%) scale(${push})`;
+    cur.shade.style.opacity = 0;
+    if (reduced) cur.fig.style.opacity = clamp(age / 700);
+    else cur.fig.style.clipPath = k >= 1 ? 'none' : dir > 0 ? `inset(0 0 0 ${(1 - k) * 100}%)` : `inset(0 ${(1 - k) * 100}% 0 0)`;
+    if (from >= 0) {
+      const old = slides[from], oa = now - tSwitch + SHOW;
+      old.inner.style.transform = `translateX(${-k * 9 * dir}%) scale(${reduced ? 1 : 1 + 0.075 * drift(oa / (SHOW + WIPE))})`;
+      old.shade.style.opacity = k * 0.55;
+      if (k >= 1) { old.fig.classList.remove('live'); old.fig.style.clipPath = 'none'; old.shade.style.opacity = 0; from = -1; }
+    }
+    const ex = dir > 0 ? (1 - k) * W : k * W;
+    edge.style.transform = `translateX(${ex}px)`; edge.style.opacity = k > 0 && k < 1 ? Math.sin(k * Math.PI) : 0;
+    if (!tagged && k >= 1) { fillTag(); placeTag(); requestAnimationFrame(() => root.classList.add('tagged')); tagged = true; }
+    if (shown > SHOW) { shown = 0; go(idx + 1, 1); }
+    raf = requestAnimationFrame(frame);
+  }
+  new ResizeObserver(layout).observe(stage);
+  new IntersectionObserver(([e]) => { inView = e.isIntersecting; }).observe(stage);
+  slides[0].fig.classList.add('live'); slides[0].fig.setAttribute('aria-hidden', 'false'); slides[0].fig.style.zIndex = 2;
+  tSwitch = performance.now() - WIPE; // the first photograph is already in place
+  bar(0); layout();
+  return {
+    slides,
+    get index() { return idx; },
+    go,
+    setActive(on) {
+      active = on; root.classList.toggle('on', on);
+      if (on) { setHeroTone('light'); lastNow = performance.now(); if (!raf) raf = requestAnimationFrame(frame); bar(idx); }
+    },
+  };
+}
+
+/* ---------- hero: the switch between the two styles ---------- */
+function setHeroTone(t) { $('#story').dataset.tone = t; nav.dataset.tone = t; }
+const campaign = campaignHero();
+let hero = null;
+function setHero(mode) {
+  if (mode !== '3d') mode = 'campaign';
+  $('#story').dataset.hero = mode;
+  $$('.hero-switch button').forEach(b => b.setAttribute('aria-pressed', b.dataset.hero === mode));
+  campaign.setActive(mode === 'campaign');
+  if (mode === '3d' && !hero) hero = desertHero();
+  $('#hero3d').classList.toggle('on', mode === '3d');
+  hero?.setActive(mode === '3d');
+  store.set('hero', mode);
+}
+$$('.hero-switch button').forEach(b => b.addEventListener('click', () => setHero(b.dataset.hero)));
+setHero(new URLSearchParams(location.search).get('hero') || store.get('hero', 'campaign'));
 
 
 
@@ -2269,7 +2533,7 @@ $$('[data-open]').forEach(b => b.addEventListener('click', () => openProduct(b.d
 
 /* ---------- bag ---------- */
 function addToBag(item) {
-  state.bag.push({ ...item, price: priceOf(item.spec) }); saveState(); renderBag();
+  state.bag.push({ ...item, price: item.price ?? priceOf(item.spec) }); saveState(); renderBag();
   toast(`${item.name} added to your bag`);
 }
 function renderBag() {
@@ -2277,7 +2541,7 @@ function renderBag() {
   const list = $('#bagItems'); list.textContent = '';
   if (!state.bag.length) list.append(h('p.note', { text: 'Your bag is empty. Pieces you add from the edit or from Compose appear here.' }));
   state.bag.forEach((it, i) => list.append(h('div.it', {},
-    h('img', { src: thumbnail(it.spec, { w: 280, hgt: 280, pad: 1.15 }), alt: '' }),
+    h('img', { src: it.img || thumbnail(it.spec, { w: 280, hgt: 280, pad: 1.15 }), alt: '' }),
     h('div', {}, h('div', { text: it.name }), h('div.note', { text: `${METALS[it.spec.metal].short}${it.spec.engraving ? ' · “' + it.spec.engraving + '”' : ''}` }), h('div.num', { text: aed(it.price) })),
     h('button', { text: 'Remove', onclick: () => { state.bag.splice(i, 1); saveState(); renderBag(); } }))));
   $('#bagTotal').textContent = aed(state.bag.reduce((a, b) => a + b.price, 0));
@@ -2736,7 +3000,7 @@ requestAnimationFrame(loop); requestAnimationFrame(tick);
   renderPieces(); renderShortlist();
   if (cfg.engraving) cfgRebuild();
 });
-window.LUMA = { PRODUCTS, priceOf, hero, cfgV, viewers, thumbnail, openProduct, setMode, selectTry };
+window.LUMA = { PRODUCTS, priceOf, get hero() { return hero; }, campaign, setHero, cfgV, viewers, thumbnail, openProduct, setMode, selectTry };
 
 </script>
 </body>
