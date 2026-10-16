@@ -1,0 +1,676 @@
+/* Alaro brand skin: the green / teal / cream / blush design language from the brand boards,
+   laid over the 3D-home site. Colour tokens first, then shared shapes, then each section. */
+
+:root {
+  --a-green: #00dc6c;
+  --a-green-2: #00b95b;
+  --a-green-glow: rgba(0, 220, 108, .55);
+  --a-teal: #063a33;
+  --a-teal-2: #0b4a41;
+  --a-teal-3: #115a4f;
+  --a-cream: #f1ede4;
+  --a-cream-2: #e8e3d7;
+  --a-blush: #fcebe6;
+  --a-mint: #d9f5e1;
+  --a-butter: #f2eda0;
+  --a-sky: #dfe8f6;
+  --a-rose: #f8d2cf;
+  --a-ink: #0d211d;
+  --a-grid-light: rgba(6, 58, 51, .065);
+  --a-grid-dark: rgba(255, 255, 255, .06);
+  --a-cell: 64px;
+  --a-word: 'Fredoka', 'switzer', ui-sans-serif, system-ui, sans-serif;
+
+  /* the site's own tokens, remapped */
+  --bg: var(--a-cream);
+  --paper: #faf8f3;
+  --paper-2: var(--a-cream-2);
+  --ink: var(--a-ink);
+  --ink-2: #2f4440;
+  --muted: #6c7a75;
+  --muted-2: #9aa6a1;
+  --faint: #cfd6d1;
+  --line: rgba(6, 58, 51, .13);
+  --charcoal: var(--a-teal);
+  --black: #04261f;
+  --forest: var(--a-teal);
+  --forest-2: var(--a-teal-2);
+  --fresh: var(--a-green);
+  --tint-graphite: var(--a-mint);
+  --tint-white: var(--a-blush);
+  --tint-red: #f3eedf;
+}
+
+/* Grid paper, as on the boards */
+.a-grid,
+section.bg-white,
+#design > div.bg-white,
+#design > div.bg-paper,
+.menu-overlay {
+  background-image:
+    linear-gradient(var(--a-grid-light) 1px, transparent 1px),
+    linear-gradient(90deg, var(--a-grid-light) 1px, transparent 1px);
+  background-size: var(--a-cell) var(--a-cell);
+  background-position: -1px -1px;
+}
+section.bg-white { background-color: var(--a-cream); }
+#design > div.bg-paper { background-color: var(--a-blush); }
+#design > div.bg-white { background-color: var(--a-cream); }
+#design > div.bg-forest,
+section.bg-forest,
+footer.bg-black {
+  background-color: var(--a-teal);
+  background-image:
+    linear-gradient(var(--a-grid-dark) 1px, transparent 1px),
+    linear-gradient(90deg, var(--a-grid-dark) 1px, transparent 1px);
+  background-size: var(--a-cell) var(--a-cell);
+  background-position: -1px -1px;
+}
+
+::selection { background: var(--a-green); color: var(--a-ink); }
+
+/* Type: regular-weight grotesk headlines, rounded wordmark */
+.display { font-weight: 400; letter-spacing: -.04em; }
+.h-mega { font-family: var(--a-word); font-weight: 500; letter-spacing: -.04em; }
+.hl { color: #8d9b96; }
+.on-dark .hl, .hs-chapter .hl { color: rgba(255, 255, 255, .5); }
+
+/* Eyebrows become small outlined pill tags ("AT 10:00 AM") */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .55em;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--a-teal-3);
+  line-height: 1;
+}
+.eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--a-green);
+  box-shadow: 0 0 0 3px rgba(0, 220, 108, .2);
+}
+.on-dark .eyebrow, .hs-chapter .eyebrow { color: rgba(255, 255, 255, .78); }
+.label-sq::before { border-radius: 50%; background: var(--a-green) !important; opacity: 1 !important; }
+
+/* Wordmark: hide the four-bar mark, set "alaro" in the rounded face */
+.site-header a[aria-label$="home"] svg,
+footer svg[width="22"] { display: none; }
+.site-header a[aria-label$="home"] span > span,
+footer .inline-flex > span.tracking-\[-0\.03em\] {
+  font-family: var(--a-word);
+  font-weight: 500;
+  font-size: 1.55rem;
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+
+/* Buttons: pills. Dark = teal, primary on dark = brand green */
+.btn { border-radius: 999px; padding: 0 1.4rem; }
+.btn-dark, .btn-navy { background: var(--a-teal); color: #fff; }
+.btn-dark:hover, .btn-navy:hover { background: var(--a-teal-3); }
+.btn-light { background: var(--a-green); color: var(--a-ink); box-shadow: 0 0 0 0 var(--a-green-glow); transition: box-shadow .3s ease, background-color .25s ease; }
+.btn-light:hover { background: #2bf08a; box-shadow: 0 0 28px 2px rgba(0, 220, 108, .45); }
+.btn-glass { border-radius: 999px; }
+#buy .btn-dark {
+  background: var(--a-green); color: var(--a-ink);
+}
+
+/* Rounded geometry everywhere (the boards never use a sharp corner) */
+.rounded-\[3px\] { border-radius: 26px; }
+.rounded-\[2px\] { border-radius: 999px; }
+.tile { border-radius: 26px; }
+
+/* Green glow ring over photos (inner glow + thin ring), used on every photo surface */
+.a-glow,
+#moments figure,
+#at-home figure,
+#placement figure > div,
+#choose a.group,
+section.bg-forest figure,
+section.bg-white.pb-24 figure:has(> img.object-cover) {
+  position: relative;
+  isolation: isolate;
+}
+#moments figure::after,
+#at-home figure::after,
+#placement figure > div::after,
+#choose a.group::after,
+section.bg-forest figure::after,
+section.bg-forest .aspect-\[3\/4\]::after,
+#ask .aspect-\[4\/3\]::after,
+section.bg-white.pb-24 figure:has(> img.object-cover)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 220, 108, .85),
+    inset 0 0 26px 4px rgba(0, 220, 108, .5),
+    inset 0 0 80px 10px rgba(0, 220, 108, .16);
+  opacity: .9;
+  transition: opacity .5s ease;
+}
+#moments figure:hover::after,
+#at-home figure:hover::after,
+#choose a.group:hover::after { opacity: 1; box-shadow: inset 0 0 0 2.5px var(--a-green), inset 0 0 34px 6px rgba(0, 220, 108, .6), inset 0 0 90px 14px rgba(0, 220, 108, .2); }
+
+/* Soft halo "track" (the glowing stadium ring from the boards) */
+.a-halo::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: var(--hw, 78%);
+  height: var(--hh, 62%);
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 calc(var(--hr, 60px) * .9) rgba(0, 220, 108, .12),
+    0 0 calc(var(--hr, 60px) * 1.6) calc(var(--hr, 60px) * .9) rgba(0, 220, 108, .22),
+    inset 0 0 calc(var(--hr, 60px) * 1.1) calc(var(--hr, 60px) * .25) rgba(0, 220, 108, .32);
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+/* ───────────── Header ───────────── */
+.site-header .header-menu { border-radius: 999px; }
+.site-header[data-theme=light] .header-menu { background: var(--a-teal); color: #fff; }
+.site-header[data-menu=open] .header-menu { background: var(--a-teal); color: #fff; }
+.site-header[data-solid=true]:not([data-menu=open]) .header-bar { background: rgba(241, 237, 228, .85); }
+.site-header[data-solid=true][data-theme=dark]:not([data-menu=open]) .header-bar { background: rgba(6, 58, 51, .86); }
+.header-shade { background-image: linear-gradient(180deg, rgba(4, 38, 31, .45), transparent) !important; }
+.menu-overlay { background-color: var(--a-cream); }
+.menu-overlay nav a .label { color: var(--a-green-2); }
+.menu-overlay nav a:hover { color: var(--a-teal-3); }
+
+/* ───────────── Hero: the 3D home ───────────── */
+.hs-stage { background: #04261f; }
+.hs-shade-top { background: linear-gradient(180deg, rgba(4, 38, 31, .4), transparent); }
+.hs-shade-bottom { background: linear-gradient(0deg, rgba(4, 38, 31, .7), rgba(6, 58, 51, .22) 55%, transparent); }
+
+/* detection boxes: rounded, glowing green outlines instead of white brackets */
+.hs-box {
+  background: none !important;
+  border-radius: 22px;
+  box-shadow:
+    inset 0 0 0 1.5px rgba(0, 230, 115, .95),
+    0 0 22px rgba(0, 220, 108, .45),
+    inset 0 0 26px rgba(0, 220, 108, .3) !important;
+}
+.hs-chip {
+  border-radius: 999px;
+  padding: 6px 12px 6px 9px;
+  background: rgba(6, 58, 51, .62);
+  border: 1px solid rgba(160, 255, 205, .45);
+  font-size: 10px;
+}
+.hs-chip-dot { background: var(--a-green); box-shadow: 0 0 0 3px rgba(0, 220, 108, .25), 0 0 10px rgba(0, 220, 108, .8); }
+.hs-link { background: linear-gradient(90deg, rgba(0, 230, 115, .95), rgba(0, 230, 115, .25)); height: 1.5px; }
+
+/* moment cards: rounded tiles with the green glow ring */
+.hs-card {
+  border-radius: 34px;
+  background: var(--a-teal);
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .6), 0 0 0 2px rgba(0, 220, 108, .9), 0 0 40px 4px rgba(0, 220, 108, .35);
+}
+.hs-card-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 34px;
+  pointer-events: none;
+  box-shadow: inset 0 0 30px 6px rgba(0, 220, 108, .45);
+}
+.hs-card-meta { background: linear-gradient(0deg, rgba(4, 38, 31, .85), transparent); padding-inline: 1.2rem; }
+.hs-card-play { border-radius: 999px; background: var(--a-green); color: var(--a-ink); padding: 5px 11px; }
+
+/* viewfinder + rail */
+.hs-corner { border-color: rgba(0, 230, 115, .85); }
+.hs-corner.tl { border-top-left-radius: 14px; }
+.hs-corner.tr { border-top-right-radius: 14px; }
+.hs-corner.bl { border-bottom-left-radius: 14px; }
+.hs-corner.br { border-bottom-right-radius: 14px; }
+.hs-rail-fill { background: var(--a-green); box-shadow: 0 0 10px rgba(0, 220, 108, .7); }
+.hs-rail-tick { background: rgba(0, 230, 115, .8); }
+.hs-thumb { border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(0, 230, 115, .7), 0 0 12px rgba(0, 220, 108, .3); }
+.hs-iris { box-shadow: 0 0 0 200vmax #04261f, inset 0 0 0 2px rgba(0, 230, 115, .8), inset 0 0 50px 10px rgba(0, 220, 108, .35), inset 0 0 80px 20px rgba(0, 0, 0, .55); }
+.hs-chapter .label-sq {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(6, 58, 51, .35);
+  backdrop-filter: blur(10px);
+  line-height: 1;
+}
+.hs-still { background: var(--a-teal); }
+
+/* loader: the green app icon on teal grid */
+.hs-loader {
+  background-color: var(--a-teal);
+  color: #fff;
+  background-image:
+    url(links-dark.svg),
+    linear-gradient(var(--a-grid-dark) 1px, transparent 1px),
+    linear-gradient(90deg, var(--a-grid-dark) 1px, transparent 1px);
+  background-size: cover, var(--a-cell) var(--a-cell), var(--a-cell) var(--a-cell);
+  background-position: center, -1px -1px, -1px -1px;
+}
+.hs-loader-word {
+  font-size: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(130px, 13vw, 190px);
+  aspect-ratio: 1;
+  border-radius: 28%;
+  background: var(--a-green);
+  box-shadow: 0 30px 70px -20px rgba(0, 220, 108, .55), inset 0 -8px 20px rgba(0, 120, 60, .25);
+}
+.hs-loader-word::before {
+  content: "alaro";
+  font: 500 clamp(2.1rem, 3.6vw, 3.1rem)/1 var(--a-word);
+  letter-spacing: -.02em;
+  color: var(--a-teal);
+}
+.hs-loader .label { color: rgba(255, 255, 255, .7); }
+.hs-loader-bar { border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, .14) !important; }
+.hs-loader-bar > span { background: var(--a-green); }
+
+/* ───────────── Design (sticky product) ───────────── */
+#design .md\:col-start-7 { position: relative; isolation: isolate; }
+#design .md\:col-start-7::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: min(92%, 640px);
+  height: min(70%, 560px);
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 75%);
+  box-shadow:
+    0 0 0 60px rgba(0, 220, 108, .1),
+    0 0 120px 70px rgba(0, 220, 108, .18),
+    inset 0 0 90px 20px rgba(0, 220, 108, .3);
+  transition: opacity .7s ease;
+}
+#design > div.bg-forest .md\:col-start-7::before {
+  background: radial-gradient(closest-side, rgba(0, 220, 108, .16), rgba(0, 220, 108, 0) 75%);
+  box-shadow: 0 0 0 60px rgba(0, 220, 108, .06), 0 0 120px 60px rgba(0, 220, 108, .14), inset 0 0 90px 20px rgba(0, 220, 108, .28);
+}
+#design > div.bg-forest::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url(links-dark.svg) center / cover no-repeat;
+  opacity: .75;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 38%, #000 62%);
+  mask-image: linear-gradient(90deg, transparent 38%, #000 62%);
+}
+#design > div { isolation: isolate; }
+#design > div > .container-x { position: relative; z-index: 1; }
+#design .stat-row, #design .stat-row > * + * { border-color: var(--line); }
+#design .stat { font-weight: 400; }
+#design ul li > span.label,
+#app ul li > span.label {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+  border-radius: 11px;
+  font-size: 10px;
+  letter-spacing: 0;
+  color: var(--a-teal);
+  background: radial-gradient(circle at 50% 40%, #fff, var(--a-mint) 70%);
+  box-shadow: inset 0 0 0 1.5px rgba(0, 220, 108, .55), 0 6px 16px -8px rgba(0, 220, 108, .7);
+}
+#app ul li:nth-child(2) > span.label { background: radial-gradient(circle at 50% 40%, #fff, var(--a-sky) 70%); box-shadow: inset 0 0 0 1.5px rgba(120, 150, 220, .5), 0 6px 16px -8px rgba(120, 150, 220, .7); }
+#app ul li:nth-child(3) > span.label { background: radial-gradient(circle at 50% 40%, #fff, var(--a-butter) 70%); box-shadow: inset 0 0 0 1.5px rgba(210, 190, 60, .55), 0 6px 16px -8px rgba(210, 190, 60, .7); }
+#design div.bg-forest ul li > span.label { color: var(--a-ink); }
+#design ul li > svg { color: var(--a-green); }
+
+/* ───────────── Moments ───────────── */
+#moments .word-tab:after { background: var(--a-green); height: 3px; border-radius: 3px; }
+#moments figure { border-radius: 30px; }
+#moments figure.md\:row-span-2 { border-radius: 999px 999px 40px 40px; }
+#moments figure.md\:row-span-2 figcaption { text-align: center; padding-inline: 2rem; }
+#moments figure > span.rounded-full {
+  border: 1px solid rgba(255, 255, 255, .5);
+  background: rgba(6, 58, 51, .55);
+  color: #fff;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+#moments figure > span.bg-white\/90 { background: var(--a-green); color: var(--a-ink); border-color: transparent; }
+#moments figcaption { background-image: linear-gradient(0deg, rgba(4, 38, 31, .75), rgba(4, 38, 31, .25) 55%, transparent) !important; }
+#moments div.bg-paper {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--a-green);
+  background-image: url(links-band.svg);
+  background-size: cover;
+}
+#moments div.bg-paper p { color: var(--a-ink); }
+#moments-business div.bg-forest { background-image: url(links-dark.svg); background-size: cover; }
+#moments-business span.bg-\[\#d9dad4\] { background: var(--a-mint); border-radius: 999px; }
+#moments-business span.flex-1.bg-forest { background: var(--a-green); box-shadow: 0 0 16px rgba(0, 220, 108, .6); border-radius: 999px; }
+#moments-business .rounded-full.bg-white\/10 { background: rgba(0, 220, 108, .18); color: var(--a-green); }
+
+/* ───────────── App (phone) ───────────── */
+#app .device-scene { isolation: isolate; }
+#app .device-scene::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: min(118%, 640px);
+  height: min(72%, 520px);
+  transform: translate(-50%, -50%) rotate(-8deg);
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(252, 235, 230, .9), rgba(252, 235, 230, 0));
+  box-shadow:
+    0 0 0 56px rgba(0, 220, 108, .1),
+    0 0 110px 70px rgba(0, 220, 108, .2),
+    inset 0 0 80px 24px rgba(0, 220, 108, .32);
+}
+#app .device .screen .bg-\[\#0f100f\] { background: var(--a-teal); }
+#app .device .screen .rounded-\[18px\] { border-radius: 26px; box-shadow: 0 0 0 1.5px var(--a-green), 0 0 18px rgba(0, 220, 108, .45); }
+#app .device .screen li { border-radius: 999px; background: rgba(255, 255, 255, .08); }
+#app .device .screen li > span.relative { border-radius: 999px; }
+#app ul.border-t > li { border-color: var(--line); }
+
+/* ───────────── Colours: product cards on pastel boards with a halo ───────────── */
+#colours article {
+  border-radius: 34px !important;
+  isolation: isolate;
+  background-image:
+    linear-gradient(var(--a-grid-light) 1px, transparent 1px),
+    linear-gradient(90deg, var(--a-grid-light) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+#colours article::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  bottom: 10%;
+  width: 80%;
+  height: 46%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .8), rgba(255, 255, 255, 0));
+  box-shadow: 0 0 0 24px rgba(0, 220, 108, .06), 0 0 60px 26px rgba(0, 220, 108, .12), inset 0 0 44px 10px rgba(0, 220, 108, .26);
+  pointer-events: none;
+}
+#colours article > div.absolute { z-index: 1; }
+
+/* ───────────── Placement + At home ───────────── */
+#placement figure > div { border-radius: 34px; }
+#placement figure.md\:col-span-5 > div { border-radius: 999px; }
+#placement figcaption { border-color: var(--line); }
+#placement figcaption .label,
+#at-home .label { color: var(--a-green-2); }
+
+#at-home figure { border-radius: 34px; }
+#at-home figure.md\:row-span-2 { border-radius: 999px; }
+#at-home figure.md\:row-span-2 figcaption { text-align: center; padding: 3rem 1.5rem 2.8rem; }
+#at-home figure.md\:col-span-2:not(.md\:row-span-2) { border-radius: 999px; }
+#at-home figure.md\:col-span-2:not(.md\:row-span-2) figcaption { padding-inline: 12%; padding-bottom: 1.6rem; }
+#at-home figure figcaption { background-image: linear-gradient(0deg, rgba(4, 38, 31, .7), transparent) !important; }
+#at-home .bg-fresh { box-shadow: 0 0 14px 3px rgba(0, 220, 108, .7); }
+
+/* "Made to sit in the background" banner: a wide stadium, centred words (board 10) */
+section.bg-white.pb-24 figure:has(> img.object-cover) { border-radius: 999px; }
+section.bg-white.pb-24 figure:has(> img.object-cover) > div.bg-gradient-to-r {
+  background-image: radial-gradient(70% 90% at 50% 50%, rgba(4, 38, 31, .38), rgba(4, 38, 31, .05)) !important;
+}
+section.bg-white.pb-24 figure:has(> img.object-cover) figcaption {
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  text-align: center;
+}
+section.bg-white.pb-24 figure:has(> img.object-cover) figcaption .body-lg {
+  font-size: clamp(1.4rem, 2.6vw, 2.6rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  max-width: 22ch;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, .3);
+}
+section.bg-white.pb-24 figure:has(> img.object-cover) figcaption .label-sq {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .5);
+  background: rgba(6, 58, 51, .4);
+}
+section.bg-white.pb-24 figure:has(> img.object-cover) > span.absolute { display: none !important; }
+
+/* ───────────── Teal intelligence block (board 11) ───────────── */
+section.bg-forest { position: relative; isolation: isolate; }
+section.bg-forest::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url(links-dark.svg) center / cover no-repeat;
+  opacity: .8;
+  pointer-events: none;
+}
+section.bg-forest figure { border-radius: 999px; }
+section.bg-forest figure > span.absolute {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .45);
+  background: rgba(6, 58, 51, .55);
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+section.bg-forest figure > span.bg-white\/90 { background: var(--a-green); color: var(--a-ink); border-color: transparent; }
+section.bg-forest figure > span.absolute.left-\[5\%\] { left: 14%; }
+section.bg-forest figure > span.absolute.bottom-\[5\%\] { left: 50%; transform: translateX(-50%); bottom: 9%; }
+section.bg-forest article {
+  border-radius: 30px;
+  background: rgba(11, 74, 65, .78);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 0 0 1px rgba(160, 255, 205, .12);
+}
+section.bg-forest .aspect-\[3\/4\] { position: relative; border-radius: 999px; }
+section.bg-forest .marquee-track > span { border-color: rgba(160, 255, 205, .3); background: rgba(255, 255, 255, .04); }
+section.bg-forest .marquee-track > span:nth-child(3n+1) {
+  border-color: var(--a-green);
+  background: rgba(0, 220, 108, .14);
+  box-shadow: 0 0 18px rgba(0, 220, 108, .35), inset 0 0 12px rgba(0, 220, 108, .25);
+  color: #fff;
+}
+section.bg-forest .marquee-track > span:nth-child(3n+2) {
+  border-color: rgba(242, 237, 160, .8);
+  box-shadow: 0 0 16px rgba(242, 237, 160, .25), inset 0 0 10px rgba(242, 237, 160, .18);
+}
+section.bg-forest .from-forest-2 { --tw-gradient-from: rgb(11 74 65 / .95) var(--tw-gradient-from-position); }
+
+/* ───────────── Ask Alaro: chat in glowing pills (board 19) ───────────── */
+#ask .container-x > div.bg-paper {
+  border-radius: 40px;
+  background-color: var(--a-blush);
+  background-image:
+    linear-gradient(rgba(6, 58, 51, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 58, 51, .05) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+#ask .container-x > div.bg-paper button.rounded-full.bg-charcoal { background: var(--a-teal); border-color: var(--a-teal); }
+#ask .container-x > div.bg-paper button.rounded-full.bg-white { background: rgba(255, 255, 255, .7); }
+#ask .rounded-\[3px\].bg-white { border-radius: 30px; }
+#ask p.self-end {
+  border-radius: 999px !important;
+  padding: 14px 22px;
+  background: radial-gradient(120% 140% at 50% 50%, #fff 30%, #fbd3d0 100%);
+  box-shadow: 0 0 0 1px rgba(248, 160, 160, .25), 0 10px 30px -12px rgba(240, 120, 120, .45), inset 0 0 18px rgba(248, 170, 170, .55);
+}
+#ask p.self-end + div > p:first-child,
+#ask .flex.min-h-\[340px\] > div > p:first-child {
+  display: inline-flex;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: radial-gradient(120% 140% at 50% 50%, #fff 25%, #c9f3d6 100%);
+  box-shadow: inset 0 0 14px rgba(0, 220, 108, .35), 0 8px 20px -10px rgba(0, 220, 108, .6);
+  color: var(--a-teal);
+}
+#ask .aspect-\[4\/3\] { position: relative; border-radius: 999px; }
+#ask form button.bg-charcoal { background: var(--a-green); color: var(--a-ink); }
+#ask .rounded-full.bg-forest { background: var(--a-green); color: var(--a-ink); }
+
+/* ───────────── Control carousel ───────────── */
+#control article > div.relative { border-radius: 32px; isolation: isolate; }
+#control article:nth-child(1) > div.relative { background-color: var(--a-mint); }
+#control article:nth-child(2) > div.relative { background-color: var(--a-blush); }
+#control article:nth-child(5) > div.relative { background-color: var(--a-cream-2); }
+#control article:nth-child(1) > div.relative::before,
+#control article:nth-child(2) > div.relative::before,
+#control article:nth-child(5) > div.relative::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 52%;
+  width: 70%;
+  height: 58%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .85), rgba(255, 255, 255, 0));
+  box-shadow: 0 0 0 30px rgba(0, 220, 108, .1), 0 0 70px 36px rgba(0, 220, 108, .2), inset 0 0 50px 12px rgba(0, 220, 108, .32);
+}
+#control article:nth-child(3) > div.relative::after,
+#control article:nth-child(4) > div.relative::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgba(0, 220, 108, .85), inset 0 0 30px 5px rgba(0, 220, 108, .45);
+}
+#control .rounded-full.bg-surface { background: var(--a-teal); color: #fff; }
+
+/* ───────────── Buy ───────────── */
+#buy .aspect-\[4\/5\] { border-radius: 40px; isolation: isolate; }
+#buy .aspect-\[4\/5\]::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  width: 82%;
+  height: 56%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .75), rgba(255, 255, 255, 0));
+  box-shadow: 0 0 0 40px rgba(0, 220, 108, .09), 0 0 90px 50px rgba(0, 220, 108, .18), inset 0 0 70px 18px rgba(0, 220, 108, .3);
+  pointer-events: none;
+}
+#buy .aspect-\[4\/5\] canvas { z-index: 1; }
+#buy .bg-surface { background: #fffdf9; border-radius: 30px; box-shadow: 0 30px 60px -40px rgba(6, 58, 51, .35), inset 0 0 0 1px var(--line); }
+#buy ul li svg, #buy ol svg { color: var(--a-green-2); }
+#buy ol li button .tnum { color: var(--a-green-2); }
+
+/* ───────────── Choose ───────────── */
+#choose a.group { border-radius: 40px; }
+#choose a.group > div { background-image: linear-gradient(0deg, rgba(4, 38, 31, .78), transparent) !important; padding: 2rem 2.2rem; }
+
+/* ───────────── FAQ ───────────── */
+#faq button > span.label {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  font-size: 10px;
+  letter-spacing: 0;
+  color: var(--a-teal);
+  background: radial-gradient(circle at 50% 40%, #fff, var(--a-mint) 70%);
+  box-shadow: inset 0 0 0 1.5px rgba(0, 220, 108, .5);
+}
+#faq .border-b > button svg { color: var(--a-green-2); }
+#faq .flex-1.font-light { font-weight: 400; }
+
+/* ───────────── Final call to action (board 18: blush, halo ring, products) ───────────── */
+section.bg-white.pb-24 div.bg-paper:has(> h2) {
+  border-radius: 44px;
+  isolation: isolate;
+  background-color: var(--a-blush);
+  background-image:
+    linear-gradient(rgba(6, 58, 51, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 58, 51, .05) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+section.bg-white.pb-24 div.bg-paper:has(> h2)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 58%;
+  width: 84%;
+  height: 74%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 80%);
+  box-shadow: 0 0 0 70px rgba(0, 220, 108, .08), 0 0 140px 80px rgba(0, 220, 108, .16), inset 0 0 110px 30px rgba(0, 220, 108, .32);
+}
+section.bg-white.pb-24 div.bg-paper:has(> h2) .btn-dark { background: var(--a-green); color: var(--a-ink); }
+
+/* ───────────── Footer: teal grid, link chains, big green wordmark ───────────── */
+footer.bg-black { position: relative; isolation: isolate; }
+footer.bg-black::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url(links-dark.svg) center / cover no-repeat;
+  opacity: .55;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 30%, #000 70%);
+  mask-image: linear-gradient(90deg, transparent 30%, #000 70%);
+}
+footer .h-mega {
+  color: var(--a-green) !important;
+  opacity: .95;
+  text-shadow: 0 0 60px rgba(0, 220, 108, .35);
+}
+footer input#footer-email { border-color: rgba(160, 255, 205, .25); background: rgba(255, 255, 255, .06); }
+footer form .btn { background: var(--a-green); color: var(--a-ink); border-color: var(--a-green); }
+footer form .btn:hover { background: #2bf08a; color: var(--a-ink); }
+footer .border-white\/15 { border-color: rgba(160, 255, 205, .15); }
+
+/* Phones: lighter halos, smaller radii where the shapes get too tight */
+@media (max-width: 767px) {
+  :root { --a-cell: 44px; }
+  #moments figure.md\:row-span-2 { border-radius: 30px; }
+  #placement figure.md\:col-span-5 > div { border-radius: 34px; }
+  #at-home figure.md\:row-span-2,
+  #at-home figure.md\:col-span-2:not(.md\:row-span-2) { border-radius: 30px; }
+  #at-home figure figcaption { text-align: left !important; padding: 3rem 1.25rem 1.25rem !important; }
+  section.bg-white.pb-24 figure:has(> img.object-cover) { border-radius: 30px; }
+  section.bg-forest figure { border-radius: 30px; }
+  section.bg-forest figure > span.absolute.left-\[5\%\] { left: 5%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #moments figure::after, #at-home figure::after { transition: none; }
+}
