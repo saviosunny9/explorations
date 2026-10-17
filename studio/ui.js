@@ -1455,16 +1455,19 @@
     hard: { on: true, style: 'drop', color: '#1d1b18', opacity: 1, blur: 0, x: 10, y: 10 },
     glow: { on: true, style: 'drop', color: '#fff36b', opacity: 0.9, blur: 30, x: 0, y: 0 },
   };
-  const visionDefaults = el => ({ style: 'vision', palette: 'depth', amount: 50, wave: 50, waveLen: 35, noise: 50, grain: 50, core: 50, speed: 50, move: true, cx: 1.2, cy: -0.3, subject: 'auto', field: el.type === 'image' });
+  const visionDefaults = el => ({ style: 'vision', palette: 'depth', amount: 50, wave: 50, waveLen: 35, noise: 50, grain: 50, core: 50, speed: 50, move: true, cx: 1.2, cy: -0.3, subject: 'auto', field: el.type === 'image', melt: el.type === 'image' ? 0 : 40 });
   function thermalBody(el) {
     const T = 'sel', fx = el.tfx || {}, vis = fx.style === 'vision';
     const look = full(seg(T, 'tfx.style', [['vision', 'Depth vision'], ['thermal', 'Heat camera']], {
-      set: v => { S.change(T, 'tfx', v === 'vision' ? visionDefaults(el) : { style: 'thermal', amount: 50, palette: 'thermal', move: false }); renderInspector(); },
+      set: v => { S.change(T, 'tfx', v === 'vision' ? visionDefaults(el) : { style: 'thermal', amount: 50, palette: 'thermal', move: false, melt: el.type === 'image' ? 0 : 45 }); renderInspector(); },
     }));
+    // melted edges: letters and shapes warp into the heat instead of keeping their crisp outline
+    const melt = el.type === 'image' ? null : row('Melt', num(T, 'tfx.melt', { min: 0, max: 100, slider: true, def: 0 }));
     if (!vis) return [
       look,
       full(seg(T, 'tfx.palette', Object.entries(R.THERMAL_PALETTES).slice(0, 4).map(([k, p]) => [k, p.label.split(' ')[0]]), { def: 'thermal' })),
       row('Heat', num(T, 'tfx.amount', { min: 0, max: 100, slider: true, def: 50 })),
+      melt,
       el.type === 'image' ? h('p.hint', null, 'Bright parts of the photo or video glow hottest, like a heat camera.') : null,
       more('fx-thermal', [
         row('Colours', selectCtl(T, 'tfx.palette', Object.entries(R.THERMAL_PALETTES).map(([k, p]) => [k, p.label]), { def: 'thermal' })),
@@ -1478,6 +1481,7 @@
       h('p.hint', null, 'How a robot sees: a depth map in a looping colour ramp. The subject turns blue with its own shading, a red-and-yellow glow spreads round it, and waves drift through the field.'),
       full(seg(T, 'tfx.palette', [['depth', 'Depth'], ['jet', 'Jet'], ['turbo', 'Turbo'], ['dusk', 'Dusk']], { def: 'depth', set: setPal })),
       pct('amount', 'Glow', 50),
+      melt,
       pct('wave', 'Waves', 50),
       pct('noise', 'Flow', 50),
       toggle(T, 'tfx.move', 'Moves (a living gradient)', { get: () => (S.selEls()[0]?.tfx || {}).move !== false }),

@@ -1246,7 +1246,7 @@
           width: 1080, height: 1350, background: { color: '#030303' }, overlay: { grain: 18, vignette: 30 }, anim: { duration: 5, fps: 30 },
           camera: { move: 'pushin', zoom: 1.12, start: 0, dur: 5, blur: 0 },
           elements: [
-            word('blur', { cx: 540, cy: 640, key: 'heat', tfx: { style: 'thermal', amount: 55, palette: 'thermal', move: true } }),
+            word('blur', { cx: 540, cy: 640, key: 'heat', tfx: { style: 'thermal', amount: 55, palette: 'thermal', move: true, melt: 50 } }),
             txt('HEAT SIGNATURE · 36.6°', { cx: 540, cy: 1180, fontFamily: 'Space Mono', fontSize: 22, letterSpacing: 0.2, fill: '#7d86ff' }),
           ],
         }), true),
@@ -1278,14 +1278,14 @@
           width: 1080, height: 1350, background: { color: '#0b0b0b' }, overlay: { grain: 16 },
           elements: [
             img(0, 0, 1080, 1350, { assetId: 'ed-dark', name: 'Your photo or video', filters: { grayscale: 100, contrast: 20, brightness: -30 }, placeholder: ['#2a2a2a', '#111111'] }),
-            word('warm', { cx: 540, cy: 1060, fontSize: 260, tfx: { style: 'thermal', amount: 45, palette: 'sunset' } }),
+            word('warm', { cx: 540, cy: 1060, fontSize: 260, tfx: { style: 'thermal', amount: 45, palette: 'sunset', melt: 40 } }),
             txt('still thinking about you', { cx: 540, cy: 1250, fontFamily: 'Instrument Serif', italic: true, fontSize: 40, fill: '#ffd7b0' }),
           ],
         })),
         T('fx-night', 'Night vision', ['Text'], () => ({
           width: 1080, height: 1350, background: { color: '#020a04' }, overlay: { grain: 30, scanlines: 30, vignette: 45 },
           elements: [
-            word('after\ndark', { cx: 540, cy: 620, fontSize: 230, lineHeight: 0.95, tfx: { style: 'thermal', amount: 40, palette: 'night' } }),
+            word('after\ndark', { cx: 540, cy: 620, fontSize: 230, lineHeight: 0.95, tfx: { style: 'thermal', amount: 40, palette: 'night', melt: 35 } }),
             txt('REC ● 02:14:09', { x: 70, y: 70, align: 'left', fontFamily: 'VT323', fontSize: 48, fill: '#8dff8a' }),
           ],
         })),

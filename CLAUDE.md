@@ -125,6 +125,10 @@ are the bundled photos from `flashes.js`, `film-` from `filmphotos.js`, `ed-` fr
   `R.VISION_PALETTES` depth / jet / turbo / dusk / mono, or `palette: 'custom'` + `stops`), plus grain. `field: true` fills the
   whole box (photos); otherwise alpha = max(subject, glow). Detail ≤720 px (≤440 while playing), ~200 ms a frame.
   `R.textFxPad` widens the bleed for the glow; moves unless `move === false`. Classic thermal on photos uses luma × alpha as heat.
+- Melted edges: `tfx.melt` 0–100 (non-image layers, both thermal and vision): `meltMask(a, w, h, fs, m, seed, z)` displaces
+  the alpha by two octaves of value noise (computed at ¼ size; amp = fs·0.12·m), blurs and re-thresholds it (smoothstep 0.36–0.62)
+  for round, bulging edges, and returns `glow` (pushed 2.2× further) as the glow source. Thermal with melt skips the crisp-letter
+  overlay and works at ≤760 px (480 while playing); `z` follows `move`, so the edges morph over time.
 - Layer blurs for non-photo layers: `el.tblur` holds the photo blur keys (motion, ghost, zoomBlur, spinBlur, blur, tiltShift,
   motionAngle, blurX/Y, tiltY/Size, blurArea, blurPts, blurFeather). `layerBlur` in `drawLayered` runs the photo blur
   functions on the cached bitmap, rescaled from the bitmap (with its bleed) to the layer's box; `R.layerBlurPad` widens

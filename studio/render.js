@@ -4299,7 +4299,10 @@
     for (let i = 0; i < n; i++) { const o = i * 4; a[i] = px[o + 3] / 255; L[i] = (0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2]) / 255; }
     // the layer's own box inside the bitmap (the rest is bleed for the glow)
     const bb = b * s * ds, box = { x0: clamp(Math.round(bb), 0, w - 1), y0: clamp(Math.round(bb), 0, h - 1), x1: clamp(Math.round(w - bb), 1, w), y1: clamp(Math.round(h - bb), 1, h) };
-    const S = visionSubject(px, a, L, w, h, el, fx.subject || 'auto', box);
+    let S = visionSubject(px, a, L, w, h, el, fx.subject || 'auto', box);
+    // melted edges for letters and shapes (photos keep their outline)
+    const melt = meltOf(el, fx);
+    if (melt) S = meltMask(S, w, h, (el.fontSize || Math.min(el.width, el.height) * 0.35) * s * ds, melt, hashStr(el.id || 'fx') + (fx.seed || 0), fx.move !== false && t != null ? t * 0.45 * ((fx.speed ?? 50) / 50) : 0).core;
     // inside the subject: its brightness, stretched over the blue end of the ramp
     const hist = [];
     for (let i = 0; i < n; i += 7) if (S[i] > 0.5) hist.push(L[i]);
@@ -4439,26 +4442,55 @@
     }
     return out;
   }
+  // melted edges: the shape is pushed around by smooth noise (worked out at a quarter size), then blurred and cut
+  // again at half, so corners round off and edges bulge like wax. Returns the melted shape and a source for the glow
+  // that is pushed twice as far.
+  function meltMask(a, w, h, fs, m, seed, z) {
+    const q = 4, qw = Math.max(2, Math.ceil(w / q)), qh = Math.max(2, Math.ceil(h / q)), cell = Math.max(2, fs * 0.42 / q);
+    const n1 = valueNoise(qw, qh, cell, seed + 41, z), n2 = valueNoise(qw, qh, cell, seed + 43, z + 0.5);
+    const f1 = valueNoise(qw, qh, Math.max(1.5, cell * 0.35), seed + 47, z * 1.3), f2 = valueNoise(qw, qh, Math.max(1.5, cell * 0.35), seed + 53, z * 1.3 + 0.5);
+    const amp = fs * 0.12 * m, core = new Float32Array(w * h), glow = new Float32Array(w * h);
+    const at = (x, y) => {
+      if (x < 0 || y < 0 || x > w - 1 || y > h - 1) return 0;
+      const ix = Math.min(w - 2, Math.floor(x)), iy = Math.min(h - 2, Math.floor(y)), tx = x - ix, ty = y - iy, i = iy * w + ix;
+      return (a[i] * (1 - tx) + a[i + 1] * tx) * (1 - ty) + (a[i + w] * (1 - tx) + a[i + w + 1] * tx) * ty;
+    };
+    for (let y = 0; y < h; y++) {
+      const gy = Math.min(qh - 1.001, y / q), jy = Math.floor(gy), ty = gy - jy;
+      for (let x = 0; x < w; x++) {
+        const gx = Math.min(qw - 1.001, x / q), jx = Math.floor(gx), tx = gx - jx, k = jy * qw + jx;
+        const L = arr => (arr[k] * (1 - tx) + arr[k + 1] * tx) * (1 - ty) + (arr[k + qw] * (1 - tx) + arr[k + qw + 1] * tx) * ty;
+        const dx = ((L(n1) - 0.5) * 2 + (L(f1) - 0.5) * 0.45) * amp, dy = ((L(n2) - 0.5) * 2 + (L(f2) - 0.5) * 0.45) * amp;
+        core[y * w + x] = at(x + dx, y + dy);
+        glow[y * w + x] = at(x + dx * 2.2, y + dy * 2.2);
+      }
+    }
+    const sm = blurMap(core, w, h, fs * (0.012 + 0.05 * m));
+    for (let i = 0; i < sm.length; i++) sm[i] = smoothstep(0.36, 0.62, sm[i]);
+    return { core: sm, glow };
+  }
+  const meltOf = (el, fx) => el.type === 'image' ? 0 : clamp((fx.melt ?? 0) / 100, 0, 1);
   R.textFxPad = function (el) {
     const fx = el.tfx;
     if (!fx || !fx.style || fx.style === 'none') return 0;
     const fs = el.fontSize || Math.min(el.width, el.height) * 0.3, k = clamp((fx.amount ?? 50) / 100, 0, 1);
-    if (fx.style === 'thermal') return fs * (0.3 + 0.85 * k);
+    if (fx.style === 'thermal') return fs * (0.3 + 0.85 * k + 0.3 * meltOf(el, fx));
     if (fx.style === 'vision') return el.type === 'image' ? Math.min(el.width, el.height) * (0.04 + 0.12 * k) : fs * (0.7 + 1.9 * k);
     return fs * (0.1 + 0.25 * k) + fs * 0.5 * clamp((fx.smear ?? 25) / 100, 0, 1);
   };
   const fxOn = el => el.tfx && el.tfx.style && el.tfx.style !== 'none';
   function textFx(c, el, s, t, b = 0) {
     if (el.tfx.style === 'vision') return visionFx(c, el, s, t, b);
-    const fx = el.tfx, W = c.width, H = c.height, hot = fx.style === 'thermal';
-    // the glow is soft, so heat is worked out small; ink needs its fine specks
-    const ws = Math.min(1, (hot ? 420 : 1100) / Math.max(W, H)), w = Math.max(1, Math.round(W * ws)), h = Math.max(1, Math.round(H * ws));
+    const fx = el.tfx, W = c.width, H = c.height, hot = fx.style === 'thermal', melt = hot ? meltOf(el, fx) : 0;
+    // the glow is soft, so heat is worked out small (melted letters need more detail); ink needs its fine specks
+    const ws = Math.min(1, (hot ? (melt ? (R.playing ? 480 : 760) : 420) : 1100) / Math.max(W, H)), w = Math.max(1, Math.round(W * ws)), h = Math.max(1, Math.round(H * ws));
     const work = canvas(w, h), wx = work.getContext('2d', { willReadFrequently: true });
     wx.drawImage(c, 0, 0, w, h);
     let d;
     try { d = wx.getImageData(0, 0, w, h); } catch (e) { return c; }
-    const px = d.data, n = w * h, a = new Float32Array(n);
+    const px = d.data, n = w * h;
     // a photo or video glows by its brightness, like a heat camera; everything else by its shape
+    let a = new Float32Array(n);
     if (hot && el.type === 'image') for (let i = 0; i < n; i++) { const o = i * 4; a[i] = (0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2]) / 255 * px[o + 3] / 255; }
     else for (let i = 0; i < n; i++) a[i] = px[i * 4 + 3] / 255;
     const fs = (el.fontSize || Math.min(el.width, el.height) * 0.3) * s * ws, k = clamp((fx.amount ?? 50) / 100, 0, 1);
@@ -4466,7 +4498,10 @@
     if (fx.style === 'thermal') {
       // heat: the letters are white-hot, a tight blur glows yellow-orange, a wide one fades through pink to blue
       const r = fs * (0.05 + 0.15 * k), z = fx.move && t != null ? t * 1.2 : 0;
-      const b1 = blurMap(a, w, h, r * 0.35), b2 = blurMap(a, w, h, r), b3 = blurMap(a, w, h, r * 1.8);
+      // melted: the white-hot letters lose their crisp edges and the glow comes from a shape pushed further still
+      let src = a;
+      if (melt) { const mm = meltMask(a, w, h, fs, melt, seed, z * 0.6); a = mm.core; src = mm.glow; }
+      const b1 = blurMap(src, w, h, r * 0.35), b2 = blurMap(src, w, h, r), b3 = blurMap(src, w, h, r * 1.8);
       const nz = valueNoise(w, h, Math.max(4, r * 0.9), seed, z), grain = rng(seed + 7 + Math.floor(z * 10));
       const lut = heatLut(fx.palette || 'thermal');
       for (let i = 0; i < n; i++) {
@@ -4513,7 +4548,7 @@
     const out = canvas(W, H), ox = out.getContext('2d');
     ox.imageSmoothingQuality = 'high';
     ox.drawImage(work, 0, 0, W, H);
-    if (hot && el.type !== 'image') {
+    if (hot && el.type !== 'image' && !melt) {
       // the letters themselves are the hottest colour, drawn sharp over the upscaled glow
       const lut = heatLut(fx.palette || 'thermal'), core = canvas(W, H), cx = core.getContext('2d');
       cx.drawImage(c, 0, 0); cx.globalCompositeOperation = 'source-in';
