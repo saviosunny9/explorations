@@ -2310,7 +2310,11 @@
   let fbBuf = null;
   R.frameBlurCtx = function (ctx, doc) {
     const hunting = R.playTime != null && doc.camera && doc.camera.hunt > 0;
-    if (!frameBlurOn(doc) && !hunting) return;
+    if (styleOn(doc.sfx)) frameStyleCtx(ctx, doc, frameBlurOn(doc) || hunting);
+    else if (!frameBlurOn(doc) && !hunting) return;
+    else frameBlurOnly(ctx, doc, hunting);
+  };
+  function frameBlurOnly(ctx, doc, hunting) {
     const c = ctx.canvas, T = ctx.getTransform();
     const x0 = T.e, y0 = T.f, w = doc.width * T.a, h = doc.height * T.d;
     if (!(w > 2 && h > 2)) return;
@@ -2330,7 +2334,39 @@
     if (R.isClearBg(doc)) ctx.globalCompositeOperation = 'copy';
     ctx.drawImage(out, x0, y0, w, h);
     ctx.restore();
-  };
+  }
+  // the canvas style in the editor: read the artboard back (≤ 900 px), blur it if asked, restyle it, draw it over.
+  // The result is reused while the artboard's pixels, the settings and the time stay the same.
+  let fsBuf = null, fsLast = null;
+  function frameStyleCtx(ctx, doc, blurToo) {
+    const c = ctx.canvas, T = ctx.getTransform();
+    const x0 = T.e, y0 = T.f, w = doc.width * T.a, h = doc.height * T.d;
+    if (!(w > 2 && h > 2)) return;
+    const k = Math.min(1, (R.playing ? 560 : 900) / Math.max(w, h)), bw = Math.max(2, Math.round(w * k)), bh = Math.max(2, Math.round(h * k));
+    if (!fsBuf || fsBuf.width !== bw || fsBuf.height !== bh) fsBuf = canvas(bw, bh);
+    const bx = fsBuf.getContext('2d', { willReadFrequently: true });
+    bx.setTransform(1, 0, 0, 1, 0, 0); bx.clearRect(0, 0, bw, bh);
+    bx.drawImage(c, x0, y0, w, h, 0, 0, bw, bh);
+    let src = fsBuf;
+    if (blurToo) {
+      if (frameBlurOn(doc)) src = frameBlur(src, doc.blur);
+      const hb = R.playTime != null && doc.camera && doc.camera.hunt > 0 ? R.huntBlurPx(doc, R.playTime, bw) : 0;
+      if (hb > 0.3) { const o = canvas(bw, bh), ox = o.getContext('2d'); ox.filter = `blur(${hb}px)`; ox.drawImage(src, 0, 0); src = o; }
+    }
+    // a cheap fingerprint of the frame: a coarse grid of samples
+    const mv = window.StudioStyles.moves(doc.sfx), probe = bx.getImageData(0, 0, bw, bh).data;
+    let fp = 0; for (let i = 0; i < probe.length; i += 4 * 97) fp = (fp * 31 + probe[i] + probe[i + 1] * 3 + probe[i + 2] * 7 + probe[i + 3] * 11) | 0;
+    const key = fp + '|' + bw + 'x' + bh + '|' + JSON.stringify(doc.sfx) + '|' + (mv ? R.playTime : '') + '|' + (blurToo ? JSON.stringify(doc.blur) + R.playTime : '');
+    let out;
+    if (fsLast && fsLast.key === key) out = fsLast.out;
+    else { out = window.StudioStyles.apply(src, doc.sfx, { t: R.playTime, mask: R.isClearBg(doc) }); fsLast = { key, out }; }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+    ctx.globalCompositeOperation = 'copy';
+    ctx.drawImage(out, x0, y0, w, h);
+    ctx.restore();
+  }
   // barrel distortion: the centre swells, edges bow out and the corners fall away
   function barrel(src, amt) {
     const w = src.width, h = src.height;
@@ -2827,7 +2863,7 @@
     const r = rng(Math.floor(t * 24) * 31 + 3), v = ((r() - 0.5) * 2 * 0.1 + Math.sin(t * 9) * 0.025) * clamp(amt / 100, 0, 1);
     ctx.save(); ctx.globalAlpha *= Math.abs(v); ctx.fillStyle = v > 0 ? '#fff6e6' : '#000'; ctx.fillRect(0, 0, w, h); ctx.restore();
   }
-  R.hasFilmMotion = doc => !!(doc && doc.overlay && (doc.overlay.weave > 0 || doc.overlay.flicker > 0));
+  R.hasFilmMotion = doc => !!(doc && ((doc.overlay && (doc.overlay.weave > 0 || doc.overlay.flicker > 0)) || (styleOn(doc.sfx) && window.StudioStyles.moves(doc.sfx))));
 
   /* ───────────────────────── studio look ─────────────────────────
      el.studio = { on, preset, color, color2, glow, light, lx, ly, size, intensity, grade, rim, shadow, backdrop, cutId, src }
@@ -3810,7 +3846,7 @@
     if (p < 2.5 / d) return n * (p -= 2.25 / d) * p + 0.9375;
     return n * (p -= 2.625 / d) * p + 0.984375;
   };
-  R.hasAnim = el => el.type === 'flashes' || R.isSeq(el) || !!(el.track && el.track.pts && el.track.pts.length) || !!(el.tfx && el.tfx.style && el.tfx.style !== 'none' && (el.tfx.style === 'vision' ? el.tfx.move !== false : el.tfx.move)) || !!((el.anim && ((el.anim.loop && el.anim.loop !== 'none') || (el.anim.enter && el.anim.enter !== 'none'))) || R.hasTiming(el) || (el.typing && el.typing.caret !== false && el.typing.blink !== false));
+  R.hasAnim = el => el.type === 'flashes' || !!(el.sfx && styleOn(el.sfx) && window.StudioStyles.moves(el.sfx)) || R.isSeq(el) || !!(el.track && el.track.pts && el.track.pts.length) || !!(el.tfx && el.tfx.style && el.tfx.style !== 'none' && (el.tfx.style === 'vision' ? el.tfx.move !== false : el.tfx.move)) || !!((el.anim && ((el.anim.loop && el.anim.loop !== 'none') || (el.anim.enter && el.anim.enter !== 'none'))) || R.hasTiming(el) || (el.typing && el.typing.caret !== false && el.typing.blink !== false));
   R.hasTiming = el => !!(el.time && ((el.time.start || 0) > 0 || el.time.end != null || (el.time.cycle && el.time.cycle.count > 1)));
   // cuts: a layer can be shown only for part of the video, or take turns with others
   R.visibleAt = function (el, t) {
@@ -4479,6 +4515,9 @@
     return fs * (0.1 + 0.25 * k) + fs * 0.5 * clamp((fx.smear ?? 25) / 100, 0, 1);
   };
   const fxOn = el => el.tfx && el.tfx.style && el.tfx.style !== 'none';
+  // realtime styles (styles.js): el.sfx on a layer, doc.sfx over the whole canvas
+  const styleOn = sfx => !!(sfx && sfx.id && window.StudioStyles && window.StudioStyles.has(sfx) && sfx.on !== false);
+  R.styleOn = styleOn;
   function textFx(c, el, s, t, b = 0) {
     if (el.tfx.style === 'vision') return visionFx(c, el, s, t, b);
     const fx = el.tfx, W = c.width, H = c.height, hot = fx.style === 'thermal', melt = hot ? meltOf(el, fx) : 0;
@@ -4599,13 +4638,13 @@
     const sh = el.shadow;
     const erased = el.erase && el.erase.length;
     const lb = el.lblur && (el.lblur.gauss > 0 || el.lblur.motion > 0) ? el.lblur : null;
-    const tfx = fxOn(el), tb = el.type !== 'image' && tblurOn(el);
-    if ((!sh || !sh.on) && !erased && !lb && !tfx && !tb) { drawCore(ctx, el, env); return; }
+    const tfx = fxOn(el), tb = el.type !== 'image' && tblurOn(el), sty = styleOn(el.sfx);
+    if ((!sh || !sh.on) && !erased && !lb && !tfx && !tb && !sty) { drawCore(ctx, el, env); return; }
     const s = Math.min(4, Math.max(0.25, Math.ceil(deviceScale(ctx) * 4) / 4));
     const b = bleed(el);
     const { x, y, rotation, opacity, name, locked, hidden, anim, ...rest } = el;
     // layers that change every frame (speed flashes, video) can't reuse a cached bitmap across time
-    const key = JSON.stringify(rest) + '|' + s + '|' + R.fontsVersion + (R.isTimeVarying(el) || (tfx && (el.tfx.style === 'vision' ? el.tfx.move !== false : el.tfx.move)) ? '|' + ('time' in env ? env.time : R.playTime) : '');
+    const key = JSON.stringify(rest) + '|' + s + '|' + R.fontsVersion + (R.playing ? 'p' : '') + (R.isTimeVarying(el) || (tfx && (el.tfx.style === 'vision' ? el.tfx.move !== false : el.tfx.move)) || (sty && window.StudioStyles.moves(el.sfx)) ? '|' + ('time' in env ? env.time : R.playTime) : '');
     let c = layerCache.get(key);
     if (!c || c.dirty) {
       const W = (el.width + b * 2) * s, H = (el.height + b * 2) * s;
@@ -4626,6 +4665,8 @@
         x2.globalCompositeOperation = 'destination-in';
         x2.drawImage(mk, 0, 0);
       }
+      // a realtime style (ASCII, dither, glass…) reworks the layer's own picture, keeping its outline
+      if (sty) { const sc = window.StudioStyles.apply(c, el.sfx, { t: 'time' in env ? env.time : R.playTime, mask: el.sfx.keepShape !== false }); if (sc !== c) { sc.dirty = c.dirty; c = sc; } }
       if (tfx) { const fc = textFx(c, el, s, 'time' in env ? env.time : R.playTime, b); fc.dirty = c.dirty; c = fc; }
       if (tb) { const bc = layerBlur(c, el, s, b); bc.dirty = c.dirty; c = bc; }
       if (lb && lb.motion > 0) {
@@ -5396,6 +5437,10 @@
       if (opts.transparent || R.isClearBg(doc)) ctx.globalCompositeOperation = 'copy';
       ctx.drawImage(out, 0, 0);
       ctx.restore();
+    }
+    if (styleOn(doc.sfx)) {
+      const out = window.StudioStyles.apply(c, doc.sfx, { t: tReal, mask: opts.transparent || R.isClearBg(doc) });
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'copy'; ctx.drawImage(out, 0, 0); ctx.restore();
     }
     const ov = doc.overlay || {};
     if (ov.rgb > 0) {

@@ -39,7 +39,7 @@ From another account, publish `dist/collage-studio.html` as a new artifact inste
 ## What the studio is
 
 A browser editor for scrapbook / collage Instagram posts and Reels: layered photos (and videos anywhere a photo goes),
-text, stickers, shapes, frames, ~365 templates grouped into families, animation and camera moves, film looks, and export
+text, stickers, shapes, frames, ~379 templates grouped into families, animation and camera moves, film looks, and export
 to PNG / JPG / MP4 / WebM (including see-through PNG, WebM with alpha and PNG frame sequences). Pure HTML + JS + canvas
 (Konva for the editor stage), no build step, designs saved in the browser (IndexedDB), with a home page, projects,
 "My templates", and a phone layout.
@@ -71,6 +71,11 @@ to PNG / JPG / MP4 / WebM (including see-through PNG, WebM with alpha and PNG fr
   v2 (you pick a point / object / edge / plane on the video; steady, accurate tracking with perspective for planes);
   video-export encoder fallback (4K H.264); fix for video export in the online copy (muxers bundled); Type effects
   (word build, blur shuffle, select sweep, word wall) and Screen close-up (phrase typing, comment thread) families.
+- **Oct 12–17** — templates pruned, moving layouts combined (type → ratio), renamed to Savio's editor; Match cut with one
+  word; canvas blur; Vox explainer (26 types, built-in scene editor, parallax, focus hunting, procedural textures); Depth
+  vision thermal look (Rerun-style) + melted thermal edges; the dark effects-studio UI and 105 realtime Styles
+  (styles.js / styles-ui.js, on any layer or the whole canvas) with the Image styles template family. Generative
+  (AI image-to-image) looks were skipped on request.
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 

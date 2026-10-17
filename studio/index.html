@@ -12,21 +12,33 @@
 <body>
   <div id="app">
     <header class="topbar">
-      <button class="menu-btn" id="btn-menu" title="Menu"><span class="brand-mark"></span><i data-icon="chevDown"></i></button>
+      <button class="menu-btn" id="btn-menu" title="Menu"><span class="brand-mark"></span><span class="brand-name">Savio’s editor</span><i data-icon="chevDown"></i></button>
       <input id="doc-name" class="doc-name" value="Untitled design" spellcheck="false" aria-label="Design name" />
       <span class="size-chip" id="size-label" title="Canvas size">1080 × 1350</span>
       <button class="save-chip" id="save-state" type="button" hidden>Draft</button>
       <div class="tb-spacer"></div>
-      <div class="tb-group">
+      <div class="tb-center">
+  <div class="zoom-ctl" id="zoom-ctl">
+        <button class="z-btn" id="btn-view" title="Grid & snapping"><i data-icon="grid"></i></button>
+        <span class="z-sep"></span>
+        <button class="z-btn" id="btn-zoom-out" title="Zoom out (⌘−)"><i data-icon="minus"></i></button>
+        <button class="z-val" id="btn-zoom-fit" title="Zoom options">100%</button>
+        <button class="z-btn" id="btn-zoom-in" title="Zoom in (⌘+)"><i data-icon="plus"></i></button>
+      </div>
+        <span class="z-sep"></span>
+  <div class="tb-group">
         <button class="tb-icon" id="btn-undo" title="Undo (⌘Z)"><i data-icon="undo"></i></button>
         <button class="tb-icon" id="btn-redo" title="Redo (⇧⌘Z)"><i data-icon="redo"></i></button>
       </div>
+      </div>
+
       <button class="tb-btn" id="btn-animate" title="Animate (P to play)"><i data-icon="film"></i><span>Animate</span></button>
       <button class="tb-btn primary" id="btn-export" title="Export (⌘E)"><i data-icon="download"></i><span>Export</span></button>
     </header>
 
     <nav class="rail" id="rail">
-      <button data-tab="templates" class="active"><i data-icon="layout"></i><span>Templates</span></button>
+      <button data-tab="styles" class="active"><i data-icon="sparkle"></i><span>Styles</span></button>
+      <button data-tab="templates"><i data-icon="layout"></i><span>Templates</span></button>
       <button data-tab="elements"><i data-icon="shapes"></i><span>Elements</span></button>
       <button data-tab="text"><i data-icon="type"></i><span>Text</span></button>
       <button data-tab="photos"><i data-icon="image"></i><span>Photos</span></button>
@@ -44,13 +56,7 @@
       <div class="float-bar" id="eraser-bar" hidden></div>
       <div class="timeline" id="timeline" hidden></div>
       <div class="dock" id="dock"></div>
-      <div class="zoom-ctl" id="zoom-ctl">
-        <button class="z-btn" id="btn-view" title="Grid & snapping"><i data-icon="grid"></i></button>
-        <span class="z-sep"></span>
-        <button class="z-btn" id="btn-zoom-out" title="Zoom out (⌘−)"><i data-icon="minus"></i></button>
-        <button class="z-val" id="btn-zoom-fit" title="Zoom options">100%</button>
-        <button class="z-btn" id="btn-zoom-in" title="Zoom in (⌘+)"><i data-icon="plus"></i></button>
-      </div>
+
       <div class="drop-veil" id="drop-veil"><div>Drop photos to add them</div></div>
     </main>
 
@@ -71,6 +77,7 @@
   <script src="outfits-boys.js"></script>
   <script src="stickers-game.js"></script>
   <script src="render.js"></script>
+  <script src="styles.js"></script>
   <script src="nature.js"></script>
   <script src="flashes.js"></script>
   <script src="filmphotos.js"></script>
@@ -82,5 +89,6 @@
   <script src="video.js"></script>
   <script src="tracker.js"></script>
   <script src="ui.js"></script>
+  <script src="styles-ui.js"></script>
 </body>
 </html>

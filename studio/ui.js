@@ -344,6 +344,7 @@
       const v = get();
       if (document.activeElement !== inp) inp.value = fmt(v);
       if (slider && document.activeElement !== slider) slider.value = v;
+      if (slider) slider.style.setProperty('--p', ((clamp(v, +slider.min, +slider.max) - slider.min) / ((slider.max - slider.min) || 1) * 100) + '%');
     };
     inp.addEventListener('change', () => { const v = parseFloat(inp.value); if (!isNaN(v)) set(v, false); upd(); });
     inp.addEventListener('keydown', e => {
@@ -355,7 +356,7 @@
       if (e.key === 'Enter') inp.blur();
     });
     if (slider) {
-      slider.addEventListener('input', () => { set(parseFloat(slider.value), true); inp.value = fmt(parseFloat(slider.value)); });
+      slider.addEventListener('input', () => { set(parseFloat(slider.value), true); inp.value = fmt(parseFloat(slider.value)); slider.style.setProperty('--p', ((slider.value - slider.min) / ((slider.max - slider.min) || 1) * 100) + '%'); });
       slider.addEventListener('change', () => set(parseFloat(slider.value), false));
     }
     if (lbl) {
@@ -511,6 +512,7 @@
     else {
       const el = els[0];
       parts.push(inspHead(el));
+      for (const f of hooks.el) parts.push(f(el));
       const fn = { text: textInspector, image: imageInspector, sticker: stickerInspector, shape: shapeInspector, calendar: calendarInspector, badge: badgeInspector, checklist: checklistInspector, ribbon: ribbonInspector, camera: cameraInspector, nature: natureInspector, flashes: flashesInspector }[el.type];
       if (fn) parts.push(...fn(el));
       parts.push(effectsSection(el), motionSection(el), arrangeSection(el));
@@ -2026,6 +2028,7 @@
     });
     return [
       h('div.insp-head', null, h('h2', null, 'Canvas')),
+      ...hooks.doc.map(f => f()),
       voxSection(),
       sec('Background', [
         full(h('button.size-btn', { type: 'button', onclick: () => openSizeModal() }, h('span', null, sizeName(d.width, d.height)), h('small', null, `${d.width} × ${d.height}`), ic('resize'))),
@@ -2146,10 +2149,11 @@
 
   const panel = $('#panel');
   const app = $('#app');
-  let tab = 'templates';
+  let tab = 'styles';
+  const extraPanels = {}, hooks = { el: [], doc: [] };
   let drill = null;        // "See all" view inside a panel: { tab, title, items, grid }
   const queries = {};      // search text per tab
-  const TAB_TITLES = { templates: 'Templates', elements: 'Elements', text: 'Text', photos: 'Photos', background: 'Canvas', layers: 'Layers' };
+  const TAB_TITLES = { styles: 'Styles', templates: 'Templates', elements: 'Elements', text: 'Text', photos: 'Photos', background: 'Canvas', layers: 'Layers' };
   function setTab(t, opts = {}) {
     if (t === 'animate') { openAnimate($('#btn-animate')); return; }
     if (t === 'stickers' || t === 'shapes' || t === 'planner') t = 'elements';
@@ -2205,7 +2209,7 @@
   }
 
   function renderPanel() {
-    const fn = { templates: templatesPanel, elements: elementsPanel, text: textPanel, photos: photosPanel, background: backgroundPanel, layers: layersPanel }[tab] || templatesPanel;
+    const fn = Object.assign({ templates: templatesPanel, elements: elementsPanel, text: textPanel, photos: photosPanel, background: backgroundPanel, layers: layersPanel }, extraPanels)[tab] || templatesPanel;
     const body = drill && drill.tab === tab ? [panelHead(TAB_TITLES[tab]), ...drillView()] : fn();
     panel.replaceChildren(...body.flat().filter(Boolean));
     hydrateIcons(panel);
@@ -3045,7 +3049,7 @@
       h('p.hint', null, 'Hold Ctrl while dragging to skip snapping.'),
     ], { cls: 'view-pop' });
     const pop = $('.view-pop'), r = anchor.getBoundingClientRect();
-    if (pop) { pop.style.top = Math.max(8, r.top - pop.offsetHeight - 8) + 'px'; pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)) + 'px'; }
+    if (pop) { pop.style.top = (r.top - pop.offsetHeight - 8 < 8 ? r.bottom + 8 : r.top - pop.offsetHeight - 8) + 'px'; pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)) + 'px'; }
   }
   $('#btn-view').onclick = e => viewMenu(e.currentTarget);
 
@@ -3748,7 +3752,7 @@
     const B = (icon, label, run, on, cls) => h('button.mt' + (on ? '.on' : '') + (cls || ''), { type: 'button', onclick: run }, ic(icon), h('span', null, label));
     if (!els.length) {
       const pt = panel.classList.contains('open') ? tab : null;
-      items.push(B('layout', 'Templates', () => mPanel('templates'), pt === 'templates'), B('type', 'Text', () => mPanel('text'), pt === 'text'),
+      items.push(B('sparkle', 'Styles', () => mPanel('styles'), pt === 'styles'), B('layout', 'Templates', () => mPanel('templates'), pt === 'templates'), B('type', 'Text', () => mPanel('text'), pt === 'text'),
         B('image', 'Photos', () => mPanel('photos'), pt === 'photos'), B('shapes', 'Elements', () => mPanel('elements'), pt === 'elements'),
         B('palette', 'Backdrop', () => mPanel('background'), pt === 'background'), B('sliders', 'Canvas', () => mOpen('all'), mTool === 'all'),
         B('layers', 'Layers', () => mPanel('layers'), pt === 'layers'), B('film', 'Animate', e => openAnimate(e.currentTarget)));
@@ -3784,7 +3788,14 @@
   renderInspector();
   updateTop();
   if (S.mobile) mToolbar();
-  S.ui = { openHome, openExport, openSizeModal, setTab, toast, renderPanel };
+  S.ui = {
+    openHome, openExport, openSizeModal, setTab, toast, renderPanel, renderInspector,
+    // building blocks for panels and sections added from other files
+    h, ic, icon, hydrateIcons, sec, row, full, two, more, label, num, selectCtl, seg, toggle, colorCtl, inputCtl, menu, panelHead, searchBox,
+    get tab() { return tab; },
+    registerPanel(name, title, fn) { extraPanels[name] = fn; TAB_TITLES[name] = title; if (tab === name) renderPanel(); },
+    addSection(kind, fn) { hooks[kind].push(fn); renderInspector(); },
+  };
 
   // first run: restore the last session silently, otherwise show the start screen
   F.injectStylesheets();

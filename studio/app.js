@@ -320,7 +320,7 @@
       for (const g of guideLines) {
         ctx.beginPath(); ctx.moveTo(g.x1, g.y1); ctx.lineTo(g.x2, g.y2);
         ctx.lineWidth = (g.kind === 'center' ? 1.5 : 1) / s;
-        ctx.strokeStyle = g.kind === 'center' ? '#ff2e88' : g.kind === 'grid' ? '#5b4cf5' : '#ff6a3d';
+        ctx.strokeStyle = g.kind === 'center' ? '#ff2e88' : g.kind === 'grid' ? '#4d9fff' : '#ff6a3d';
         ctx.stroke();
         if (g.kind !== 'center') {
           ctx.fillStyle = ctx.strokeStyle;
@@ -330,17 +330,17 @@
       ctx.restore();
     },
   });
-  const hoverRect = new Konva.Rect({ listening: false, stroke: '#5b4cf5', strokeWidth: 1.5, strokeScaleEnabled: false, visible: false });
-  const marquee = new Konva.Rect({ listening: false, fill: 'rgba(91,76,245,0.08)', stroke: '#5b4cf5', strokeWidth: 1, strokeScaleEnabled: false, visible: false });
+  const hoverRect = new Konva.Rect({ listening: false, stroke: '#4d9fff', strokeWidth: 1.5, strokeScaleEnabled: false, visible: false });
+  const marquee = new Konva.Rect({ listening: false, fill: 'rgba(77,159,255,0.08)', stroke: '#4d9fff', strokeWidth: 1, strokeScaleEnabled: false, visible: false });
 
   const tr = new Konva.Transformer({
     rotateAnchorOffset: 26,
     anchorSize: 10,
     anchorCornerRadius: 5,
-    anchorStroke: '#5b4cf5',
+    anchorStroke: '#4d9fff',
     anchorFill: '#ffffff',
     anchorStrokeWidth: 1.5,
-    borderStroke: '#5b4cf5',
+    borderStroke: '#4d9fff',
     borderStrokeWidth: 1.5,
     rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
     rotationSnapTolerance: 4,
@@ -352,7 +352,7 @@
       const n = a.name();
       if (n.includes('middle-left') || n.includes('middle-right')) { a.width(6); a.height(20); a.offsetX(3); a.offsetY(10); a.cornerRadius(3); }
       if (n.includes('top-center') || n.includes('bottom-center')) { a.width(20); a.height(6); a.offsetX(10); a.offsetY(3); a.cornerRadius(3); }
-      if (n.includes('rotater')) { a.cornerRadius(10); a.fill('#5b4cf5'); a.stroke('#ffffff'); }
+      if (n.includes('rotater')) { a.cornerRadius(10); a.fill('#4d9fff'); a.stroke('#ffffff'); }
     },
   });
   uiLayer.add(guideShape, hoverRect, tr, marquee);
@@ -480,7 +480,7 @@
   function placeBackground() {
     // blends mix with the background on the layers' canvas — but never with the see-through checkerboard
     // a canvas blur has to blur the background too, so it joins the layers' canvas as well
-    const want = !(doc.background && doc.background.none) && (R.hasFrameBlur(doc) || (doc.camera && doc.camera.hunt > 0) || doc.elements.some(e => e.blend && e.blend !== 'normal' && e.blend !== 'source-over')) ? layer : bgLayer;
+    const want = !(doc.background && doc.background.none) && (R.hasFrameBlur(doc) || R.styleOn(doc.sfx) || (doc.camera && doc.camera.hunt > 0) || doc.elements.some(e => e.blend && e.blend !== 'normal' && e.blend !== 'source-over')) ? layer : bgLayer;
     if (bgFrame.getLayer() === want) return;
     bgFrame.moveTo(want);
     if (want === layer) bgFrame.moveToBottom();
@@ -1516,7 +1516,7 @@
     if (!el || !n) return;
     const s = S.view.scale, T = n.getTransform();
     const pts = el.points.map(([u, v]) => T.point({ x: u * el.width, y: v * el.height }));
-    const line = new Konva.Line({ points: pts.flatMap(p => [p.x, p.y]).concat(el.closed ? [pts[0].x, pts[0].y] : []), stroke: '#5b4cf5', strokeWidth: 1 / s, dash: [4 / s, 4 / s], listening: false });
+    const line = new Konva.Line({ points: pts.flatMap(p => [p.x, p.y]).concat(el.closed ? [pts[0].x, pts[0].y] : []), stroke: '#4d9fff', strokeWidth: 1 / s, dash: [4 / s, 4 / s], listening: false });
     pathGroup.add(line);
     const finish = () => { refitPath(el); syncNode(el); buildPathHandles(); layer.batchDraw(); S.commit(); emit('values'); };
     // midpoints add a point
@@ -1535,7 +1535,7 @@
       pathGroup.add(m);
     }
     pts.forEach((p, i) => {
-      const c = new Konva.Circle({ x: p.x, y: p.y, radius: 7 / s, fill: '#ffffff', stroke: '#5b4cf5', strokeWidth: 2 / s, draggable: true, hitStrokeWidth: 10 / s });
+      const c = new Konva.Circle({ x: p.x, y: p.y, radius: 7 / s, fill: '#ffffff', stroke: '#4d9fff', strokeWidth: 2 / s, draggable: true, hitStrokeWidth: 10 / s });
       c.on('mousedown touchstart', ev => { ev.cancelBubble = true; });
       c.on('dragmove', () => {
         const inv = n.getTransform().copy().invert(), lp = inv.point(c.position());
@@ -1617,8 +1617,8 @@
     pts.forEach((p, i) => {
       const bc = map.toBox(p.x, p.y), c = T.point(bc), rr = p.r * map.unit;
       const ring = new Konva.Circle({ x: c.x, y: c.y, radius: rr, stroke: '#ffffff', strokeWidth: 2 / s, dash: [6 / s, 5 / s], shadowColor: '#000', shadowBlur: 3, shadowOpacity: 0.6, listening: false });
-      const dot = new Konva.Circle({ x: c.x, y: c.y, radius: 8 / s, fill: '#5b4cf5', stroke: '#fff', strokeWidth: 2 / s, draggable: true, hitStrokeWidth: 10 / s });
-      const knob = new Konva.Circle({ x: c.x + rr, y: c.y, radius: 6 / s, fill: '#ffffff', stroke: '#5b4cf5', strokeWidth: 2 / s, draggable: true, hitStrokeWidth: 10 / s });
+      const dot = new Konva.Circle({ x: c.x, y: c.y, radius: 8 / s, fill: '#4d9fff', stroke: '#fff', strokeWidth: 2 / s, draggable: true, hitStrokeWidth: 10 / s });
+      const knob = new Konva.Circle({ x: c.x + rr, y: c.y, radius: 6 / s, fill: '#ffffff', stroke: '#4d9fff', strokeWidth: 2 / s, draggable: true, hitStrokeWidth: 10 / s });
       dot.on('mousedown touchstart', ev => { ev.cancelBubble = true; });
       knob.on('mousedown touchstart', ev => { ev.cancelBubble = true; });
       dot.on('dragmove', () => { ring.position(dot.position()); knob.position({ x: dot.x() + ring.radius(), y: dot.y() }); uiLayer.batchDraw(); });
@@ -1671,7 +1671,7 @@
       pickGroup.add(new Konva.Line({ points: flat, closed: line.closed, stroke: '#000', opacity: 0.35, strokeWidth: 4 / s, listening: false }));
       pickGroup.add(new Konva.Line({ points: flat, closed: line.closed, stroke: '#ffffff', strokeWidth: 2 / s, dash: [7 / s, 5 / s], fill: line.closed ? 'rgba(91,76,245,0.12)' : null, listening: false }));
       P.forEach((p, i) => {
-        const h = new Konva.Circle({ x: p.x, y: p.y, radius: 7 / s, fill: i === 0 || trackPick.mode !== 'point' ? '#5b4cf5' : '#ffffff', stroke: '#fff', strokeWidth: 2 / s, draggable: true, hitStrokeWidth: 12 / s });
+        const h = new Konva.Circle({ x: p.x, y: p.y, radius: 7 / s, fill: i === 0 || trackPick.mode !== 'point' ? '#4d9fff' : '#ffffff', stroke: '#fff', strokeWidth: 2 / s, draggable: true, hitStrokeWidth: 12 / s });
         h.on('dragmove', () => {
           const q = { x: h.x(), y: h.y() }, m = trackPick.mode;
           if (m === 'object') {
@@ -1839,7 +1839,7 @@
     ta.style.letterSpacing = (el.letterSpacing || 0) * el.fontSize + 'px';
     ta.style.textTransform = el.uppercase ? 'uppercase' : 'none';
     ta.style.textAlign = el.align;
-    ta.style.caretColor = el.fill && el.fill !== 'transparent' ? el.fill : '#5b4cf5';
+    ta.style.caretColor = el.fill && el.fill !== 'transparent' ? el.fill : '#4d9fff';
     const curved = L.curved;
     ta.style.color = curved ? 'rgba(0,0,0,.0)' : 'transparent';
     ta.style.whiteSpace = el.autoWidth || curved ? 'pre' : 'pre-wrap';

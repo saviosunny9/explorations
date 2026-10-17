@@ -1236,6 +1236,37 @@
       ];
     })(),
 
+    // ── IMAGE STYLES: one photo, one realtime style (styles.js) — swap in your own photo or video ──
+    ...(() => {
+      const ST = window.StudioStyles;
+      const LOOKS = [
+        ['st-ascii', 'ASCII portrait', 'ed-curls', 'characters', { size: 9 }, 'Characters'],
+        ['st-dither', '1-bit dither', 'ed-suit', 'dither', { algo: 'atkinson', pixel: 3 }, 'Dither'],
+        ['st-pixel', 'Pixel art', 'ed-smile', 'pixel-art', { size: 10 }, 'Pixel Art'],
+        ['st-lego', 'Brick mosaic', 'film-portrait', 'lego', { size: 14 }, 'LEGO'],
+        ['st-riso', 'Risograph print', 'ed-profile', 'risograph', {}, 'Risograph'],
+        ['st-halftone', 'Halftone poster', 'ed-yellow', 'halftone', { size: 11 }, 'Halftone'],
+        ['st-cyanotype', 'Cyanotype', 'ed-dark', 'cyanotype', {}, 'Cyanotype'],
+        ['st-fluted', 'Fluted glass', 'film-neon', 'fluted-glass', { size: 22 }, 'Fluted Glass'],
+        ['st-crt', 'CRT screen', 'film-tram', 'crt', { size: 3 }, 'CRT Screen', true],
+        ['st-thermal', 'Thermal camera', 'ed-think', 'thermal', { readout: true }, 'Thermal'],
+        ['st-datamosh', 'Datamosh', 'film-road', 'datamosh', {}, 'Datamosh', true],
+        ['st-kaleido', 'Kaleidoscope', 'film-golden', 'kaleidoscope', { segments: 8 }, 'Kaleidoscope', true],
+        ['st-chrome', 'Liquid chrome', 'ed-light', 'chrome', {}, 'Chrome'],
+        ['st-edge', 'Edge glow', 'ed-eye', 'edge-glow', {}, 'Edge Glow'],
+      ];
+      return LOOKS.map(([id, name, asset, style, over, label, video]) => ({
+        id, name, tags: ['Photo', 'Style'].concat(video ? ['Video'] : []), width: 1080, height: 1350, video: !!video,
+        build: () => ({
+          width: 1080, height: 1350, background: { color: '#000000' }, anim: { duration: 6, fps: 30 },
+          elements: [
+            img(0, 0, 1080, 1350, { assetId: asset, name: 'Your photo or video', crop: { zoom: 1, x: 0.5, y: 0.5 }, sfx: Object.assign(ST ? ST.defaults(style) : { id: style }, over) }),
+            txt('/ ' + label.toUpperCase(), { x: 56, y: 1262, align: 'left', fontFamily: 'Geist Mono', fontSize: 24, letterSpacing: 0.16, fill: '#ffffff', shadow: { on: true, color: '#000000', blur: 18, x: 0, y: 0, opacity: 0.6 } }),
+          ],
+        }),
+      }));
+    })(),
+
     // ── TEXT EFFECTS: thermal-camera glow and ink soaking into paper ──
     ...(() => {
       const T = (id, name, tags, build, video) => ({ id, name, tags, width: 1080, height: 1350, video: !!video, build });
@@ -2415,6 +2446,7 @@
 
   // families of variations show as one card in the panel and open into all their styles
   const GROUPS = {
+    'Image styles': ['st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-datamosh', 'st-kaleido', 'st-chrome', 'st-edge'],
     'Vox explainer': [], 'Moving grids': [], 'Photo piles': [], 'Strips & panels': [],
     'Text slides': ['ts-created', 'ts-goal', 'ts-earth', 'ts-crisis', 'ts-brands', 'ts-made', 'ts-align', 'ts-dress', 'ts-meant', 'ts-new', 'ts-visuals', 'ts-average', 'ts-cool', 'ts-iamart', 'ts-redact', 'ts-rest', 'ts-chase', 'ts-chapter', 'ts-do', 'ts-action', 'ts-where', 'ts-norest', 'ts-scribble', 'ts-feeling', 'ts-museum', 'ts-story', 'ts-justdo', 'ts-notend', 'ts-consume', 'ts-love', 'ts-now', 'ts-austen', 'ts-son', 'ts-sleep', 'ts-laziest', 'ts-gofor', 'ts-normalize', 'ts-purpose', 'ts-passion', 'ts-artflip', 'ts-exactly', 'ts-identity', 'ts-ability', 'ts-tryagain', 'ts-authentic', 'ts-happen', 'ts-memories', 'ts-now2', 'ts-hands', 'ts-messy', 'ts-start', 'ts-rushed', 'ts-develop', 'ts-addicted', 'ts-makeit', 'ts-dothis', 'ts-mostcreative', 'ts-busy', 'ts-lesscare', 'ts-chapter2', 'ts-overthink', 'ts-athletes', 'ts-curated', 'ts-outside', 'ts-done', 'ts-whatmakes', 'ts-support', 'ts-takerisk', 'ts-thinkbig'],
     'Photo effects': ['px-scribble', 'px-strips', 'px-censor', 'px-mosaic', 'px-mirror', 'px-eyes', 'px-childhood', 'px-note', 'px-words', 'px-brandfade', 'px-faceswap', 'px-ghost', 'px-phone', 'px-signed', 'px-redbar', 'px-taped', 'px-redprint', 'px-backdrop', 'px-gridpaper', 'px-letter', 'px-quote', 'px-fieldnotes', 'px-belonged', 'px-touch', 'px-margins', 'px-worthy', 'px-sketchbook'],

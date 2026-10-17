@@ -11,11 +11,13 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `stickers.js`, `stickers-game.js` | 170 recolourable SVG stickers, including glossy game-UI icons and crystals |
 | `nature.js` | Procedural garden painters (lawn hills, flower beds, bushes, hedges, trees, clouds, sky) and 9 garden backdrops |
 | `render.js` | Canvas renderer for every element type, used by both the editor and export |
+| `styles.js` | 105 realtime image styles (ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
+| `styles-ui.js` | The Styles panel, the Style section of the inspector and the action bar under the canvas |
 | `app.js` | Editor core: stage, selection, snapping & guides, transforms, text editing, crop, history, import |
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
 | `video.js` | Frame-by-frame video export (WebCodecs H.264 → MP4 or VP9 → WebM, MediaRecorder fallback) |
 | `ui.js` | Panels, inspector, popovers, dialogs |
-| `templates.js` | About 365 templates plus text, paper, planner, photo-layout and background presets |
+| `templates.js` | About 379 templates plus text, paper, planner, photo-layout and background presets |
 
 Work is autosaved to the browser (IndexedDB). Use **Menu → Download project file** to keep a portable `.studio.json`.
 
@@ -32,10 +34,56 @@ To refresh the file after changing the code: `python3 studio/tools/build_single_
 Open the same link on a phone and the editor switches to a phone layout on its own (and back on a laptop — nothing changes there):
 
 - The canvas fills the screen. **Pinch** to zoom, **two fingers** to pan, drag an empty part of the canvas with one finger to move around, **tap** empty canvas to deselect, **double-tap** text to type, **long-press** a layer for its menu (duplicate, copy properties, flip, arrange, delete…).
-- A **tool strip** runs along the bottom, like Snapseed or Photoshop Express. With nothing selected it has Templates, Text, Photos, Elements, Backdrop, Canvas, Layers and Animate (plus Play once something moves). Select a layer and it changes to that layer's tools — for a photo: Replace, Crop, Blend, Photo, Studio, Looks, Adjust, Film, Blur, Frame, Effects, Motion, Position, Duplicate, Delete; for text: Edit text, Font, Style, Effects…
+- A **tool strip** runs along the bottom, like Snapseed or Photoshop Express. With nothing selected it has Styles, Templates, Text, Photos, Elements, Backdrop, Canvas, Layers and Animate (plus Play once something moves). Select a layer and it changes to that layer's tools — for a photo: Replace, Crop, Blend, Photo, Studio, Looks, Adjust, Film, Blur, Frame, Effects, Motion, Position, Duplicate, Delete; for text: Edit text, Font, Style, Effects…
 - Each tool opens **one small sheet** with just its controls, with the canvas still in view above; ✓ closes it, and switching layers keeps the same tool open. Templates, Text, Photos and the other libraries open as tall sheets that fold away as soon as you add something.
 - Menus, colour pickers and dialogs (export, canvas size…) slide up from the bottom. Handles are bigger for fingers.
 - Turn the phone sideways and the sheets sit beside the canvas instead of under it.
+
+## Styles (105 realtime looks)
+
+The editor opens on **Styles** (first button on the left). Pick a style and it is applied at once: to the selected
+layer(s) — a photo, a video, text, a sticker — or, with nothing selected, to the **whole canvas** (the line *Applies to*
+under the tabs says which). Every thumbnail is the real style run on a small copy of what it would land on, so you see
+your own photo in each look. **Explore** lists them by family; **Favorites** keeps the ones you star (★ on a tile);
+the search finds names and tags (Mono, Retro, Glitch…).
+
+- **ASCII & Text**: Characters (17 character sets — Standard, Classic ASCII, Blocks, Braille, Binary, Katakana… — or your
+  own), ASCII Studio, Block, Dots, Mixed, Braille (real 2×4 dot characters).
+- **Pixel & Blocks**: Pixel Art (Pico-8, NES, Game Boy… palettes, outline, dither), Mosaic, LEGO (real brick colours, studs),
+  Voxel (isometric cubes), Hex Mosaic, LED Matrix.
+- **Print & Paper**: Dither (15 algorithms — Bayer, clustered halftone, lines, blue noise, Floyd–Steinberg, Atkinson, Stucki,
+  Sierra — 16 palettes, 3 chroma modes), Stippling, Risograph (two inks, grain, misregistration), Comic, Sketch, Engraving,
+  Warhol, Blueprint, Halftone, Woodblock, Posterize, Mezzotint, Pointillize, Crosshatch, CMYK Drops, Cyanotype,
+  Honeycomb Screen, Crumpled Print.
+- **Geometric**: Cross, Diamond, Lines, Diagonal, Specimen (sample boxes with magnified insets), Low Poly, Droste,
+  Truchet, Iso Extrude, Flow Field, Lattice, Topography, Forms, Schematic, Neon Grid.
+- **Distort**: Smudge, Pinch, Spherize, Twirl, ZigZag, Ripple, Polar, Shear. **Blur & Focus**: Motion, Tilt-Shift,
+  Gaussian, Radial.
+- **Glitch & Signal**: CRT Screen, Pixel Sort, Forensics, Digital Distortion, Datamosh, Lofi, RGB Split, Scanline,
+  Thermal (Ironbow, Rainbow, Arctic…), Beacon.
+- **Light & Color**: Disco, Anaglyph 3D, Gradient Map, Prism, Dreamdust, Light Wind, Kaleidoscope, Warpbloom, Duotone,
+  Edge Glow, Aberration.
+- **Glass**: Frosted, Tinted (stained glass), Shatter, Vitrine, Glass Orb, Fluted, Cross Reeded, Hammered, Diamond,
+  Hexagon, Ripple, Ice Crackle, Chevron Prism, Seedy Bubbles, Glass Pixel, Jello.
+- **Material & Texture**: Waves, Oil Paint, Watercolor, Chrome, Thin-Film, Marble, Molten Metal, Crystallize, Emboss,
+  Petrol Sheen, Heat Tint.
+
+The inspector's **/ STYLE** section holds the style's own settings, then **/ Backdrop** (for mark styles: blurred image,
+black, a colour, the original or see-through; softness, opacity, blend mode, mark opacity, invert mapping, dot grid),
+**/ Intensity** (coverage, brightness, contrast — or effect strength) and **/ Motion** for styles that move in videos
+(Disco, CRT flicker, Datamosh, Jello, Ripple…; *Animate in videos* and *Speed*). Change style with the picker, **Restyle**
+for new random settings, **Shuffle** for another style, the bin to remove it. On a layer, *Keep the layer's outline*
+keeps a cut-out or text shaped like itself. Styles work on videos frame by frame and in every export.
+
+The bar under the canvas: tools, then **Upload**, **Inspire** (a sample photo to try styles on), **Restyle**,
+**Shuffle**, **Library** (your photos) and **Export**.
+
+The **Image styles** template family (14) shows one look each on a demo photo — ASCII portrait, 1-bit dither, Pixel art,
+Brick mosaic, Risograph print, Halftone poster, Cyanotype, Fluted glass, CRT screen (video), Thermal camera, Datamosh
+(video), Kaleidoscope (video), Liquid chrome, Edge glow — swap in your own photo or video.
+
+The editor's look: near-black chrome with hairline borders, white as the only accent, Geist for words, Geist Mono for
+numbers and `/ SECTION` labels, Geist Pixel for display type (all free Google Fonts).
 
 ## Home page and your designs
 
