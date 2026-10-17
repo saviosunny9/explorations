@@ -116,6 +116,15 @@ are the bundled photos from `flashes.js`, `film-` from `filmphotos.js`, `ed-` fr
   (worked out at ≤420 px, crisp letters redrawn on top), ink thresholds a blurred + smeared alpha with value noise and sprays
   dots. `blurMap` (box blur ×3 on Float32 alpha) avoids canvas filters; `R.textFxPad` adds the glow / bleed margin to `bleed()`.
   `tfx.move` makes the layer time-varying (thermal shimmer). Gaussian layer blur is baked into the layer cache.
+- Depth vision (`tfx.style: 'vision'`, the default look of Effects → Thermal, on any layer incl. photos / videos; learned from
+  studiogruhl.com/projects/rerun): `visionFx(c, el, s, t, b)` in render.js. Subject mask = alpha (text, shapes, cut-outs) or, for
+  photos, `visionSubject` (difference from the border-median backdrop; `tfx.subject` 'auto' | 'bright' | 'dark'). A two-radius
+  blurred glow field at ≤300 px (radius from font size for text, box size for photos; gain-normalised), noise displacement,
+  a radial wave (`wave`, `waveLen`, centre `cx`/`cy`, `speed`) and flow noise give V = 0.25 + 0.72·F + wave + noise outside;
+  inside the subject 1.02 + core·normalised luma. V wraps (`fract`) through a cyclic 1024-entry LUT (`visionLut`:
+  `R.VISION_PALETTES` depth / jet / turbo / dusk / mono, or `palette: 'custom'` + `stops`), plus grain. `field: true` fills the
+  whole box (photos); otherwise alpha = max(subject, glow). Detail ≤720 px (≤440 while playing), ~200 ms a frame.
+  `R.textFxPad` widens the bleed for the glow; moves unless `move === false`. Classic thermal on photos uses luma × alpha as heat.
 - Layer blurs for non-photo layers: `el.tblur` holds the photo blur keys (motion, ghost, zoomBlur, spinBlur, blur, tiltShift,
   motionAngle, blurX/Y, tiltY/Size, blurArea, blurPts, blurFeather). `layerBlur` in `drawLayered` runs the photo blur
   functions on the cached bitmap, rescaled from the bitmap (with its bleed) to the layer's box; `R.layerBlurPad` widens
@@ -241,10 +250,10 @@ Playwright `devices['iPhone 13']`, `'Pixel 7'`, `'iPhone 13 landscape'`; multi-t
 A template is `{ id, name, tags, width, height, video?, build: () => doc }`. Helpers: `txt`, `img`,
 `stk`, `shp`, `rib`, `nat`, `cam`. Text can be placed by centre (`cx`, `cy`); widths are measured on
 load. Put a new family's ids in `GROUPS` (order = display order); `video: true` adds the badge and hover
-preview. Families so far: Typing screen (layout `typescreen`, 4 orientations), Type effects (7: word build, select sweep, word wall, blur shuffle), Screen close-up (4: phrase typing, comment thread), Smooth cam text (layout `smoothcam`, 4 orientations, words carried across re-flows by `key`), Text effects (5), eight moving-layout families (Scrolling wall, Card trail, Grid build, Photo drop, Fan stack, Strip conveyor, Zoom wall, Slide-in panels — 4 orientations each), Text slides (69), Photo effects (27, incl. eight handwritten journal layouts), Paper & ID (10), Film looks (16), Film camera (10), Stop motion, Speed flashes, Studio portrait, Newspaper
+preview. Families so far: Typing screen (layout `typescreen`, 4 orientations), Type effects (7: word build, select sweep, word wall, blur shuffle), Screen close-up (4: phrase typing, comment thread), Smooth cam text (layout `smoothcam`, 4 orientations, words carried across re-flows by `key`), Text effects (8, incl. three Depth vision), eight moving-layout families (Scrolling wall, Card trail, Grid build, Photo drop, Fan stack, Strip conveyor, Zoom wall, Slide-in panels — 4 orientations each), Text slides (69), Photo effects (27, incl. eight handwritten journal layouts), Paper & ID (10), Film looks (16), Film camera (10), Stop motion, Speed flashes, Studio portrait, Newspaper
 reveal, Typing, Match cut, Kinetic headline, Sticky notes, Rolling numbers, Word by word, Letter
 bounce, Life-sim garden, Ribbon poster, Motion blur, Camera view, Meet the team, Grid-paper notes,
-Polaroid POV, Wall calendar, Notebook tip — about 362 templates (104 of them Vox explainer). Removed on request (Oct 12): Everyday things, Film club ticket, Café chalkboard,
+Polaroid POV, Wall calendar, Notebook tip — about 365 templates (104 of them Vox explainer). Removed on request (Oct 12): Everyday things, Film club ticket, Café chalkboard,
 Happy birthday, Y2K vibes, This week, Review card, Coming soon, Halftone duo, Postfólio, Tools I use, Creative partner,
 Meet the agent, the Outfit line-up family, Quote card, Retro event, Photo dump, Mood board, New post story, Save the date and Big sale; their fonts are kept as Text styles and their stickers stay in Elements. Film templates build
 filters with `LOOK('<preset>', overrides)` so they stay in step with the presets.

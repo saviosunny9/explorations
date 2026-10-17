@@ -1250,6 +1250,30 @@
             txt('HEAT SIGNATURE · 36.6°', { cx: 540, cy: 1180, fontFamily: 'Space Mono', fontSize: 22, letterSpacing: 0.2, fill: '#7d86ff' }),
           ],
         }), true),
+        // Depth vision: the robot's-eye depth map (cyclic Jet-style ramp, glow, drifting waves), on a photo, on type, in Jet
+        T('fx-vision-photo', 'Depth vision photo', ['Photo', 'Video'], () => ({
+          width: 1080, height: 1350, background: { color: '#9bbfe4' }, overlay: { grain: 10 }, anim: { duration: 6, fps: 30 },
+          camera: { move: 'pushin', zoom: 1.06, start: 0, dur: 6, blur: 0 },
+          elements: [
+            img(0, 0, 1080, 1350, { assetId: 'ed-suit', name: 'Your photo or video', crop: { zoom: 1, x: 0.5, y: 0.5 }, tfx: { style: 'vision', palette: 'depth', amount: 55, wave: 50, waveLen: 35, noise: 55, grain: 50, core: 50, speed: 50, move: true, cx: 1.2, cy: -0.3, subject: 'auto', field: true } }),
+            txt('See what\nrobots see.', { x: 64, y: 64, align: 'left', fontFamily: 'Inter', fontWeight: 400, fontSize: 64, lineHeight: 1, letterSpacing: -0.03, fill: '#0d0d0d' }),
+            txt('DEPTH · 01', { x: 64, y: 1250, align: 'left', fontFamily: 'Space Mono', fontSize: 22, letterSpacing: 0.18, fill: '#0d0d0d' }),
+          ],
+        }), true),
+        T('fx-vision-type', 'Depth vision type', ['Text', 'Video'], () => ({
+          width: 1080, height: 1350, background: { color: '#9bbfe4' }, overlay: { grain: 12 }, anim: { duration: 6, fps: 30 },
+          elements: [
+            word('how\nrobots\nsee', { cx: 540, cy: 640, fontSize: 250, lineHeight: 0.88, tfx: { style: 'vision', palette: 'depth', amount: 60, wave: 50, noise: 50, move: true } }),
+            txt('VISUALIZER 1.0', { x: 64, y: 64, align: 'left', fontFamily: 'Space Mono', fontSize: 24, letterSpacing: 0.18, fill: '#0d0d0d' }),
+          ],
+        }), true),
+        T('fx-vision-jet', 'Jet colormap', ['Photo', 'Video'], () => ({
+          width: 1080, height: 1350, background: { color: '#9cc0e8' }, overlay: { grain: 10 }, anim: { duration: 6, fps: 30 },
+          elements: [
+            img(0, 0, 1080, 1350, { assetId: 'ed-profile', name: 'Your photo or video', tfx: { style: 'vision', palette: 'jet', amount: 50, wave: 65, waveLen: 55, noise: 50, move: true, cx: -0.2, cy: 1.1, subject: 'auto', field: true } }),
+            txt('log · query · train', { cx: 540, cy: 1260, fontFamily: 'Space Mono', fontSize: 26, letterSpacing: 0.12, fill: '#0d0d0d' }),
+          ],
+        }), true),
         T('fx-thermal-photo', 'Thermal over photo', ['Text', 'Photo'], () => ({
           width: 1080, height: 1350, background: { color: '#0b0b0b' }, overlay: { grain: 16 },
           elements: [
@@ -2408,7 +2432,7 @@
     'Rolling numbers': ['roll-years', 'roll-countdown', 'roll-price'],
     'Typing screen': [],
     'Smooth cam text': [],
-    'Text effects': ['fx-thermal', 'fx-ink', 'fx-thermal-photo', 'fx-night', 'fx-ink-quote'],
+    'Text effects': ['fx-vision-photo', 'fx-vision-type', 'fx-vision-jet', 'fx-thermal', 'fx-ink', 'fx-thermal-photo', 'fx-night', 'fx-ink-quote'],
     'Type effects': ['te-build', 'te-sweep', 'te-wall', 'te-shuffle', 'te-build-portrait', 'te-sweep-night', 'te-shuffle-cream'],
     'Screen close-up': ['sc-phrases', 'sc-thread', 'sc-phrases-story', 'sc-thread-story'],
     'Word by word': ['words-films', 'words-bold', 'words-soft'],

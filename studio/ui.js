@@ -1455,6 +1455,47 @@
     hard: { on: true, style: 'drop', color: '#1d1b18', opacity: 1, blur: 0, x: 10, y: 10 },
     glow: { on: true, style: 'drop', color: '#fff36b', opacity: 0.9, blur: 30, x: 0, y: 0 },
   };
+  const visionDefaults = el => ({ style: 'vision', palette: 'depth', amount: 50, wave: 50, waveLen: 35, noise: 50, grain: 50, core: 50, speed: 50, move: true, cx: 1.2, cy: -0.3, subject: 'auto', field: el.type === 'image' });
+  function thermalBody(el) {
+    const T = 'sel', fx = el.tfx || {}, vis = fx.style === 'vision';
+    const look = full(seg(T, 'tfx.style', [['vision', 'Depth vision'], ['thermal', 'Heat camera']], {
+      set: v => { S.change(T, 'tfx', v === 'vision' ? visionDefaults(el) : { style: 'thermal', amount: 50, palette: 'thermal', move: false }); renderInspector(); },
+    }));
+    if (!vis) return [
+      look,
+      full(seg(T, 'tfx.palette', Object.entries(R.THERMAL_PALETTES).slice(0, 4).map(([k, p]) => [k, p.label.split(' ')[0]]), { def: 'thermal' })),
+      row('Heat', num(T, 'tfx.amount', { min: 0, max: 100, slider: true, def: 50 })),
+      el.type === 'image' ? h('p.hint', null, 'Bright parts of the photo or video glow hottest, like a heat camera.') : null,
+      more('fx-thermal', [
+        row('Colours', selectCtl(T, 'tfx.palette', Object.entries(R.THERMAL_PALETTES).map(([k, p]) => [k, p.label]), { def: 'thermal' })),
+        toggle(T, 'tfx.move', 'Shimmer in videos'),
+      ], 'More'),
+    ];
+    const pal = fx.palette || 'depth', pct = (k, l, def) => row(l, num(T, 'tfx.' + k, { min: 0, max: 100, slider: true, def }));
+    const setPal = v => { S.change(T, 'tfx.palette', v); if (v === 'custom' && !(fx.stops && fx.stops.length === 5)) S.change(T, 'tfx.stops', R.VISION_PALETTES.depth.stops.slice()); renderInspector(); };
+    return [
+      look,
+      h('p.hint', null, 'How a robot sees: a depth map in a looping colour ramp. The subject turns blue with its own shading, a red-and-yellow glow spreads round it, and waves drift through the field.'),
+      full(seg(T, 'tfx.palette', [['depth', 'Depth'], ['jet', 'Jet'], ['turbo', 'Turbo'], ['dusk', 'Dusk']], { def: 'depth', set: setPal })),
+      pct('amount', 'Glow', 50),
+      pct('wave', 'Waves', 50),
+      pct('noise', 'Flow', 50),
+      toggle(T, 'tfx.move', 'Moves (a living gradient)', { get: () => (S.selEls()[0]?.tfx || {}).move !== false }),
+      more('fx-vision', [
+        pct('speed', 'Speed', 50),
+        pct('waveLen', 'Wave length', 35),
+        pct('core', 'Shading inside', 50),
+        pct('grain', 'Grain', 50),
+        row('Wave centre X', num(T, 'tfx.cx', { min: -100, max: 200, scale: 100, slider: true, unit: '%', def: 1.2 })),
+        row('Wave centre Y', num(T, 'tfx.cy', { min: -100, max: 200, scale: 100, slider: true, unit: '%', def: -0.3 })),
+        el.type === 'image' ? row('Subject', selectCtl(T, 'tfx.subject', [['auto', 'Auto (stands out from the backdrop)'], ['shape', 'Its shape (cut-outs)'], ['bright', 'Bright parts'], ['dark', 'Dark parts']], { def: 'auto' })) : null,
+        toggle(T, 'tfx.field', 'Fill the box with the field', { get: () => { const f = (S.selEls()[0] || {}).tfx || {}; return f.field ?? el.type === 'image'; } }),
+        row('Colours', selectCtl(T, 'tfx.palette', [...Object.entries(R.VISION_PALETTES).map(([k, p]) => [k, p.label]), ['custom', 'Custom']], { def: 'depth', set: setPal })),
+        ...(pal === 'custom' ? [0, 1, 2, 3, 4].map(i => row(i === 4 ? 'Stop 5 (wraps)' : 'Stop ' + (i + 1), colorCtl(T, 'tfx.stops.' + i))) : []),
+        full(h('button.btn', { type: 'button', onclick: () => S.change(T, 'tfx.seed', Math.floor(Math.random() * 1e5)) }, ic('shuffle'), 'New pattern')),
+      ], 'More'),
+    ];
+  }
   function effectsSection(el) {
     const T = 'sel';
     const sh = el.shadow || {};
@@ -1504,19 +1545,15 @@
           ], 'Offset'),
         ],
       } : null,
-      ...(['text', 'sticker', 'shape', 'ribbon'].includes(el.type) ? [
+      ...(['text', 'sticker', 'shape', 'ribbon', 'image'].includes(el.type) ? [
         {
-          label: 'Thermal blur', icon: 'sun', on: el.tfx && el.tfx.style === 'thermal',
-          add: () => { S.change(T, 'tfx', { style: 'thermal', amount: 50, palette: 'thermal', move: false }); renderInspector(); }, remove: () => S.change(T, 'tfx', null),
-          body: () => [
-            full(seg(T, 'tfx.palette', Object.entries(R.THERMAL_PALETTES).slice(0, 4).map(([k, p]) => [k, p.label.split(' ')[0]]), { def: 'thermal' })),
-            row('Heat', num(T, 'tfx.amount', { min: 0, max: 100, slider: true, def: 50 })),
-            more('fx-thermal', [
-              row('Colours', selectCtl(T, 'tfx.palette', Object.entries(R.THERMAL_PALETTES).map(([k, p]) => [k, p.label]), { def: 'thermal' })),
-              toggle(T, 'tfx.move', 'Shimmer in videos'),
-            ], 'More'),
-          ],
+          // Thermal: a heat-camera glow, or Depth vision (the robot's-eye depth map: cyclic Jet / Turbo ramp, glow, waves)
+          label: 'Thermal', icon: 'sun', on: !!(el.tfx && (el.tfx.style === 'thermal' || el.tfx.style === 'vision')),
+          add: () => { S.change(T, 'tfx', visionDefaults(el)); renderInspector(); }, remove: () => S.change(T, 'tfx', null),
+          body: () => thermalBody(el),
         },
+      ] : []),
+      ...(['text', 'sticker', 'shape', 'ribbon'].includes(el.type) ? [
         {
           label: 'Ink bleed', icon: 'drop', on: el.tfx && el.tfx.style === 'ink',
           add: () => { S.change(T, 'tfx', { style: 'ink', amount: 50, rough: 50, speckle: 50, smear: 25, angle: 30 }); renderInspector(); }, remove: () => S.change(T, 'tfx', null),

@@ -3810,7 +3810,7 @@
     if (p < 2.5 / d) return n * (p -= 2.25 / d) * p + 0.9375;
     return n * (p -= 2.625 / d) * p + 0.984375;
   };
-  R.hasAnim = el => el.type === 'flashes' || R.isSeq(el) || !!(el.track && el.track.pts && el.track.pts.length) || !!(el.tfx && el.tfx.move && el.tfx.style && el.tfx.style !== 'none') || !!((el.anim && ((el.anim.loop && el.anim.loop !== 'none') || (el.anim.enter && el.anim.enter !== 'none'))) || R.hasTiming(el) || (el.typing && el.typing.caret !== false && el.typing.blink !== false));
+  R.hasAnim = el => el.type === 'flashes' || R.isSeq(el) || !!(el.track && el.track.pts && el.track.pts.length) || !!(el.tfx && el.tfx.style && el.tfx.style !== 'none' && (el.tfx.style === 'vision' ? el.tfx.move !== false : el.tfx.move)) || !!((el.anim && ((el.anim.loop && el.anim.loop !== 'none') || (el.anim.enter && el.anim.enter !== 'none'))) || R.hasTiming(el) || (el.typing && el.typing.caret !== false && el.typing.blink !== false));
   R.hasTiming = el => !!(el.time && ((el.time.start || 0) > 0 || el.time.end != null || (el.time.cycle && el.time.cycle.count > 1)));
   // cuts: a layer can be shown only for part of the video, or take turns with others
   R.visibleAt = function (el, t) {
@@ -4232,7 +4232,143 @@
 
   // el.tfx = { style: 'thermal' | 'ink', amount, palette, move, rough, speckle, smear, angle, color }
   // Both work on the layer's rendered bitmap: its alpha becomes a heat map or a soaked-ink mask.
-  R.TEXT_FX = { none: 'None', thermal: 'Thermal blur', ink: 'Ink bleed' };
+  R.TEXT_FX = { none: 'None', thermal: 'Thermal blur', vision: 'Depth vision', ink: 'Ink bleed' };
+  /* Depth vision — "how robots see": a depth / heat field around the subject mapped through a cyclic colour ramp.
+     The subject (letters, a shape, a cut-out, or whatever differs from a photo's backdrop) is blurred wide into a glow;
+     a slow radial wave and flowing noise drift through the field; the value runs light blue (empty) → yellow → red at
+     the subject's edge and wraps round to blue inside it, where the picture's own shading stays readable; fine noise
+     dithers every colour boundary. Stops sit at 0, ¼, ½, ¾, 1 with the last = the first, so the ramp wraps cleanly. */
+  R.VISION_PALETTES = {
+    depth: { label: 'Depth', stops: ['#186ade', '#9bbfe4', '#f6da7a', '#d72f28', '#186ade'] },
+    jet: { label: 'Jet', stops: [[0, '#2f6ad8'], [0.25, '#9cc0e8'], [0.38, '#7fd6bf'], [0.5, '#f2e08a'], [0.62, '#f0a35a'], [0.75, '#d8453a'], [1, '#2f6ad8']] },
+    turbo: { label: 'Turbo', stops: [[0, '#3a4fd0'], [0.25, '#8ec5ef'], [0.4, '#5fe0b5'], [0.5, '#c6ef5a'], [0.6, '#f9d24a'], [0.75, '#f0662a'], [0.88, '#b3201c'], [1, '#3a4fd0']] },
+    dusk: { label: 'Dusk', stops: ['#3b2a8f', '#c9b6f2', '#ffd1a1', '#ff4f79', '#3b2a8f'] },
+    mono: { label: 'Mono', stops: ['#1d1b18', '#d9d6cf', '#ffffff', '#6d6a64', '#1d1b18'] },
+  };
+  const visionLuts = new LRU(12);
+  function visionLut(fx) {
+    const P = R.VISION_PALETTES[fx.palette] || R.VISION_PALETTES.depth;
+    const raw = fx.palette === 'custom' && Array.isArray(fx.stops) && fx.stops.length >= 2 ? fx.stops : P.stops;
+    const st = raw.map((c, i) => Array.isArray(c) ? [c[0], hexRgb(c[1])] : [i / (raw.length - 1), hexRgb(c)]);
+    const key = JSON.stringify(st);
+    let lut = visionLuts.get(key);
+    if (lut) return lut;
+    lut = new Uint8ClampedArray(1024 * 3);
+    for (let i = 0; i < 1024; i++) {
+      const v = i / 1023;
+      let j = 0;
+      while (j < st.length - 2 && v > st[j + 1][0]) j++;
+      const a = st[j], b = st[j + 1], k = clamp((v - a[0]) / Math.max(1e-6, b[0] - a[0]), 0, 1);
+      for (let c = 0; c < 3; c++) lut[i * 3 + c] = a[1][c] + (b[1][c] - a[1][c]) * k;
+    }
+    visionLuts.set(key, lut);
+    return lut;
+  }
+  // which pixels are "the subject": letters / shapes / cut-outs by their shape; a photo by how much it differs from its
+  // own backdrop (the median of its border), or simply its bright / dark parts
+  function visionSubject(px, a, L, w, h, el, mode, box) {
+    const n = w * h, s = new Float32Array(n);
+    let clear = 0;
+    for (let i = 0; i < n; i++) if (a[i] < 0.5) clear++;
+    const boxN = (box.x1 - box.x0) * (box.y1 - box.y0);
+    const shape = el.type !== 'image' || mode === 'shape' || (mode !== 'bright' && mode !== 'dark' && clear - (n - boxN) > boxN * 0.03);
+    if (shape) { for (let i = 0; i < n; i++) s[i] = a[i]; return s; }
+    const sm = smoothstep;
+    if (mode === 'bright' || mode === 'dark') {
+      for (let i = 0; i < n; i++) { const v = mode === 'bright' ? L[i] : 1 - L[i]; s[i] = sm(0.42, 0.82, v) * a[i]; }
+      return s;
+    }
+    const border = [];
+    for (let x = box.x0; x < box.x1; x += 2) { border.push(L[box.y0 * w + x], L[(box.y1 - 1) * w + x]); }
+    for (let y = box.y0; y < box.y1; y += 2) { border.push(L[y * w + box.x0], L[y * w + box.x1 - 1]); }
+    border.sort((p, q) => p - q);
+    const bg = border.length ? border[border.length >> 1] : 0.5, Ls = blurMap(L, w, h, Math.max(1, Math.min(w, h) * 0.004));
+    for (let i = 0; i < n; i++) s[i] = sm(0.06, 0.34, Math.abs(Ls[i] - bg)) * a[i];
+    return s;
+  }
+  const smoothstep = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+  function visionFx(c, el, s, t, b) {
+    const fx = el.tfx, W = c.width, H = c.height;
+    // detail at up to 720 px (the picture's shading inside the subject); the soft field at up to 300 px
+    const ds = Math.min(1, (R.playing ? 440 : 720) / Math.max(W, H)), w = Math.max(2, Math.round(W * ds)), h = Math.max(2, Math.round(H * ds));
+    const work = canvas(w, h), wx = work.getContext('2d', { willReadFrequently: true });
+    wx.drawImage(c, 0, 0, w, h);
+    let d;
+    try { d = wx.getImageData(0, 0, w, h); } catch (e) { return c; }
+    const px = d.data, n = w * h, a = new Float32Array(n), L = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const o = i * 4; a[i] = px[o + 3] / 255; L[i] = (0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2]) / 255; }
+    // the layer's own box inside the bitmap (the rest is bleed for the glow)
+    const bb = b * s * ds, box = { x0: clamp(Math.round(bb), 0, w - 1), y0: clamp(Math.round(bb), 0, h - 1), x1: clamp(Math.round(w - bb), 1, w), y1: clamp(Math.round(h - bb), 1, h) };
+    const S = visionSubject(px, a, L, w, h, el, fx.subject || 'auto', box);
+    // inside the subject: its brightness, stretched over the blue end of the ramp
+    const hist = [];
+    for (let i = 0; i < n; i += 7) if (S[i] > 0.5) hist.push(L[i]);
+    hist.sort((p, q) => p - q);
+    const lo = hist.length > 30 ? hist[Math.floor(hist.length * 0.04)] : 0, hi = hist.length > 30 ? hist[Math.floor(hist.length * 0.96)] : 1, span = Math.max(0.05, hi - lo);
+    // the soft field
+    const fsK = Math.min(1, 300 / Math.max(w, h)), fw = Math.max(2, Math.round(w * fsK)), fh = Math.max(2, Math.round(h * fsK)), Mf = Math.min(fw, fh);
+    const sf = new Float32Array(fw * fh);
+    for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
+      const y0 = Math.floor(y / fsK), x0 = Math.floor(x / fsK), y1 = Math.min(h, Math.floor((y + 1) / fsK)), x1 = Math.min(w, Math.floor((x + 1) / fsK));
+      let sum = 0, cnt = 0;
+      for (let yy = y0; yy < Math.max(y0 + 1, y1); yy += 2) for (let xx = x0; xx < Math.max(x0 + 1, x1); xx += 2) { sum += S[Math.min(h - 1, yy) * w + Math.min(w - 1, xx)]; cnt++; }
+      sf[y * fw + x] = cnt ? sum / cnt : 0;
+    }
+    const kA = clamp((fx.amount ?? 50) / 100, 0, 1), isPic = el.type === 'image';
+    const fsF = (el.fontSize || Math.min(el.width, el.height) * 0.35) * s * ds * fsK;
+    const r2 = isPic ? Mf * (0.06 + 0.2 * kA) : fsF * (0.35 + 0.9 * kA), r1 = r2 * 0.25;
+    const B1 = blurMap(sf, fw, fh, r1), B2 = blurMap(sf, fw, fh, r2);
+    const seed = hashStr(el.id || 'fx') + (fx.seed || 0), mv = fx.move !== false && t != null, spd = (fx.speed ?? 50) / 50, z = mv ? t * 0.55 * spd : 0;
+    const nzA = valueNoise(fw, fh, Math.max(3, Mf * 0.18), seed, z), nzB = valueNoise(fw, fh, Math.max(3, Mf * 0.18), seed + 9, z + 0.5), nzC = valueNoise(fw, fh, Math.max(3, Mf * 0.35), seed + 2, z * 0.7);
+    const disp = Mf * 0.05 * ((fx.noise ?? 50) / 50), noiseAmp = 0.12 * ((fx.noise ?? 50) / 50);
+    const waveAmp = 0.07 * ((fx.wave ?? 50) / 50), wl = 0.6 + 1.4 * ((fx.waveLen ?? 35) / 100), cx = fx.cx ?? 1.2, cy = fx.cy ?? -0.3, stretch = 2;
+    // thin strokes hardly raise a wide blur, so for letters and shapes the glow is scaled until it peaks at full strength
+    let gain = 1;
+    if (!isPic || (fx.subject === 'shape')) { let mx = 0; for (let i = 0; i < B2.length; i++) mx = Math.max(mx, B1[i] * 1.15, B2[i] * 1.5); gain = mx > 0.02 ? Math.min(5, 1 / mx) : 1; }
+    const V0 = new Float32Array(fw * fh), FF = new Float32Array(fw * fh);
+    for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
+      const i = y * fw + x, dx = Math.round((nzB[i] - 0.5) * disp), dy = Math.round((nzA[i] - 0.5) * disp);
+      const j = clamp(y + dy, 0, fh - 1) * fw + clamp(x + dx, 0, fw - 1);
+      const F = clamp(Math.max(B1[j] * 1.15, B2[j] * 1.5) * gain, 0, 1);
+      const u = x / fw, v = y / fh, dd = Math.sqrt(((u - cx) * fw / Mf / stretch) ** 2 + ((v - cy) * fh / Mf) ** 2);
+      const wave = Math.sin(TAU * (dd * wl - (mv ? t * 0.12 * spd : 0))) * waveAmp;
+      FF[i] = F;
+      V0[i] = 0.25 + 0.72 * F + wave + (nzC[i] - 0.5) * noiseAmp * 2;
+    }
+    const lut = visionLut(fx), core = 0.2 * ((fx.core ?? 50) / 50), grainAmt = 0.06 * ((fx.grain ?? 50) / 50);
+    let gs = (seed + 31 + (mv ? Math.floor(t * 24) : 0)) * 2654435761 >>> 0;
+    const gr = () => { gs = (gs * 1664525 + 1013904223) >>> 0; return gs / 4294967296; };
+    const field = fx.field ?? el.type === 'image';
+    for (let y = 0; y < h; y++) {
+      const fy = Math.min(fh - 1.001, y * fsK), iy = Math.floor(fy), ty = fy - iy, ey = Math.min(y - box.y0, box.y1 - 1 - y);
+      for (let x = 0; x < w; x++) {
+        const fxp = Math.min(fw - 1.001, x * fsK), ix = Math.floor(fxp), tx = fxp - ix, k = iy * fw + ix;
+        const v0 = (V0[k] * (1 - tx) + V0[k + 1] * tx) * (1 - ty) + (V0[k + fw] * (1 - tx) + V0[k + fw + 1] * tx) * ty;
+        const F = (FF[k] * (1 - tx) + FF[k + 1] * tx) * (1 - ty) + (FF[k + fw] * (1 - tx) + FF[k + fw + 1] * tx) * ty;
+        const i = y * w + x, sv = S[i];
+        let val = v0 * (1 - sv) + (1.02 + core * clamp((L[i] - lo) / span, 0, 1)) * sv;
+        val += (gr() - 0.5) * grainAmt;
+        val -= Math.floor(val);
+        const o = Math.min(1023, Math.max(0, Math.round(val * 1023))) * 3, q = i * 4;
+        px[q] = lut[o]; px[q + 1] = lut[o + 1]; px[q + 2] = lut[o + 2];
+        // with the field on, the layer's box is filled (a photo stays a photo-shaped picture) and the glow spills past it;
+        // otherwise only the subject and its glow show, fading out before the bitmap's edge
+        const inBox = x >= box.x0 && x < box.x1 && y >= box.y0 && y < box.y1;
+        let al = field && inBox ? Math.max(a[i], sv) : Math.max(sv, a[i] * (isPic ? 1 : 0), smoothstep(0, 0.42, F));
+        if (!(field && inBox)) {
+          const ex = Math.min(x, w - 1 - x, y, h - 1 - y) / (Math.min(w, h) * 0.08);
+          if (ex < 1) al *= Math.max(0, ex);
+        }
+        px[q + 3] = al * 255;
+      }
+    }
+    wx.putImageData(d, 0, 0);
+    if (ds === 1) return work;
+    const out = canvas(W, H), ox = out.getContext('2d');
+    ox.imageSmoothingQuality = 'high';
+    ox.drawImage(work, 0, 0, W, H);
+    return out;
+  }
   R.THERMAL_PALETTES = {
     thermal: { label: 'Thermal', stops: [[0, 20, 40, 255, 0], [0.07, 30, 60, 255, 0.3], [0.14, 50, 80, 255, 0.85], [0.22, 90, 100, 255, 1], [0.3, 255, 110, 170, 1], [0.42, 255, 140, 60, 1], [0.6, 255, 214, 60, 1], [0.8, 255, 246, 170, 1], [1, 255, 255, 255, 1]] },
     infrared: { label: 'Infrared', stops: [[0, 40, 0, 90, 0], [0.07, 60, 0, 120, 0.3], [0.14, 80, 0, 150, 0.85], [0.25, 170, 20, 160, 1], [0.42, 240, 40, 60, 1], [0.6, 255, 140, 20, 1], [0.8, 255, 230, 90, 1], [1, 255, 255, 235, 1]] },
@@ -4308,10 +4444,12 @@
     if (!fx || !fx.style || fx.style === 'none') return 0;
     const fs = el.fontSize || Math.min(el.width, el.height) * 0.3, k = clamp((fx.amount ?? 50) / 100, 0, 1);
     if (fx.style === 'thermal') return fs * (0.3 + 0.85 * k);
+    if (fx.style === 'vision') return el.type === 'image' ? Math.min(el.width, el.height) * (0.04 + 0.12 * k) : fs * (0.7 + 1.9 * k);
     return fs * (0.1 + 0.25 * k) + fs * 0.5 * clamp((fx.smear ?? 25) / 100, 0, 1);
   };
   const fxOn = el => el.tfx && el.tfx.style && el.tfx.style !== 'none';
-  function textFx(c, el, s, t) {
+  function textFx(c, el, s, t, b = 0) {
+    if (el.tfx.style === 'vision') return visionFx(c, el, s, t, b);
     const fx = el.tfx, W = c.width, H = c.height, hot = fx.style === 'thermal';
     // the glow is soft, so heat is worked out small; ink needs its fine specks
     const ws = Math.min(1, (hot ? 420 : 1100) / Math.max(W, H)), w = Math.max(1, Math.round(W * ws)), h = Math.max(1, Math.round(H * ws));
@@ -4320,7 +4458,9 @@
     let d;
     try { d = wx.getImageData(0, 0, w, h); } catch (e) { return c; }
     const px = d.data, n = w * h, a = new Float32Array(n);
-    for (let i = 0; i < n; i++) a[i] = px[i * 4 + 3] / 255;
+    // a photo or video glows by its brightness, like a heat camera; everything else by its shape
+    if (hot && el.type === 'image') for (let i = 0; i < n; i++) { const o = i * 4; a[i] = (0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2]) / 255 * px[o + 3] / 255; }
+    else for (let i = 0; i < n; i++) a[i] = px[i * 4 + 3] / 255;
     const fs = (el.fontSize || Math.min(el.width, el.height) * 0.3) * s * ws, k = clamp((fx.amount ?? 50) / 100, 0, 1);
     const seed = hashStr(el.id || 'fx') + (fx.seed || 0);
     if (fx.style === 'thermal') {
@@ -4331,14 +4471,14 @@
       const lut = heatLut(fx.palette || 'thermal');
       for (let i = 0; i < n; i++) {
         const wob = 0.55 + nz[i] * 0.9;
-        let v = Math.max(a[i], Math.min(0.74, b1[i] * 1.5) * (0.8 + 0.2 * wob), Math.min(0.6, b2[i] * 1.3 * wob), b3[i] * 1.1 * wob);
+        let v = el.type === 'image' ? clamp(a[i] * 0.82 + b2[i] * 0.22, 0, 1) : Math.max(a[i], Math.min(0.74, b1[i] * 1.5) * (0.8 + 0.2 * wob), Math.min(0.6, b2[i] * 1.3 * wob), b3[i] * 1.1 * wob);
         // fade out towards the bitmap's edge so the glow never ends in a straight line
         const ex = i % w, ey = (i - ex) / w, edge = Math.min(ex, w - 1 - ex, ey, h - 1 - ey) / (Math.min(w, h) * 0.08);
-        if (edge < 1) v *= Math.max(0, edge);
+        if (edge < 1 && el.type !== 'image') v *= Math.max(0, edge);
         const g = grain();
         v = v < 0.004 ? 0 : clamp(v + (g - 0.5) * 0.05 * Math.min(1, v * 8), 0, 1);
-        const o = Math.round(v * 255) * 4;
-        px[i * 4] = lut[o]; px[i * 4 + 1] = lut[o + 1]; px[i * 4 + 2] = lut[o + 2]; px[i * 4 + 3] = lut[o + 3];
+        const o = Math.round(v * 255) * 4, keep = el.type === 'image' ? px[i * 4 + 3] : -1;
+        px[i * 4] = lut[o]; px[i * 4 + 1] = lut[o + 1]; px[i * 4 + 2] = lut[o + 2]; px[i * 4 + 3] = keep >= 0 ? keep : lut[o + 3];
       }
     } else {
       // ink soaking into paper: blur the letters (plus a smear in one direction), then cut the result with a
@@ -4373,7 +4513,7 @@
     const out = canvas(W, H), ox = out.getContext('2d');
     ox.imageSmoothingQuality = 'high';
     ox.drawImage(work, 0, 0, W, H);
-    if (hot) {
+    if (hot && el.type !== 'image') {
       // the letters themselves are the hottest colour, drawn sharp over the upscaled glow
       const lut = heatLut(fx.palette || 'thermal'), core = canvas(W, H), cx = core.getContext('2d');
       cx.drawImage(c, 0, 0); cx.globalCompositeOperation = 'source-in';
@@ -4430,7 +4570,7 @@
     const b = bleed(el);
     const { x, y, rotation, opacity, name, locked, hidden, anim, ...rest } = el;
     // layers that change every frame (speed flashes, video) can't reuse a cached bitmap across time
-    const key = JSON.stringify(rest) + '|' + s + '|' + R.fontsVersion + (R.isTimeVarying(el) || (tfx && el.tfx.move) ? '|' + ('time' in env ? env.time : R.playTime) : '');
+    const key = JSON.stringify(rest) + '|' + s + '|' + R.fontsVersion + (R.isTimeVarying(el) || (tfx && (el.tfx.style === 'vision' ? el.tfx.move !== false : el.tfx.move)) ? '|' + ('time' in env ? env.time : R.playTime) : '');
     let c = layerCache.get(key);
     if (!c || c.dirty) {
       const W = (el.width + b * 2) * s, H = (el.height + b * 2) * s;
@@ -4451,7 +4591,7 @@
         x2.globalCompositeOperation = 'destination-in';
         x2.drawImage(mk, 0, 0);
       }
-      if (tfx) { const fc = textFx(c, el, s, 'time' in env ? env.time : R.playTime); fc.dirty = c.dirty; c = fc; }
+      if (tfx) { const fc = textFx(c, el, s, 'time' in env ? env.time : R.playTime, b); fc.dirty = c.dirty; c = fc; }
       if (tb) { const bc = layerBlur(c, el, s, b); bc.dirty = c.dirty; c = bc; }
       if (lb && lb.motion > 0) {
         const sm = motionBlurPx(c, lb.motion * s, lb.angle || 0);
