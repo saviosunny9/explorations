@@ -18,6 +18,8 @@
   const deep = { on: true, color: '#0b1f18', opacity: 0.45, blur: 40, x: 0, y: 22 };
   const grid = (color, size, thick = 1.5) => ({ type: 'grid', color, size, thick, opacity: 1 });
   const TEMPLATES = [
+    // ── VOX EXPLAINER: paper-collage explainer beats, built by vox.js from an editable recipe ──
+    ...(window.STUDIO_VOX ? window.STUDIO_VOX.templates() : []),
     {
       id: 'every-shade', name: 'Every Shade', tags: ['Post', 'Paper'], width: 1080, height: 1350,
       build: () => ({
@@ -2389,7 +2391,7 @@
 
   // families of variations show as one card in the panel and open into all their styles
   const GROUPS = {
-    'Moving grids': [], 'Photo piles': [], 'Strips & panels': [],
+    'Vox explainer': [], 'Moving grids': [], 'Photo piles': [], 'Strips & panels': [],
     'Text slides': ['ts-created', 'ts-goal', 'ts-earth', 'ts-crisis', 'ts-brands', 'ts-made', 'ts-align', 'ts-dress', 'ts-meant', 'ts-new', 'ts-visuals', 'ts-average', 'ts-cool', 'ts-iamart', 'ts-redact', 'ts-rest', 'ts-chase', 'ts-chapter', 'ts-do', 'ts-action', 'ts-where', 'ts-norest', 'ts-scribble', 'ts-feeling', 'ts-museum', 'ts-story', 'ts-justdo', 'ts-notend', 'ts-consume', 'ts-love', 'ts-now', 'ts-austen', 'ts-son', 'ts-sleep', 'ts-laziest', 'ts-gofor', 'ts-normalize', 'ts-purpose', 'ts-passion', 'ts-artflip', 'ts-exactly', 'ts-identity', 'ts-ability', 'ts-tryagain', 'ts-authentic', 'ts-happen', 'ts-memories', 'ts-now2', 'ts-hands', 'ts-messy', 'ts-start', 'ts-rushed', 'ts-develop', 'ts-addicted', 'ts-makeit', 'ts-dothis', 'ts-mostcreative', 'ts-busy', 'ts-lesscare', 'ts-chapter2', 'ts-overthink', 'ts-athletes', 'ts-curated', 'ts-outside', 'ts-done', 'ts-whatmakes', 'ts-support', 'ts-takerisk', 'ts-thinkbig'],
     'Photo effects': ['px-scribble', 'px-strips', 'px-censor', 'px-mosaic', 'px-mirror', 'px-eyes', 'px-childhood', 'px-note', 'px-words', 'px-brandfade', 'px-faceswap', 'px-ghost', 'px-phone', 'px-signed', 'px-redbar', 'px-taped', 'px-redprint', 'px-backdrop', 'px-gridpaper', 'px-letter', 'px-quote', 'px-fieldnotes', 'px-belonged', 'px-touch', 'px-margins', 'px-worthy', 'px-sketchbook'],
     'Paper & ID': ['pid-mugshot', 'pid-inquiry', 'pid-badge', 'pid-portrait', 'pid-certificate', 'pid-record', 'pid-pass', 'pid-application', 'pid-aboutme', 'pid-profile'],

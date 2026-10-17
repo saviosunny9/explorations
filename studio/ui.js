@@ -1872,7 +1872,7 @@
   function videoTextSection() {
     if (!S.hasAnimation()) return null;
     const mc = S.doc.matchcut;
-    const items = S.doc.elements.filter(e => !e.hidden && !e.mcut && ((e.type === 'text' && String(e.text || '').trim()) || (e.type === 'ribbon' && e.text)));
+    const items = S.doc.elements.filter(e => !e.hidden && !e.mcut && !e.vox && ((e.type === 'text' && String(e.text || '').trim()) || (e.type === 'ribbon' && e.text)));
     if (!items.length && !mc) return null;
     const label = e => {
       if (e.name) return e.name;
@@ -1907,6 +1907,49 @@
       full(h('button.btn', { type: 'button', onclick: () => S.setMatchCut({ seed: Math.floor(Math.random() * 1e6) }) }, ic('shuffle'), 'Shuffle sentences')),
     ];
   }
+  // Vox explainer: the video as a list of beats. Each field rewrites the layers it belongs to (S.setVox)
+  function voxSection() {
+    const V = window.STUDIO_VOX, vx = S.doc.vox;
+    if (!vx || !V) return null;
+    const edit = (fn, live) => S.setVox(fn, live);
+    const n = vx.scenes.length;
+    const field = (i, key, name, rows) => {
+      const inp = rows ? h('textarea.txt', { rows, spellcheck: false, 'aria-label': name }) : h('input.sel', { type: 'text', 'aria-label': name });
+      inp.value = vx.scenes[i][key] || '';
+      inp.addEventListener('input', () => edit(sp => { sp.scenes[i][key] = inp.value; }, true));
+      // finishing an edit saves it; re-rendering here would pull the focused field away
+      inp.addEventListener('change', () => { edit(sp => { sp.scenes[i][key] = inp.value; }, true); S.commit(); });
+      return [label(name), full(inp)];
+    };
+    const pickPhoto = i => S.pickImages({ uploadOnly: true, onAdded: added => { if (added && added[0]) edit(sp => { sp.scenes[i].assetId = added[0].id; }); } });
+    const card = (sc, i) => {
+      const K = V.KINDS[sc.kind] || { label: sc.kind, fields: [] };
+      const swap = j => edit(sp => { [sp.scenes[i], sp.scenes[j]] = [sp.scenes[j], sp.scenes[i]]; });
+      // working on a scene shows it on the canvas: jump to near the end of that beat
+      const show = () => { if (S.isPlaying()) return; let s0 = 0; for (let j = 0; j < i; j++) s0 += Math.max(1.5, +vx.scenes[j].dur || 4); S.seek(s0 + Math.max(1.5, +sc.dur || 4) * 0.85); };
+      return h('div.spot-item.vox-scene', { onfocusin: show },
+        h('div.spot-head', null, h('b', null, `${i + 1} · ${K.label}`),
+          i > 0 ? h('button.icon-btn', { type: 'button', title: 'Move earlier', 'aria-label': 'Move earlier', onclick: () => swap(i - 1) }, ic('forward')) : null,
+          i < n - 1 ? h('button.icon-btn', { type: 'button', title: 'Move later', 'aria-label': 'Move later', onclick: () => swap(i + 1) }, ic('chevDown')) : null,
+          n > 1 ? h('button.icon-btn', { type: 'button', title: 'Remove scene', 'aria-label': 'Remove scene', onclick: () => edit(sp => { sp.scenes.splice(i, 1); }) }, ic('trash')) : null),
+        ...K.fields.flatMap(([k, name, rows]) => field(i, k, name, rows)),
+        K.photo ? full(h('div.btn-row', null,
+          h('button.btn.grow', { type: 'button', title: 'Photos and videos both work', onclick: () => pickPhoto(i) }, ic('image'), sc.assetId ? (sc.kind === 'map' ? 'Replace map' : 'Replace photo') : (sc.kind === 'map' ? 'Add a map screenshot' : 'Add photo')),
+          sc.assetId ? h('button.btn', { type: 'button', title: sc.kind === 'map' ? 'Back to the drawn map' : 'Remove the photo', 'aria-label': 'Remove the photo', onclick: () => edit(sp => { sp.scenes[i].assetId = null; }) }, ic('trash')) : null)) : null,
+        row('Length', num('doc', `vox.scenes.${i}.dur`, { min: 1.5, max: 15, step: 0.5, slider: true, unit: 's', set: (v, live) => edit(sp => { sp.scenes[i].dur = v; }, live) })),
+      );
+    };
+    const add = h('select.sel', { 'aria-label': 'Add a scene' }, h('option', { value: '' }, '+ Add a scene…'), ...Object.entries(V.KINDS).map(([k, K]) => h('option', { value: k }, K.label)));
+    add.addEventListener('change', () => { if (add.value) edit(sp => { sp.scenes.push(V.newScene(add.value)); }); });
+    return sec('Vox editor', [
+      h('p.hint', null, 'Build the video beat by beat. Each scene brings its own Vox moves — highlighter, red marker, cut-out photos, camera push — and they cut into each other.'),
+      row('Look', selectCtl('doc', 'vox.theme', Object.entries(V.THEMES).map(([k, t]) => [k, t.label]), { set: v => edit(sp => { sp.theme = v; }) })),
+      toggle('doc', 'vox.step', 'Stepped motion (12 fps, on twos)', { get: () => !!vx.step, set: v => edit(sp => { sp.step = v ? 12 : 0; }) }),
+      label(`Scenes · ${S.doc.anim.duration}s`),
+      ...vx.scenes.map(card),
+      full(add),
+    ], true, { key: 'vox', collapsible: false });
+  }
   // a blur over the whole finished frame: photos, text, everything
   function canvasBlurSection() {
     const type = blurTypeOf(S.doc.blur || {});
@@ -1928,6 +1971,7 @@
     });
     return [
       h('div.insp-head', null, h('h2', null, 'Canvas')),
+      voxSection(),
       sec('Background', [
         full(h('button.size-btn', { type: 'button', onclick: () => openSizeModal() }, h('span', null, sizeName(d.width, d.height)), h('small', null, `${d.width} × ${d.height}`), ic('resize'))),
         toggle(T, 'background.none', 'No background (see-through)', { set: v => { S.change(T, 'background.none', v); S.commit(); renderInspector(); } }),
@@ -2254,11 +2298,14 @@
   const countOf = members => combined(members) ? styleGroups(members).length : members.length;
   // moving layouts come in every orientation; the one closest to your canvas goes first, and any other size can be built to fit
   function orientationMembers(members, W, H) {
-    if (!members[0].layout) return members;
+    if (!members[0].layout && !members[0].buildAt) return members;
     const ar = W / H, near = t => Math.abs(Math.log((t.width / t.height) / ar));
     const sorted = members.slice().sort((a, b) => near(a) - near(b));
     const exact = members.some(t => t.width === W && t.height === H);
-    if (!exact && window.STUDIO_LAYOUTS && window.STUDIO_LAYOUTS[members[0].layout]) {
+    if (!exact && members[0].buildAt) {
+      const m0 = members[0];
+      sorted.unshift({ id: `${m0.id}-fit-${W}x${H}`, name: `Your canvas ${W} × ${H}`, family: m0.family, style: m0.style, width: W, height: H, video: m0.video, tags: [], build: () => m0.buildAt(W, H) });
+    } else if (!exact && window.STUDIO_LAYOUTS && window.STUDIO_LAYOUTS[members[0].layout]) {
       const L = window.STUDIO_LAYOUTS[members[0].layout];
       sorted.unshift({ id: `mv-${members[0].layout}-fit-${W}x${H}`, name: `Your canvas ${W} × ${H}`, family: members[0].family, style: members[0].style, layout: members[0].layout, width: W, height: H, video: true, tags: [], build: () => L.build(W, H) });
     }

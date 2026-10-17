@@ -1171,10 +1171,34 @@
     return { boxes, caret };
   }
   R.typingBoxes = typingBoxes;
-  function typingUnder(ctx, el, L, T) {
+  // marks can wipe on over time (typing.wipe = { start, dur } in video seconds): 0 → 1, eased; the still view shows them whole
+  function markProgress(el, env) {
+    const w = el.typing && el.typing.wipe;
+    if (!w) return 1;
+    const t = env && 'time' in env ? env.time : R.playTime;
+    if (t == null) return 1;
+    const q = clamp((t - (w.start || 0)) / Math.max(0.05, w.dur || 0.5), 0, 1);
+    return 1 - Math.pow(1 - q, 2.2);
+  }
+  // the boxes cut back to the first share p of their total length, in reading order
+  function marksUpTo(boxes, p) {
+    if (p >= 1) return boxes;
+    const total = boxes.reduce((a, b) => a + (b.x1 - b.x0), 0);
+    let left = total * p;
+    const out = [];
+    for (const b of boxes) {
+      if (left <= 0) break;
+      const w = b.x1 - b.x0;
+      out.push(left >= w ? b : Object.assign({}, b, { x1: b.x0 + left, cut: true }));
+      left -= w;
+    }
+    return out;
+  }
+  function typingUnder(ctx, el, L, T, prog = 1) {
     const tp = el.typing;
     const st = tp.style || 'select';
-    for (const b of T.boxes) {
+    if (st === 'circle') return;
+    for (const b of marksUpTo(T.boxes, prog)) {
       const y0 = b.base - L.cap * 1.32, y1 = b.base + L.size * 0.2;
       const px = st === 'marker' ? L.size * 0.12 : L.size * 0.03;
       if (st === 'underline') { ctx.fillStyle = tp.color || '#ff3b30'; ctx.fillRect(b.x0, b.base + L.size * 0.08, b.x1 - b.x0, Math.max(2, L.size * 0.09)); continue; }
@@ -1183,8 +1207,34 @@
       else ctx.fillRect(b.x0 - px, y0, b.x1 - b.x0 + px * 2, y1 - y0);
     }
   }
-  function typingOver(ctx, el, L, T) {
+  // a hand-drawn marker loop around each marked word, drawn on as the progress runs
+  function markCircle(ctx, el, L, T, prog) {
     const tp = el.typing;
+    if (prog <= 0) return;
+    // marks that run on from one box to the next (same line) are circled as one
+    const groups = [];
+    for (const b of T.boxes) { const g = groups[groups.length - 1]; if (g && g.base === b.base && b.x0 - g.x1 < L.size * 0.6) g.x1 = b.x1; else groups.push({ x0: b.x0, x1: b.x1, base: b.base }); }
+    ctx.save();
+    ctx.strokeStyle = tp.color || '#e0312b'; ctx.lineWidth = Math.max(2, L.size * (tp.width || 0.075)); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    groups.forEach((g, gi) => {
+      const r = rng(hashStr(el.text || '') + gi * 31);
+      const cx = (g.x0 + g.x1) / 2, cy = g.base - L.cap * 0.5, rx = (g.x1 - g.x0) / 2 + L.size * 0.32, ry = L.cap * 0.5 + L.size * 0.36;
+      const a0 = -2.6 + r() * 0.4, sweep = TAU * 1.12, n = 64, upto = Math.max(2, Math.round(n * prog));
+      ctx.beginPath();
+      for (let i = 0; i <= upto; i++) {
+        const k = i / n, a = a0 + sweep * k;
+        // the loop doesn't close on itself: it overshoots a little wider, like a quick pen stroke
+        const grow = 1 + k * 0.1 + Math.sin(k * 9 + r() * 0.3) * 0.015;
+        const x = cx + Math.cos(a) * rx * grow, y = cy + Math.sin(a) * ry * grow - k * L.size * 0.08;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+  function typingOver(ctx, el, L, T, prog = 1) {
+    const tp = el.typing;
+    if (tp.style === 'circle') markCircle(ctx, el, L, T, prog);
     if ((tp.style || 'select') === 'select') {
       const hc = tp.handle || '#1f7ae0', lw = Math.max(1.5, L.size * 0.05), kr = Math.max(3, L.size * 0.1);
       ctx.fillStyle = hc; ctx.strokeStyle = hc; ctx.lineWidth = lw; ctx.lineCap = 'butt';
@@ -1411,7 +1461,8 @@
     textBackground(ctx, el, L);
     if (el._yShift) ctx.translate(0, el._yShift);
     const TY = el.typing && !L.curved ? typingBoxes(el, L) : null;
-    if (TY) typingUnder(ctx, el, L, TY);
+    const MP = TY ? markProgress(el, env) : 1;
+    if (TY) typingUnder(ctx, el, L, TY, MP);
     ctx.font = L.font;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
@@ -1497,7 +1548,7 @@
         if (el.strike) ctx.fillRect(ln.x, ln.base - L.cap * 0.42 - t / 2, ln.w, t);
       }
     }
-    if (TY) typingOver(ctx, el, L, TY);
+    if (TY) typingOver(ctx, el, L, TY, MP);
   }
   /* ───────────────────────── checklist ───────────────────────── */
 
@@ -3552,7 +3603,7 @@
     return out;
   }
   R.flashSources = flashSources;
-  R.isTimeVarying = el => el.type === 'flashes' || R.isSeq(el) || (el.type === 'image' && R.isVideoAsset(el.assetId));
+  R.isTimeVarying = el => el.type === 'flashes' || R.isSeq(el) || (el.type === 'image' && R.isVideoAsset(el.assetId)) || !!(el.typing && el.typing.wipe);
   const permCache = new Map();
   function flashPerm(seed, n) {
     const key = seed + ':' + n;
@@ -3697,7 +3748,9 @@
   // cuts: a layer can be shown only for part of the video, or take turns with others
   R.visibleAt = function (el, t) {
     const tm = el.time;
-    if (!tm || t == null) return true;
+    if (!tm) return true;
+    // the still view shows every cut at once, except a Vox explainer, which shows its first scene
+    if (t == null) return !(el.vox && tm.start > 0);
     const s0 = tm.start || 0, e0 = tm.end;
     if (t < s0 - 1e-6) return false;
     if (e0 != null && e0 > s0 && t >= e0) return false;
@@ -3976,7 +4029,7 @@
 
   function drawElement(ctx, el, env = {}) {
     const t = 'time' in env ? env.time : R.playTime;
-    if (t != null && !R.visibleAt(el, t)) return;
+    if (!R.visibleAt(el, t)) return;
     // clips cut in between typed words: only on screen during their own slot (hidden while editing the still)
     if (el.cutin) { const P = R.typePlan(env.doc || R.animDoc); if (!P || t == null || P.cutAt(t) !== el.id) return; }
     // pinned to a tracked spot in a video: move the whole layer with it (prepended to the layer's own placement)
@@ -4961,8 +5014,13 @@
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'copy'; ctx.drawImage(out, 0, 0); ctx.restore();
   }
 
+  // stepped motion (doc.anim.step, e.g. 12): layers, camera and cuts move in held steps, like graphics animated on twos;
+  // grain and film finishes keep the real time so the frame still breathes
+  R.stepTime = (doc, t) => (t == null || !(doc && doc.anim && doc.anim.step > 0)) ? t : Math.floor(t * doc.anim.step + 1e-6) / doc.anim.step;
   R.renderDoc = function (doc, opts = {}) {
     const scale = opts.scale || 1;
+    const tReal = opts.time ?? null;
+    if (tReal != null && doc.anim && doc.anim.step > 0) opts = Object.assign({}, opts, { time: R.stepTime(doc, tReal) });
     const c = opts.canvas || canvas(doc.width * scale, doc.height * scale);
     const ctx = c.getContext('2d');
     if (opts.canvas) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); }
@@ -5041,7 +5099,7 @@
     if (clear) { keep = canvas(c.width, c.height); keep.getContext('2d').drawImage(c, 0, 0); }
     ctx.save();
     ctx.scale(sx, sy);
-    drawOverlay(ctx, doc, t);
+    drawOverlay(ctx, doc, tReal);
     ctx.restore();
     if (keep) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(keep, 0, 0); ctx.restore(); }
     return c;

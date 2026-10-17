@@ -444,7 +444,7 @@
       globalCompositeOperation: el.blend && el.blend !== 'normal' ? el.blend : 'source-over',
       // full-canvas overlays let clicks through to the photo or video underneath (pick them in Layers)
       // full-frame overlays and the clips that cut in between typed words never catch clicks meant for the layers under them
-      listening: el.type !== 'flashes' && !el.cutin && !el.mcut,
+      listening: el.type !== 'flashes' && !el.cutin && !el.mcut && !el.vox,
     });
   }
   function rebuild() {
@@ -818,6 +818,33 @@
     // while typing, only the canvas redraws; the inspector stays put so the word field keeps its focus
     if (!live) { S.commit(); emit('doc'); }
   };
+  // Vox explainer: doc.vox is the recipe (look, stepped motion, scenes); every vox layer, the camera keys and the length
+  // are written from it for the canvas size. fn edits a copy of the recipe. A new look also swaps background and finish.
+  S.setVox = function (fn, live) {
+    const V = window.STUDIO_VOX;
+    if (!doc.vox || !V) return false;
+    const spec = clone(doc.vox), theme = spec.theme;
+    if (fn) fn(spec);
+    doc.vox = spec;
+    const b = V.build(spec, doc.width, doc.height);
+    if (spec.theme !== theme) {
+      doc.background = deepMerge(clone(blankDoc(doc.width, doc.height, b.background.color).background), b.background);
+      doc.overlay = deepMerge(clone(blankDoc(1, 1, '#fff').overlay), b.overlay);
+    }
+    doc.anim = Object.assign({}, doc.anim, b.anim);
+    doc.camera = b.camera;
+    const fresh = b.elements.map(e => { const n = normalize(e); autosize(n, false); return n; });
+    const first = doc.elements.findIndex(e => e.vox);
+    const before = first < 0 ? 0 : doc.elements.slice(0, first).filter(e => !e.vox).length;
+    const rest = doc.elements.filter(e => !e.vox);
+    rest.splice(before, 0, ...fresh);
+    doc.elements = rest;
+    rebuild(); sizeArt(); redraw();
+    if (R.playTime != null) applyCamera(R.playTime);
+    // while typing, only the canvas redraws; the inspector keeps the focused field
+    if (!live) { S.commit(); emit('doc'); }
+    return true;
+  };
   // a moving layout rebuilt for the canvas it's on now; photos and videos already placed carry over in order
   S.relayout = function () {
     const L = doc.layout && window.STUDIO_LAYOUTS && window.STUDIO_LAYOUTS[doc.layout.key];
@@ -860,6 +887,7 @@
     }
     doc.width = w; doc.height = h;
     if (doc.layout && S.relayout()) return;
+    if (doc.vox && S.setVox()) { S.fit(); return; }
     rebuild();
     S.fit();
     S.commit();
@@ -1026,7 +1054,7 @@
         marquee.setAttrs({ x, y, width: w, height: h, visible: true });
         const hits = [];
         for (const el of doc.elements) {
-          if (el.hidden || el.locked || el.mcut) continue;
+          if (el.hidden || el.locked || el.mcut || el.vox) continue;
           const r = nodes.get(el.id).getClientRect({ relativeTo: art });
           const touches = r.x < x + w && r.x + r.width > x && r.y < y + h && r.y + r.height > y;
           // a layer that surrounds the whole box (a background photo, say) isn't what the box is aiming at
@@ -1962,9 +1990,9 @@
     uiLayer.batchDraw();
     const tick = now => {
       if (!playing) return;
-      const t = ((now - playStart) / 1000) % doc.anim.duration;
-      R.playTime = t;
-      applyCamera(t);
+      const t = ((now - playStart) / 1000) % doc.anim.duration, ts = R.stepTime(doc, t);
+      R.playTime = ts;
+      applyCamera(ts);
       layer.batchDraw();
       drawScreenView(t);
       if (R.isVideoAsset(doc.background.assetId)) bgLayer.batchDraw();
@@ -1988,8 +2016,8 @@
   };
   // show one moment of the animation without playing (null = the finished layout used for editing)
   S.seek = function (t) {
-    R.playTime = t;
-    applyCamera(t);
+    R.playTime = R.stepTime(doc, t);
+    applyCamera(R.playTime);
     layer.batchDraw(); bgLayer.batchDraw();
     emit('time', t);
   };
