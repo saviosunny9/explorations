@@ -38,7 +38,7 @@ requests unless asked.
 | `render.js` | `window.StudioRender` (R). Pure canvas-2D renderer used by the editor, thumbnails and export. Every element type, filters, frames, text layout, animation, camera, video sync. |
 | `app.js` | `window.Studio` (S). Editor core: document state, Konva stage, selection, drag/resize, snapping, crop, path / spot editing, history, autosave + projects (IndexedDB), import, keyboard. |
 | `ui.js` | All DOM UI: panels (Templates, Elements, Text, Photos, Canvas, Layers), inspector per element type, home page, export dialog, timeline, menus, toasts. |
-| `vox.js` | `window.STUDIO_VOX`: Vox explainer scenes, looks and templates, built from `doc.vox` (loaded before templates.js). |
+| `vox.js` | `window.STUDIO_VOX`: Vox explainer scenes (21 kinds incl. 2.5D parallax), looks and templates, built from `doc.vox` (loaded before templates.js). |
 | `templates.js` | `window.STUDIO_TEMPLATES` (+ text presets, paper / planner presets, backgrounds). `GROUPS` maps family name → template ids and sets the order. |
 | `fonts.js` | Google Fonts catalogue (`[family, category, axes, weights, hasItalic]`), lazy loading (`ensure`), user-uploaded fonts (IndexedDB, packed into project files). |
 | `stickers.js`, `stickers-game.js`, `outfits-*.js` | SVG sticker library (`window.STICKERS`). Hand-drawn strokes use `smooth(wob(...))`; the *Pen sketches* set uses `pl()` for wobbly straight lines with real corners. |
@@ -244,23 +244,33 @@ load. Put a new family's ids in `GROUPS` (order = display order); `video: true` 
 preview. Families so far: Typing screen (layout `typescreen`, 4 orientations), Type effects (7: word build, select sweep, word wall, blur shuffle), Screen close-up (4: phrase typing, comment thread), Smooth cam text (layout `smoothcam`, 4 orientations, words carried across re-flows by `key`), Text effects (5), eight moving-layout families (Scrolling wall, Card trail, Grid build, Photo drop, Fan stack, Strip conveyor, Zoom wall, Slide-in panels — 4 orientations each), Text slides (69), Photo effects (27, incl. eight handwritten journal layouts), Paper & ID (10), Film looks (16), Film camera (10), Stop motion, Speed flashes, Studio portrait, Newspaper
 reveal, Typing, Match cut, Kinetic headline, Sticky notes, Rolling numbers, Word by word, Letter
 bounce, Life-sim garden, Ribbon poster, Motion blur, Camera view, Meet the team, Grid-paper notes,
-Polaroid POV, Wall calendar, Notebook tip — about 294 templates (36 of them Vox explainer). Removed on request (Oct 12): Everyday things, Film club ticket, Café chalkboard,
+Polaroid POV, Wall calendar, Notebook tip — about 362 templates (104 of them Vox explainer). Removed on request (Oct 12): Everyday things, Film club ticket, Café chalkboard,
 Happy birthday, Y2K vibes, This week, Review card, Coming soon, Halftone duo, Postfólio, Tools I use, Creative partner,
 Meet the agent, the Outfit line-up family, Quote card, Retro event, Photo dump, Mood board, New post story, Save the date and Big sale; their fonts are kept as Text styles and their stickers stay in Elements. Film templates build
 filters with `LOOK('<preset>', overrides)` so they stay in step with the presets.
 
-**Vox explainer** (`vox.js`, family *Vox explainer*, `vox-<type>-<orientation>`, 9 types × 4 sizes): `doc.vox = { theme, step, scenes:
-[{ id, kind, dur, text, word, sub, assetId }] }` is the recipe; `STUDIO_VOX.build(spec, W, H)` writes background, finish,
-`anim` (length = sum of scene lengths, `step` 12), `camera` (`move: 'keys'`, two keys per scene = hard cut + one move) and
-every layer (`vox: true`, `time` = the scene's window, anim delays absolute). Kinds: title, document, photo, quote, stat,
-map, timeline, list (`KINDS` lists fields + demo text). Highlights and the red circle are text marks that find their words
-at draw time: `typing.marks` + `typing.wipe = { start, dur }` (wipes on) and `typing.style: 'circle'` (hand-drawn loop,
-drawn on an invisible copy of the page text). `S.setVox(fn, live)` edits a copy of the recipe and rebuilds the vox layers
-in place (a new theme also swaps background / overlay); `S.resizeCanvas` re-flows through it. ui.js `voxSection` is the
-editor (scene cards, Look, stepped toggle, add scene; focusing a card seeks to that scene). Vox layers take no clicks,
-and in the still view only the first scene shows (`R.visibleAt`). Templates carry `buildAt(W, H)`, which gives the ratio
-picker its "Your canvas" member. Stepped motion in general: `doc.anim.step` fps → `R.stepTime` in `renderDoc` (finish keeps
-real time), editor playback and seek.
+**Vox explainer** (`vox.js`, family *Vox explainer*, `vox-<type>-<orientation>`, 26 types × 4 sizes: 5 stories + 21 single
+beats): `doc.vox = { theme, step, hunt, boil, scenes: [{ id, kind, dur, text, word, sub, note, assetId, assetId2, cutId }] }`
+is the recipe; `STUDIO_VOX.build(spec, W, H)` writes background, finish (`overlay.boil` from the recipe), `anim` (length =
+sum of scene lengths, `step` 12), `camera` (`move: 'keys'`, two keys per scene = hard cut + one move, `hunt`) and every layer
+(`vox: true`, `time` = the scene's window — or `_from` / `_to` inside it for cut-ins and lifted bars — anim delays absolute).
+`KINDS` lists each kind's group, fields, photo slots (`photos`), `cutout` and demo text; themes paper / newsprint / archive /
+clean. Group-safe entrances pass `anim.dist` (every layer of a card moves the same px); rotated cards place children with
+`group()`. Parallax layers use `loop: 'drift'` with `span: [s0, s1]` (only during their scene) and `ds` (swell; nearer =
+more); 2.5D uses `cutId` (a full-size cut-out from `S.cutoutAsset(assetId)` in bgremove.js, same crop as the photo, white
+image outline) over the softened photo with words in between. Highlights / red circle are text marks found at draw time
+(`typing.marks`, `typing.wipe`, `typing.style: 'circle'`). `S.setVox(fn, live)` rebuilds the vox layers in place (new theme
+swaps background / overlay; boil always synced); `S.resizeCanvas` re-flows. ui.js `voxSection` (scene cards, photo slots,
+cut-out button, grouped add-scene, Look, stepped / hunting / boil). Vox layers take no clicks; still view = first scene
+(`R.visibleAt`). Templates carry `buildAt(W, H)` → "Your canvas". Bar charts wipe with `anim.dir: 'up'`.
+
+Camera focus hunting: `camera.hunt` 0–100 → `huntAt(doc, t)` (render.js) over each camera move (keys segments with a real
+zoom / pan; pushin, pullback… from start / dur): soft-sharp-soft, locked by 40% of the move (≤ 1.6 s); `R.huntBlurPx` blurs
+the finished frame in `renderDoc` and in the editor via `R.frameBlurCtx` while playing; `camAt` adds focus breathing
+(z × 1 + 0.014·hunt). Textures: `overlay.grunge` (+ `grungeSeed`, procedural `grungeTexture`), `overlay.boil` (paper /
+crumple / grunge / user texture re-dealt per stepped frame: `boilAt`, `boilJit`), `overlay.userTex` + `userTexAmount` +
+`userTexBlend` (an uploaded image over the frame; counted in `usedAssets` / `docAssets`). Don't bundle third-party
+textures (Texture Labs' terms forbid use in apps / templates); textures in the app are generated in code.
 
 **Match cut** (`match-highlight`, `match-dark`, `match-news`): the user only edits `doc.matchcut = { style, word, seed, color }`.
 `window.STUDIO_MATCHCUT.build(mc)` writes six articles (titles, keyword lines, follow-on lines, body) from phrase banks with

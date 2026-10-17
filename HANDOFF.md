@@ -39,7 +39,7 @@ From another account, publish `dist/collage-studio.html` as a new artifact inste
 ## What the studio is
 
 A browser editor for scrapbook / collage Instagram posts and Reels: layered photos (and videos anywhere a photo goes),
-text, stickers, shapes, frames, ~294 templates grouped into families, animation and camera moves, film looks, and export
+text, stickers, shapes, frames, ~362 templates grouped into families, animation and camera moves, film looks, and export
 to PNG / JPG / MP4 / WebM (including see-through PNG, WebM with alpha and PNG frame sequences). Pure HTML + JS + canvas
 (Konva for the editor stage), no build step, designs saved in the browser (IndexedDB), with a home page, projects,
 "My templates", and a phone layout.

@@ -480,7 +480,7 @@
   function placeBackground() {
     // blends mix with the background on the layers' canvas — but never with the see-through checkerboard
     // a canvas blur has to blur the background too, so it joins the layers' canvas as well
-    const want = !(doc.background && doc.background.none) && (R.hasFrameBlur(doc) || doc.elements.some(e => e.blend && e.blend !== 'normal' && e.blend !== 'source-over')) ? layer : bgLayer;
+    const want = !(doc.background && doc.background.none) && (R.hasFrameBlur(doc) || (doc.camera && doc.camera.hunt > 0) || doc.elements.some(e => e.blend && e.blend !== 'normal' && e.blend !== 'source-over')) ? layer : bgLayer;
     if (bgFrame.getLayer() === want) return;
     bgFrame.moveTo(want);
     if (want === layer) bgFrame.moveToBottom();
@@ -560,6 +560,7 @@
   function usedAssets() {
     const ids = new Set();
     if (doc.background.assetId) ids.add(doc.background.assetId);
+    if (doc.overlay && doc.overlay.userTex) ids.add(doc.overlay.userTex);
     for (const el of doc.elements) {
       if (el.assetId) ids.add(el.assetId);
       if (el.studio && el.studio.cutId) ids.add(el.studio.cutId);
@@ -691,6 +692,7 @@
   function docAssets(d) {
     const ids = new Set();
     if (d.background.assetId) ids.add(d.background.assetId);
+    if (d.overlay && d.overlay.userTex) ids.add(d.overlay.userTex);
     for (const el of d.elements) {
       if (el.assetId) ids.add(el.assetId);
       if (el.studio && el.studio.cutId) ids.add(el.studio.cutId);
@@ -831,6 +833,7 @@
       doc.background = deepMerge(clone(blankDoc(doc.width, doc.height, b.background.color).background), b.background);
       doc.overlay = deepMerge(clone(blankDoc(1, 1, '#fff').overlay), b.overlay);
     }
+    doc.overlay = Object.assign({}, doc.overlay, { boil: b.overlay.boil });
     doc.anim = Object.assign({}, doc.anim, b.anim);
     doc.camera = b.camera;
     const fresh = b.elements.map(e => { const n = normalize(e); autosize(n, false); return n; });

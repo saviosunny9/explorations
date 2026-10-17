@@ -2309,7 +2309,8 @@
   // the editor's version: blur the canvas region the artboard covers on the layer's own canvas (worked out at ≤ 1200 px)
   let fbBuf = null;
   R.frameBlurCtx = function (ctx, doc) {
-    if (!frameBlurOn(doc)) return;
+    const hunting = R.playTime != null && doc.camera && doc.camera.hunt > 0;
+    if (!frameBlurOn(doc) && !hunting) return;
     const c = ctx.canvas, T = ctx.getTransform();
     const x0 = T.e, y0 = T.f, w = doc.width * T.a, h = doc.height * T.d;
     if (!(w > 2 && h > 2)) return;
@@ -2318,7 +2319,10 @@
     const bx = fbBuf.getContext('2d');
     bx.setTransform(1, 0, 0, 1, 0, 0); bx.clearRect(0, 0, bw, bh);
     bx.drawImage(c, x0, y0, w, h, 0, 0, bw, bh);
-    const out = frameBlur(fbBuf, doc.blur);
+    let out = frameBlurOn(doc) ? frameBlur(fbBuf, doc.blur) : fbBuf;
+    const hb = hunting ? R.huntBlurPx(doc, R.playTime, bw) : 0;
+    if (hb > 0.3) { const o = canvas(bw, bh), ox = o.getContext('2d'); ox.filter = `blur(${hb}px)`; ox.drawImage(out, 0, 0); out = o; }
+    else if (out === fbBuf && !frameBlurOn(doc)) return;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
     ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
@@ -3291,13 +3295,76 @@
     crumpleCache.set(key, c);
     return c;
   }
-  function drawCrumple(ctx, w, h, amount, seed) {
+  function drawCrumple(ctx, w, h, amount, seed, jit) {
     if (!amount) return;
     const tex = crumpleTexture(w, h, seed || 1);
     ctx.save();
     ctx.globalAlpha *= clamp(amount / 100, 0, 1);
-    ctx.drawImage(tex, 0, 0, w, h);
+    // boiling paper: the sheet sits a few pixels off every frame, slightly larger so the edges stay covered
+    if (jit) { const m = Math.max(w, h) * 0.012; ctx.drawImage(tex, -m + jit.dx, -m + jit.dy, w + m * 2, h + m * 2); }
+    else ctx.drawImage(tex, 0, 0, w, h);
     ctx.restore();
+  }
+  /* texture boil (overlay.boil 0–100): paper, grunge and textures are dealt again every frame of the stepped rate,
+     the hand-made "it's alive" shimmer of stop-motion and Vox-style collage. boilAt gives that frame's number, or null. */
+  function boilAt(doc, t) {
+    const b = doc && doc.overlay && doc.overlay.boil;
+    if (!(b > 0) || t == null) return null;
+    return Math.floor(t * ((doc.anim && doc.anim.step) || 12) + 1e-6);
+  }
+  function boilJit(doc, t, salt) {
+    const f = boilAt(doc, t);
+    if (f == null) return null;
+    const r = rng(f * 7919 + (salt || 1) * 131), a = doc.overlay.boil / 100, m = Math.min(doc.width, doc.height) * 0.006 * a;
+    return { dx: (r() - 0.5) * 2 * m, dy: (r() - 0.5) * 2 * m, f, r };
+  }
+  /* grunge (overlay.grunge): ink stains, dry-brush streaks, specks and scuffs, light and dark, so it reads on any colour */
+  const grungeCache = new LRU(6);
+  function grungeTexture(w, h, seed) {
+    const k = Math.min(1, 1400 / Math.max(w, h)), W = Math.max(64, Math.round(w * k)), H = Math.max(64, Math.round(h * k));
+    const key = W + 'x' + H + ':' + seed;
+    let c = grungeCache.get(key);
+    if (c) return c;
+    c = canvas(W, H);
+    const x = c.getContext('2d'), r = rng(seed * 4099 + 7), M = Math.max(W, H);
+    // soft stains and a darker rim, like an old print handled a lot
+    for (let i = 0; i < 26; i++) {
+      const px = r() * W, py = r() * H, rad = M * (0.04 + r() * 0.18), dark = r() < 0.75;
+      const g = x.createRadialGradient(px, py, rad * 0.55, px, py, rad);
+      const al = 0.05 + r() * 0.09;
+      g.addColorStop(0, dark ? `rgba(40,30,15,${al * 0.5})` : `rgba(255,255,255,${al * 0.6})`);
+      g.addColorStop(0.92, dark ? `rgba(40,30,15,${al})` : `rgba(255,255,255,${al})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = g; x.fillRect(px - rad, py - rad, rad * 2, rad * 2);
+    }
+    const rim = x.createRadialGradient(W / 2, H / 2, M * 0.35, W / 2, H / 2, M * 0.75);
+    rim.addColorStop(0, 'rgba(30,20,10,0)'); rim.addColorStop(1, 'rgba(30,20,10,0.28)');
+    x.fillStyle = rim; x.fillRect(0, 0, W, H);
+    // dry-brush streaks
+    for (let i = 0; i < 40; i++) {
+      const y = r() * H, x0 = r() * W, len = M * (0.08 + r() * 0.35), th = M * (0.002 + r() * 0.006);
+      x.fillStyle = r() < 0.6 ? `rgba(20,15,10,${0.03 + r() * 0.06})` : `rgba(255,255,255,${0.04 + r() * 0.08})`;
+      for (let j = 0; j < 6; j++) x.fillRect(x0 + r() * len * 0.1, y + (r() - 0.5) * th * 6, len * (0.5 + r() * 0.5), th * (0.4 + r()));
+    }
+    // ink specks: mostly tiny, irregular, a few in small clusters (splatter)
+    for (let i = 0; i < 700; i++) {
+      const px = r() * W, py = r() * H, rr = Math.max(0.35, M * 0.0011 * Math.pow(r(), 4) * 3), n = r() < 0.08 ? 6 : 1;
+      x.fillStyle = r() < 0.8 ? `rgba(15,10,5,${0.18 + r() * 0.4})` : `rgba(255,255,255,${0.25 + r() * 0.4})`;
+      for (let j = 0; j < n; j++) {
+        const qx = px + (j ? (r() - 0.5) * M * 0.012 : 0), qy = py + (j ? (r() - 0.5) * M * 0.012 : 0), q = j ? rr * (0.3 + r() * 0.5) : rr;
+        x.beginPath(); x.ellipse(qx, qy, q * (0.6 + r() * 0.8), q * (0.6 + r() * 0.8), r() * TAU, 0, TAU); x.fill();
+      }
+    }
+    // scuffs and hairline scratches
+    x.lineCap = 'round';
+    for (let i = 0; i < 70; i++) {
+      const px = r() * W, py = r() * H, a = r() * TAU, L = M * (0.01 + r() * 0.08);
+      x.strokeStyle = r() < 0.5 ? `rgba(255,255,255,${0.2 + r() * 0.3})` : `rgba(20,15,10,${0.15 + r() * 0.25})`;
+      x.lineWidth = Math.max(0.5, M * 0.0008);
+      x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + Math.cos(a + 0.4) * L / 2, py + Math.sin(a + 0.4) * L / 2, px + Math.cos(a) * L, py + Math.sin(a) * L); x.stroke();
+    }
+    grungeCache.set(key, c);
+    return c;
   }
   R.drawCrumple = drawCrumple;
 
@@ -3770,9 +3837,11 @@
     if (loop !== 'none') {
       const phase = an.sync ? 0 : (hashStr(el.id || 'a') % 1000) / 1000;
       if (loop === 'drift') {
-        // a steady glide across the whole video (scrolling walls, conveyor strips)
-        const k = tl / D;
+        // a steady glide across the whole video (scrolling walls, conveyor strips), or across anim.span = [start, end] only
+        // (a parallax layer moves through its own scene); ds grows the layer too, so nearer layers swell faster on a dolly
+        const k = an.span ? clamp((tl - an.span[0]) / Math.max(0.01, an.span[1] - an.span[0]), 0, 1) : tl / D;
         st.dx = (an.dx ?? -300) * k * amt; st.dy = (an.dy ?? 0) * k * amt;
+        if (an.ds) st.sc *= 1 + an.ds * k * amt;
       } else if (loop === 'wiggle') {
         const N = Math.max(1, Math.round(D * 8 * spd));
         const k = Math.floor(tl / D * N) % N;
@@ -3805,10 +3874,11 @@
       switch (enter) {
         case 'pop': st.sc *= Math.max(0, easeBack(p)); st.alpha *= Math.min(1, p * 3); break;
         case 'fade': st.alpha *= e; break;
-        case 'rise': st.dy += (1 - e) * m * 0.4; st.alpha *= e; st.mblur = (1 - e) * m * 0.25; st.mang = 90; break;
-        case 'drop': st.dy -= (1 - easeBounce(p)) * m * 1.2; st.alpha *= Math.min(1, p * 4); st.mblur = (1 - p) * m * 0.4; st.mang = 90; break;
-        case 'left': st.dx -= (1 - e) * m * 1.2; st.alpha *= e; st.mblur = (1 - e) * m * 0.6; break;
-        case 'right': st.dx += (1 - e) * m * 1.2; st.alpha *= e; st.mblur = (1 - e) * m * 0.6; break;
+        // anim.dist (px) moves every layer of a group the same distance, so a card and its words travel together
+        case 'rise': st.dy += (1 - e) * (an.dist ?? m * 0.4); st.alpha *= e; st.mblur = (1 - e) * m * 0.25; st.mang = 90; break;
+        case 'drop': st.dy -= (1 - easeBounce(p)) * (an.dist ?? m * 1.2); st.alpha *= Math.min(1, p * 4); st.mblur = (1 - p) * m * 0.4; st.mang = 90; break;
+        case 'left': st.dx -= (1 - e) * (an.dist ?? m * 1.2); st.alpha *= e; st.mblur = (1 - e) * m * 0.6; break;
+        case 'right': st.dx += (1 - e) * (an.dist ?? m * 1.2); st.alpha *= e; st.mblur = (1 - e) * m * 0.6; break;
         case 'slam': case 'lettersUp': case 'lettersDrop': case 'lettersFade': case 'lettersBounce':
           if (el.type === 'text') st.letters = { t: tl - (an.delay || 0), spd, style: enter }; else st.alpha *= e;
           break;
@@ -4062,8 +4132,12 @@
     ctx.translate(-A.px, -A.py);
     if (A.alpha < 1) ctx.globalAlpha *= A.alpha;
     if (A.reveal < 1) {
-      const b = bleed(el);
-      ctx.beginPath(); ctx.rect(-b, -b, (el.width + b * 2) * A.reveal, el.height + b * 2); ctx.clip();
+      const b = bleed(el), dir = el.anim && el.anim.dir, H2 = el.height + b * 2;
+      ctx.beginPath();
+      if (dir === 'up') ctx.rect(-b, -b + H2 * (1 - A.reveal), el.width + b * 2, H2 * A.reveal);
+      else if (dir === 'down') ctx.rect(-b, -b, el.width + b * 2, H2 * A.reveal);
+      else ctx.rect(-b, -b, (el.width + b * 2) * A.reveal, H2);
+      ctx.clip();
     }
     let e = el;
     if (A.view) e = phraseEl(el, A.view);
@@ -4467,9 +4541,10 @@
       }
     }
     drawPattern(ctx, w, h, bg.pattern);
-    if (bg.texture) fillTexture(ctx, 'paper', bg.texture, w, h);
+    const tB = 'time' in opts ? opts.time : R.playTime;
+    if (bg.texture) fillTexture(ctx, 'paper', bg.texture, w, h, 1, boilAt(doc, tB));
     // with relief on, the folds are drawn once above the layers instead (see renderDoc), so the print sits in the paper
-    if (bg.crumple && !bg.relief) drawCrumple(ctx, w, h, bg.crumple, bg.crumpleSeed || 1);
+    if (bg.crumple && !bg.relief) drawCrumple(ctx, w, h, bg.crumple, bg.crumpleSeed || 1, boilJit(doc, tB, 2));
   }
   R.drawBackground = drawBackground;
 
@@ -4483,7 +4558,29 @@
     if (o.grain) fillTexture(ctx, 'grain', o.grain, w, h, grainScale(o.grainSize), t != null ? Math.floor(t * 24) : null);
     if (o.dust) dustScratches(ctx, w, h, o.dust, t != null ? Math.floor(t * 12) : null, 1);
     if (o.tint && o.tintAmount) { ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha *= o.tintAmount / 100; ctx.fillStyle = o.tint; ctx.fillRect(0, 0, w, h); ctx.restore(); }
-    if (o.paper) fillTexture(ctx, 'paper', o.paper, w, h);
+    if (o.paper) fillTexture(ctx, 'paper', o.paper, w, h, 1, boilAt(doc, t));
+    if (o.grunge) {
+      const g = grungeTexture(w, h, (o.grungeSeed || 3)), j = boilJit(doc, t, 5), m = Math.max(w, h) * 0.012;
+      ctx.save(); ctx.globalAlpha *= clamp(o.grunge / 100, 0, 1);
+      if (j) ctx.drawImage(g, -m + j.dx, -m + j.dy, w + m * 2, h + m * 2); else ctx.drawImage(g, 0, 0, w, h);
+      ctx.restore();
+    }
+    // your own texture (a scan, a paper photo, a texture you downloaded): laid over the frame with a blend mode
+    if (o.userTex && o.userTexAmount > 0) {
+      const im = assetImage(o.userTex);
+      if (im) {
+        const iw = im.naturalWidth || im.videoWidth || im.width, ih = im.naturalHeight || im.videoHeight || im.height;
+        if (iw && ih) {
+          const j = boilJit(doc, t, 9), k = Math.max(w / iw, h / ih) * (j ? 1.06 : 1), dw = iw * k, dh = ih * k;
+          ctx.save();
+          ctx.globalCompositeOperation = o.userTexBlend || 'multiply'; ctx.globalAlpha *= clamp(o.userTexAmount / 100, 0, 1);
+          // boiling: a new crop and a flip every frame, so one still texture keeps moving
+          if (j) { ctx.translate(w / 2, h / 2); ctx.scale(j.f % 2 ? -1 : 1, (j.f >> 1) % 2 ? -1 : 1); ctx.translate(-w / 2, -h / 2); }
+          ctx.drawImage(im, (w - dw) / 2 + (j ? (j.r() - 0.5) * (dw - w) : 0), (h - dh) / 2 + (j ? (j.r() - 0.5) * (dh - h) : 0), dw, dh);
+          ctx.restore();
+        }
+      }
+    }
     if (o.light) {
       // window light: brighter from the top left, falling off toward the far corner, like a sheet photographed by a window
       const a = o.light / 100, g = ctx.createLinearGradient(0, 0, w, h);
@@ -4771,6 +4868,34 @@
     }
     return elCentre(el);
   }
+  // focus hunting (camera.hunt 0–100): during each camera move the lens hunts — soft, sharp, soft again, then settles
+  // sharp as the move ends — and "breathes" (the framing swells a touch with the focus). Returns 0…1 for time t.
+  function huntAt(doc, t) {
+    const c = doc && doc.camera;
+    if (!c || !(c.hunt > 0) || t == null || !c.move || c.move === 'none') return 0;
+    const segs = [];
+    if (c.move === 'keys') {
+      const K = camKeys(c, doc.width, doc.height);
+      for (let i = 0; i < K.length - 1; i++) {
+        const a = K[i], b = K[i + 1], L = b.t - a.t;
+        if (L > 0.3 && (Math.abs(b.z - a.z) > 0.02 || Math.hypot(b.x - a.x, b.y - a.y) > doc.width * 0.02)) segs.push([a.t, L]);
+      }
+    } else if (['pushin', 'pullback', 'whip', 'crash', 'spiral', 'follow', 'snap'].includes(c.move)) segs.push([c.start || 0, Math.max(0.3, c.dur || 1.5)]);
+    else if (c.move === 'drift') segs.push([0, Math.max(0.5, (doc.anim && doc.anim.duration) || 5)]);
+    for (const [t0, L] of segs) {
+      // the lens hunts as the move gets going — soft, sharp, soft again — and has locked focus by about 40% in (or 1.6 s),
+      // so the rest of the beat reads sharp
+      const L2 = Math.min(L * 0.4, 1.6), u = (t - t0) / L2;
+      if (u < 0 || u > 1) continue;
+      const env = Math.pow(Math.sin(Math.PI * u), 0.7);
+      const ph = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (u * 1.8 + 0.08));
+      return clamp(env * (0.3 + 0.7 * ph) * c.hunt / 100, 0, 1);
+    }
+    return 0;
+  }
+  R.huntAt = huntAt;
+  // the hunt as a blur radius in canvas pixels for a frame of width w
+  R.huntBlurPx = (doc, t, w) => huntAt(doc, t) * w * 0.009;
   function camAt(doc, t) {
     const c0 = doc.camera, weave = (doc.overlay && doc.overlay.weave) || 0;
     if (t == null || (!weave && (!c0 || !c0.move || c0.move === 'none'))) return null;
@@ -4843,6 +4968,7 @@
         break;
       }
     }
+    if (c0 && c0.hunt > 0) z *= 1 + 0.014 * huntAt(doc, t);
     if (weave) {
       // gate weave: film never sits perfectly still in the gate — it hops a little every frame
       const a = weave / 100, rr = rng(Math.floor(t * 18) * 131 + 7);
@@ -5047,7 +5173,7 @@
         ctx.restore();
       }
       const bgd = doc.background || {};
-      if (bgd.crumple && bgd.relief && !R.isClearBg(doc)) drawCrumple(ctx, doc.width, doc.height, bgd.crumple, bgd.crumpleSeed || 1);
+      if (bgd.crumple && bgd.relief && !R.isClearBg(doc)) drawCrumple(ctx, doc.width, doc.height, bgd.crumple, bgd.crumpleSeed || 1, boilJit(doc, opts.time ?? null, 2));
     }
     ctx.restore();
     if (panel) return c;
@@ -5081,6 +5207,14 @@
       }
     }
     if (scr) screenLens(c, ctx, scr, doc.screen.pitch * sx * (cam ? cam.z : 1));
+    const hb = R.huntBlurPx(doc, opts.time ?? null, c.width);
+    if (hb > 0.4) {
+      const o = canvas(c.width, c.height), ox = o.getContext('2d');
+      ox.filter = `blur(${hb}px)`; ox.drawImage(c, 0, 0);
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+      if (opts.transparent || R.isClearBg(doc)) ctx.globalCompositeOperation = 'copy';
+      ctx.drawImage(o, 0, 0); ctx.restore();
+    }
     if (frameBlurOn(doc)) {
       const out = frameBlur(c, doc.blur);
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
@@ -5104,7 +5238,7 @@
     if (keep) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(keep, 0, 0); ctx.restore(); }
     return c;
   };
-  function hasOverlay(doc) { const o = doc.overlay || {}; return Object.keys(o).some(k => typeof o[k] === 'number' && o[k] > 0 && k !== 'grainSize' && k !== 'tintAmount' && k !== 'weave'); }
+  function hasOverlay(doc) { const o = doc.overlay || {}; return Object.keys(o).some(k => typeof o[k] === 'number' && o[k] > 0 && !['grainSize', 'tintAmount', 'weave', 'boil', 'grungeSeed'].includes(k)); }
 
   window.StudioRender = R;
 })();

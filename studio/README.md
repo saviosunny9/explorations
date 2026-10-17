@@ -15,7 +15,7 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
 | `video.js` | Frame-by-frame video export (WebCodecs H.264 → MP4 or VP9 → WebM, MediaRecorder fallback) |
 | `ui.js` | Panels, inspector, popovers, dialogs |
-| `templates.js` | About 294 templates plus text, paper, planner, photo-layout and background presets |
+| `templates.js` | About 362 templates plus text, paper, planner, photo-layout and background presets |
 
 Work is autosaved to the browser (IndexedDB). Use **Menu → Download project file** to keep a portable `.studio.json`.
 
@@ -108,25 +108,43 @@ Select a video (a layer or the canvas background) and the **Playback** section h
 
 ## Vox explainer (with its own editor)
 
-Explainer videos in the Vox style: everything sits on textured paper (crumple and fibre texture, grain, a little dust),
-the key words get a yellow highlighter swipe, a red marker circles a word or draws an arrow, archival photos are
-halftone black-and-white cut-outs with torn white edges and a strip of tape, and graphics move in held steps at
-12 frames a second ("on twos"). Every beat has its own camera move — push into a document, pan along a timeline,
-hold still for the quote — and beats hard-cut into each other.
+Explainer videos in the Vox style: everything sits on textured paper, key words get a yellow highlighter swipe, a red
+marker circles a word or draws an arrow, archival photos are halftone black-and-white cut-outs with torn white edges and
+tape, graphics move in held steps at 12 frames a second ("on twos"), the paper texture boils, every beat has its own
+camera move — and the lens hunts for focus while it moves — and beats hard-cut into each other.
 
-- **Templates → Vox explainer** has nine types: *Full explainer* (title → document → photo → number → quote), *Title card*,
-  *Highlighted document*, *Archival photo*, *Pull quote*, *Big number*, *Map route*, *Timeline* and *Ranked list*. Pick a
-  type, then a ratio (Story 9:16, Portrait 4:5, Square 1:1, Landscape 16:9 or your canvas size).
-- **Canvas → Vox editor** builds the video beat by beat: each scene has its own fields (headline and highlighted words,
-  sentence to highlight and word to circle, caption and handwritten note, quote and who said it, the number, the place,
-  years, list items), a **Length** slider, and up / down / remove. **+ Add a scene** appends any scene type. Photo and
-  map scenes take your own photo or video (*Add photo* / *Add a map screenshot*; without one, the map scene draws a plain
-  paper map). Clicking into a scene jumps the preview to it.
-- **Look**: Paper (cream, crumpled, the classic), Newsprint (grey stock with a faint dot screen) or Clean (modern, light
-  texture). **Stepped motion (12 fps, on twos)** can be switched off for smooth movement.
-- The Big number rolls up to its value; the document page fills itself with newspaper text around your sentence.
-- Resizing the canvas re-flows every scene to the new shape. The layers are written from the editor, so they can't be
-  dragged on the canvas — edit them in the Vox editor. While paused, the canvas shows the first scene (scrub or play to see the rest).
+- **Templates → Vox explainer** has 26 types, each in Story 9:16, Portrait 4:5, Square 1:1, Landscape 16:9 or your canvas
+  size. Five complete stories — *Full explainer*, *Parallax story*, *Data story*, *Investigation*, *Internet moment* —
+  and 21 single beats:
+  - **Parallax**: *Cut-out parallax* (2.5D: your photo far back, big words in the middle, the subject cut out in front
+    with a white paper edge — each layer glides and swells at its own speed; press *Cut out the subject (2.5D)*),
+    *Photo wall parallax* (prints in three depths, far ones small and soft, near ones big and sharp), *Paper layers
+    parallax* (a paper diorama: a sun disc and torn bands rising at different speeds).
+  - **Type**: *Title card*, *Chapter card* (big number under a torn paper band), *Pull quote*, *Dictionary entry*.
+  - **Paper**: *Highlighted document* (camera pushes into the line, red circle round a word), *Headline montage*
+    (clippings cut in one after another), *Declassified page* (lines blacked out bar by bar, one lifted and highlighted, a
+    stamp).
+  - **Photo**: *Archival photo*, *Then vs now* (two photos side by side or stacked), *Photo callouts* (dots, leader lines
+    and labels on details).
+  - **Data**: *Big number* (rolls up), *Bar chart* (bars grow from the baseline, one highlighted), *Line graph* (draws
+    itself, end value pops), *Timeline*, *Ranked list*.
+  - **Screen**: *Map route*, *Search bar* (typed question, suggestions drop down; made-up search site), *Social post*
+    (made-up app, key phrase highlighted).
+- **Canvas → Vox editor** builds the video beat by beat: each scene has its own fields, photo slots (photos or videos),
+  a **Length** slider and up / down / remove; **+ Add a scene** lists every type by group. Clicking into a scene jumps
+  the preview to it. **Look**: Paper, Newsprint, Archive (aged, grungy) or Clean. **Stepped motion**, **Focus hunting**
+  and **Texture boil** are sliders/toggles for the whole video.
+- The layers are written from the editor, so they can't be dragged on the canvas. While paused, the canvas shows the
+  first scene. Resizing the canvas re-flows every scene.
+
+**Camera → Focus hunting** (any camera move, any design): as a push-in or pull-out gets going the lens drifts soft, sharp,
+soft again and locks focus about 40% in, with a touch of focus breathing (the framing swells with the focus).
+
+**Canvas → Finish** adds **Grunge** (ink stains, dry-brush streaks, specks, scuffs; *New grunge* reshuffles), **Texture
+boil** (paper, grunge and your texture are dealt again every frame — the hand-made shimmer) and **Your texture**: any image
+(a paper scan, a texture you downloaded from a free texture site) laid over the frame with Multiply, Screen, Overlay, Soft
+light, Hard light or Luminosity. The textures in the app are generated in code; downloaded textures are yours to add per
+design because sites like Texture Labs don't allow bundling theirs into an app or its templates.
 
 ## Moving layouts (any orientation)
 

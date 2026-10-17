@@ -394,6 +394,19 @@
     });
   };
 
+  // a full-size cut-out of a photo (same size as the original, so it sits exactly over it): Vox parallax layers.
+  // Resolves to the new asset id, or undefined if nothing was found.
+  S.cutoutAsset = function (assetId) {
+    return guard(async () => {
+      const img = await loadedImage(assetId);
+      if (!img) throw new Error('image not loaded');
+      const cut = await cutout(img, reporter());
+      if (!opaqueBounds(cut)) { S.emit('toast', 'No clear subject found in this photo'); return; }
+      const id = S.addAsset(cut.toDataURL('image/png'));
+      await new Promise(res => { const i = new Image(); i.onload = i.onerror = res; i.src = S.assets[id]; R.assetImage(id); });
+      return id;
+    });
+  };
   // studio look: cut the person out once and keep it beside the original photo
   S.studioCutout = function (id) {
     return guard(async () => {

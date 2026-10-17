@@ -1856,6 +1856,7 @@
       !['drift', 'jolt', 'keys', 'typecut'].includes(c.move) ? row('Starts at', num(T, 'camera.start', { min: 0, max: D, step: 0.05, slider: true, unit: 's' })) : null,
       !['drift', 'jolt', 'follow', 'keys', 'typecut'].includes(c.move) ? row('Lasts', num(T, 'camera.dur', { min: 0.1, max: 30, step: 0.05, slider: true, unit: 's' })) : null,
       c.move === 'jolt' ? row('Cut every', num(T, 'camera.cut', { min: 0.05, max: 2, step: 0.01, slider: true, unit: 's' })) : null,
+      row('Focus hunting', num(T, 'camera.hunt', { min: 0, max: 100, slider: true, unit: '%', def: 0, set: (v, live) => { S.change(T, 'camera.hunt', v, live); if (!live) S.redraw(); } })),
       more('camera-more', [
         ['keys', 'typecut'].includes(c.move) ? null : row('Tilt', num(T, 'camera.rotate', { min: -40, max: 40, step: 0.5, slider: true, unit: '°' })),
         row('Handheld', num(T, 'camera.shake', { min: 0, max: 3, step: 0.05, slider: true, def: 0 })),
@@ -1921,7 +1922,14 @@
       inp.addEventListener('change', () => { edit(sp => { sp.scenes[i][key] = inp.value; }, true); S.commit(); });
       return [label(name), full(inp)];
     };
-    const pickPhoto = i => S.pickImages({ uploadOnly: true, onAdded: added => { if (added && added[0]) edit(sp => { sp.scenes[i].assetId = added[0].id; }); } });
+    const pickPhoto = (i, key) => S.pickImages({ uploadOnly: true, onAdded: added => { if (added && added[0]) edit(sp => { sp.scenes[i][key] = added[0].id; if (key === 'assetId') sp.scenes[i].cutId = null; }); } });
+    // 2.5D: cut the subject out of the scene's photo once (background removal), then it floats in front of its own photo
+    const cutOut = i => {
+      const sc = vx.scenes[i], src = sc.assetId || (V.KINDS[sc.kind].demo || {}).assetId;
+      if (!src || !S.cutoutAsset) return;
+      toast('Cutting out the subject…');
+      S.cutoutAsset(src).then(id => { if (id) { edit(sp => { sp.scenes[i].cutId = id; if (!sp.scenes[i].assetId) sp.scenes[i].assetId = src; }); toast('Subject cut out — it now floats in front of the photo'); } });
+    };
     const card = (sc, i) => {
       const K = V.KINDS[sc.kind] || { label: sc.kind, fields: [] };
       const swap = j => edit(sp => { [sp.scenes[i], sp.scenes[j]] = [sp.scenes[j], sp.scenes[i]]; });
@@ -1933,18 +1941,24 @@
           i < n - 1 ? h('button.icon-btn', { type: 'button', title: 'Move later', 'aria-label': 'Move later', onclick: () => swap(i + 1) }, ic('chevDown')) : null,
           n > 1 ? h('button.icon-btn', { type: 'button', title: 'Remove scene', 'aria-label': 'Remove scene', onclick: () => edit(sp => { sp.scenes.splice(i, 1); }) }, ic('trash')) : null),
         ...K.fields.flatMap(([k, name, rows]) => field(i, k, name, rows)),
-        K.photo ? full(h('div.btn-row', null,
-          h('button.btn.grow', { type: 'button', title: 'Photos and videos both work', onclick: () => pickPhoto(i) }, ic('image'), sc.assetId ? (sc.kind === 'map' ? 'Replace map' : 'Replace photo') : (sc.kind === 'map' ? 'Add a map screenshot' : 'Add photo')),
-          sc.assetId ? h('button.btn', { type: 'button', title: sc.kind === 'map' ? 'Back to the drawn map' : 'Remove the photo', 'aria-label': 'Remove the photo', onclick: () => edit(sp => { sp.scenes[i].assetId = null; }) }, ic('trash')) : null)) : null,
+        ...(K.photos || []).map(([key, name]) => full(h('div.btn-row', null,
+          h('button.btn.grow', { type: 'button', title: 'Photos and videos both work', onclick: () => pickPhoto(i, key) }, ic('image'), (sc[key] && !/^(film|ed|img|demo)-/.test(sc[key]) ? 'Replace ' : 'Add ') + name.toLowerCase()),
+          sc[key] && !/^(film|ed|img|demo)-/.test(sc[key]) ? h('button.btn', { type: 'button', title: 'Remove', 'aria-label': 'Remove ' + name.toLowerCase(), onclick: () => edit(sp => { sp.scenes[i][key] = null; if (key === 'assetId') sp.scenes[i].cutId = null; }) }, ic('trash')) : null))),
+        K.cutout ? full(h('button.btn' + (sc.cutId ? '' : '.primary'), { type: 'button', disabled: S.isRemovingBackground && S.isRemovingBackground(), title: 'Background removal finds the subject; it then moves in front of its own photo',
+          onclick: () => sc.cutId ? edit(sp => { sp.scenes[i].cutId = null; }) : cutOut(i) }, ic('wand'), sc.cutId ? 'Undo the cut-out' : 'Cut out the subject (2.5D)')) : null,
         row('Length', num('doc', `vox.scenes.${i}.dur`, { min: 1.5, max: 15, step: 0.5, slider: true, unit: 's', set: (v, live) => edit(sp => { sp.scenes[i].dur = v; }, live) })),
       );
     };
-    const add = h('select.sel', { 'aria-label': 'Add a scene' }, h('option', { value: '' }, '+ Add a scene…'), ...Object.entries(V.KINDS).map(([k, K]) => h('option', { value: k }, K.label)));
+    const groups = [...new Set(Object.values(V.KINDS).map(K => K.group || 'More'))];
+    const add = h('select.sel', { 'aria-label': 'Add a scene' }, h('option', { value: '' }, '+ Add a scene…'),
+      ...groups.map(g => h('optgroup', { label: g }, ...Object.entries(V.KINDS).filter(([, K]) => (K.group || 'More') === g).map(([k, K]) => h('option', { value: k }, K.label)))));
     add.addEventListener('change', () => { if (add.value) edit(sp => { sp.scenes.push(V.newScene(add.value)); }); });
     return sec('Vox editor', [
       h('p.hint', null, 'Build the video beat by beat. Each scene brings its own Vox moves — highlighter, red marker, cut-out photos, camera push — and they cut into each other.'),
       row('Look', selectCtl('doc', 'vox.theme', Object.entries(V.THEMES).map(([k, t]) => [k, t.label]), { set: v => edit(sp => { sp.theme = v; }) })),
       toggle('doc', 'vox.step', 'Stepped motion (12 fps, on twos)', { get: () => !!vx.step, set: v => edit(sp => { sp.step = v ? 12 : 0; }) }),
+      row('Focus hunting', num('doc', 'vox.hunt', { min: 0, max: 100, slider: true, unit: '%', def: 0, set: (v, live) => edit(sp => { sp.hunt = v; }, live) })),
+      row('Texture boil', num('doc', 'vox.boil', { min: 0, max: 100, slider: true, unit: '%', def: 0, set: (v, live) => edit(sp => { sp.boil = v; }, live) })),
       label(`Scenes · ${S.doc.anim.duration}s`),
       ...vx.scenes.map(card),
       full(add),
@@ -2042,6 +2056,22 @@
         fin('Flicker', 'overlay.flicker', 100, { def: 50, body: () => [h('p.hint', null, 'Each frame a touch brighter or darker — shows while the video plays.')] }),
         fin('Gate weave', 'overlay.weave', 100, { def: 50, body: () => [h('p.hint', null, 'The picture hops slightly every frame, like film in a projector — shows while the video plays.')] }),
         fin('Vignette', 'overlay.vignette'),
+        fin('Grunge', 'overlay.grunge', 100, { def: 35, body: () => [
+          h('p.hint', null, 'Ink stains, dry-brush streaks, specks and scuffs over everything.'),
+          full(h('button.btn', { type: 'button', onclick: () => S.change(T, 'overlay.grungeSeed', Math.floor(Math.random() * 1e5)) }, ic('shuffle'), 'New grunge'))] }),
+        fin('Texture boil', 'overlay.boil', 100, { def: 40, body: () => [h('p.hint', null, 'Paper, grunge and your texture are dealt again every frame, the hand-made shimmer of stop motion and collage. Shows while the video plays.')] }),
+        {
+          // a texture of your own: a paper scan, a photo of a wall, a texture you downloaded
+          label: 'Your texture', on: !!(o.userTex && o.userTexAmount > 0),
+          add: () => S.pickImages({ uploadOnly: true, imagesOnly: true, onAdded: a => { if (a && a[0]) { S.change(T, 'overlay', Object.assign({}, S.doc.overlay, { userTex: a[0].id, userTexAmount: 60, userTexBlend: 'multiply' })); renderInspector(); } } }),
+          remove: () => { S.change(T, 'overlay.userTexAmount', 0); renderInspector(); },
+          body: () => [
+            h('p.hint', null, 'Laid over the whole frame. Multiply darkens with the texture, Screen lightens, Overlay and Soft light do both. Texture boil re-crops it every frame.'),
+            row('Amount', num(T, 'overlay.userTexAmount', { min: 0, max: 100, slider: true })),
+            row('Blend', selectCtl(T, 'overlay.userTexBlend', [['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['luminosity', 'Luminosity']])),
+            full(h('button.btn', { type: 'button', onclick: () => S.pickImages({ uploadOnly: true, imagesOnly: true, onAdded: a => { if (a && a[0]) S.change(T, 'overlay.userTex', a[0].id); } }) }, ic('replace'), 'Replace texture')),
+          ],
+        },
         {
           // the whole design shown on a real display, filmed close up (pixel mesh, soft focus, dust)
           label: 'Screen close-up', on: !!(d.screen && d.screen.on),
