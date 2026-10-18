@@ -402,6 +402,8 @@
   new ResizeObserver(sizeStage).observe(area);
 
   area.addEventListener('wheel', e => {
+    // the timeline under the canvas scrolls (and zooms) itself
+    if (e.target.closest && e.target.closest('.vtl')) return;
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       const rect = area.getBoundingClientRect();
@@ -431,7 +433,17 @@
         if (!e) return;
         const ctx = c._context;
         ctx.save();
-        try { R.drawElement(ctx, e, { editor: true }); } catch (err) { console.error(err); }
+        const g = e.grp ? R.groupOf(doc, e) : null;
+        try {
+          if (g && g.hidden) { /* the whole group is switched off */ } else if (g && R.groupComposite(g)) {
+            // a group with its own look is drawn as one picture by its lowest layer (back in canvas space); the others draw nothing
+            if (doc.elements.find(x => x.grp === g.id && !x.hidden) === e) {
+              ctx.rotate(-(e.rotation || 0) * Math.PI / 180); ctx.translate(-e.x, -e.y);
+              ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+              R.drawGroup(ctx, doc, g, { editor: true });
+            }
+          } else R.drawElement(ctx, e, { editor: true });
+        } catch (err) { console.error(err); }
         ctx.restore();
       },
       // a layer that's cut out at this moment (another clip's turn) doesn't catch clicks
@@ -525,6 +537,7 @@
   S.syncTypeLength = syncTypeLength;
   S.commit = function () {
     if (S.layoutClips) S.layoutClips();
+    syncGroups();
     syncTypeLength();
     const s = snapshot();
     if (hist.stack[hist.idx] === s) return;
@@ -2320,6 +2333,7 @@
     for (const e of els) ids.push(S.addElement(e, { select: false, commit: false, center: false }).id);
     S.select(ids);
     S.commit();
+    return ids;
   };
   S.removeSelected = function () {
     if (!sel.length) return;
@@ -2337,6 +2351,83 @@
     rebuild();
     S.commit();
     emit('selection');
+  };
+  /* ── groups: layers that travel together on the timeline (a template added over a video, or layers grouped by hand) ──
+     doc.groups[gid] = { id, name, origin, start, end, lane, hidden, sfx, opacity, blend }. Members keep their own timing
+     relative to the group's origin in el.gt = [start, end | null]; syncGroups turns that into el.time, cut to [start, end]. */
+  function syncGroups() {
+    const gs = doc.groups;
+    if (!gs) return;
+    const has = new Set();
+    for (const el of doc.elements) {
+      const g = el.grp && gs[el.grp];
+      if (!g) { if (el.grp) { delete el.grp; delete el.gt; } continue; }
+      has.add(g.id);
+      const [s0, e0] = el.gt || [0, null];
+      const a = Math.max(g.start, g.origin + s0), b = Math.min(g.end, e0 != null ? g.origin + e0 : g.end);
+      el.time = Object.assign({}, el.time || {}, b > a + 1e-4 ? { start: round3(a), end: round3(b) } : { start: 1e6, end: 1e6 + 1 });
+    }
+    for (const id of Object.keys(gs)) if (!has.has(id)) delete gs[id];
+  }
+  const round3 = v => Math.round(v * 1000) / 1000;
+  S.syncGroups = syncGroups;
+  S.groupById = gid => (doc.groups && doc.groups[gid]) || null;
+  S.groupMembers = gid => doc.elements.filter(e => e.grp === gid);
+  // make a group from layers (kept next to each other in the stack, where the top one was), playing from `start` for `len` s
+  S.makeGroup = function (ids, o = {}) {
+    const els = ids.map(id => elMap.get(id)).filter(Boolean);
+    if (!els.length) return null;
+    const gid = uid('g');
+    const start = o.start != null ? o.start : Math.min(...els.map(e => (e.time && e.time.start) || 0));
+    const ends = els.map(e => (e.time && e.time.end != null ? e.time.end : doc.anim.duration));
+    const end = o.len != null ? start + o.len : Math.max(start + 0.2, ...ends);
+    doc.groups = doc.groups || {};
+    doc.groups[gid] = { id: gid, name: o.name || 'Group', origin: o.origin != null ? o.origin : start, start, end, lane: o.lane };
+    const g = doc.groups[gid];
+    for (const e of els) {
+      const ts = e.time && e.time.start != null && e.time.start < 1e5 ? e.time.start : g.origin, te = e.time && e.time.end != null ? e.time.end : null;
+      e.gt = [round3(ts - g.origin), te != null ? round3(te - g.origin) : null];
+      e.grp = gid; delete e.lane;
+    }
+    // members side by side in the stack, at the top one's place
+    const top = Math.max(...els.map(e => doc.elements.indexOf(e)));
+    const rest = doc.elements.filter(e => !els.includes(e)), at = rest.indexOf(doc.elements.slice(0, top + 1).filter(e => !els.includes(e)).pop()) + 1;
+    rest.splice(at, 0, ...doc.elements.filter(e => els.includes(e)));
+    doc.elements = rest;
+    rebuild();
+    S.commit(); emit('doc');
+    return g;
+  };
+  S.changeGroup = function (gid, fn, live) {
+    const g = S.groupById(gid);
+    if (!g) return;
+    fn(g);
+    syncGroups();
+    redraw();
+    if (!live) S.commit();
+    emit('change');
+  };
+  // move the whole group in time (entrance timings of its layers move with it)
+  S.moveGroup = function (gid, dt, live) {
+    S.changeGroup(gid, g => {
+      dt = Math.max(-g.start, Math.max(-g.origin, dt));
+      g.origin = round3(g.origin + dt); g.start = round3(g.start + dt); g.end = round3(g.end + dt);
+      for (const e of S.groupMembers(gid)) if (e.anim && e.anim.delay != null) e.anim.delay = round3(e.anim.delay + dt);
+    }, live);
+  };
+  S.ungroup = function (gid) {
+    const g = S.groupById(gid);
+    if (!g) return;
+    for (const e of S.groupMembers(gid)) { delete e.grp; delete e.gt; if (g.lane != null) e.lane = g.lane; }
+    delete doc.groups[gid];
+    redraw(); S.commit(); emit('doc');
+  };
+  S.removeGroup = function (gid) {
+    const ids = S.groupMembers(gid).map(e => e.id);
+    if (doc.groups) delete doc.groups[gid];
+    doc.elements = doc.elements.filter(e => !ids.includes(e.id));
+    sel = sel.filter(id => !ids.includes(id));
+    rebuild(); S.commit(); emit('doc'); emit('selection');
   };
   S.duplicate = function (offset = 24) {
     const els = S.selEls();
@@ -2452,7 +2543,7 @@
   // copy / paste properties: the whole look of one layer (font, colours, effects, frame, filters…) onto others
   let styleClip = null;
   const NOT_STYLE = new Set(['track', 'id', 'type', 'x', 'y', 'width', 'height', 'rotation', 'name', 'locked', 'hidden', 'text', 'assetId', 'crop', 'video', 'seq',
-    'points', 'images', 'stickerId', 'shape', 'kind', 'key', 'erase', 'time', 'studio', 'bgRemoved', 'placeholder', 'path', 'autoWidth', 'typing', 'flipX', 'flipY', 'cx', 'cy', 'clip']);
+    'points', 'images', 'stickerId', 'shape', 'kind', 'key', 'erase', 'time', 'studio', 'bgRemoved', 'placeholder', 'path', 'autoWidth', 'typing', 'flipX', 'flipY', 'cx', 'cy', 'clip', 'grp', 'gt', 'lane']);
   // between different kinds of layer only these carry over
   const SHARED_STYLE = ['opacity', 'blend', 'shadow', 'anim', 'lblur', 'tfx'];
   S.copyStyle = function () {

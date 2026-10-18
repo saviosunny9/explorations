@@ -525,11 +525,15 @@
   /* ───────────────────────── inspector ───────────────────────── */
 
   const insp = $('#inspector');
+  let inspectorOverride = null;
   function renderInspector() {
     bindings = [];
     const els = S.selEls();
     const parts = [];
-    if (!els.length) parts.push(...canvasInspector());
+    // something that isn't a layer is selected (a sound track, a group on the timeline): it takes the inspector
+    const over = !els.length && inspectorOverride ? inspectorOverride() : null;
+    if (over) parts.push(...over);
+    else if (!els.length) parts.push(...canvasInspector());
     else if (els.length > 1) parts.push(...multiInspector(els));
     else {
       const el = els[0];
@@ -1789,7 +1793,7 @@
         ],
       },
       // a clip's timing comes from its place on the video timeline
-      el.clip ? null : {
+      el.clip || el.grp ? null : {
         label: 'Show / hide timing', icon: 'film', on: R.hasTiming(el),
         add: () => { S.change(T, 'time', { start: 1, end: null }); updateTimeline(); }, remove: () => { S.change(T, 'time', null); updateTimeline(); },
         body: () => [
@@ -1848,8 +1852,10 @@
       h('div.insp-head', null, h('h2', null, one === 'text' ? `${els.length} text layers` : `${els.length} layers`)),
       layerRow(),
       one === 'text' ? h('p.hint.multi-hint', null, 'Changes apply to all selected text.') : null,
-      one === 'image' ? sec('Photos', [full(h('button.btn.primary', { type: 'button', onclick: () => S.fillSlots(S.selEls()) }, ic('image'), `Replace these ${els.length} with your photos`))], true, { collapsible: false }) : null,
+      one === 'image' && !els.some(e => e.clip) ? sec('Photos', [full(h('button.btn.primary', { type: 'button', onclick: () => S.fillSlots(S.selEls()) }, ic('image'), `Replace these ${els.length} with your photos`))], true, { collapsible: false }) : null,
       ...shared,
+      // photos / videos / clips together: one look, one style, one speed and sound for all of them
+      ...(one === 'image' ? multiMediaSections(els) : []),
       sec('Arrange', [
         alignGrid(),
         els.length >= 3 ? h('div.btn-row', null, h('button.btn.grow', { type: 'button', onclick: () => S.distribute('x') }, ic('distH'), 'Space across'), h('button.btn.grow', { type: 'button', onclick: () => S.distribute('y') }, ic('distV'), 'Space down')) : null,
@@ -1861,6 +1867,16 @@
           h('button.btn.icon', { type: 'button', title: 'Lock', onclick: () => S.toggleLock() }, ic('lock'))),
       ], true, { collapsible: false }),
       motionSectionMulti(els),
+    ];
+  }
+  function multiMediaSections(els) {
+    const T = 'sel', vids = els.every(e => R.isVideoAsset(e.assetId)), clips = els.every(e => e.clip);
+    return [
+      h('p.hint.multi-hint', null, `Changes apply to all ${els.length} selected ${vids ? 'videos' : 'layers'}.`),
+      S.ui && S.ui.styleSection ? S.ui.styleSection('sel') : null,
+      clips && S.setTransition ? sec('Transitions', [row('Into each', selectCtl(T, 'clip.trans.type', Object.entries(R.TRANSITIONS), { def: 'none', set: v => { for (const e of S.selEls()) if (S.clips().indexOf(e) > 0) S.setTransition(e, { type: v }); renderInspector(); } }))], true, { key: 'multi-trans' }) : null,
+      vids ? sec('Playback', [...speedControls(T, 'video', null), toggle(T, 'video.reverse', 'Play backwards', { get: () => !!(S.selEls()[0].video || {}).reverse }), ...soundControls(T, 'video')], true, { key: 'multi-play' }) : null,
+      ...imageLookSections(els[0]),
     ];
   }
   function motionSectionMulti(els) {
@@ -2338,6 +2354,19 @@
   }
   function addTemplateLayers(t, els) {
     const list = (els || templateDoc(t).elements).map(e => pieceFor(t, e));
+    // over a video (or with the timeline open) a template arrives as one group at the playhead: one bar on one track
+    if (list.length > 1 && (S.isVideoEdit && (S.isVideoEdit() || S.vtlOpen)) && S.makeGroup) {
+      const at = R.playTime || 0, td = templateDoc(t), len = t.video ? (td.anim && td.anim.duration) || 5 : 4;
+      for (const e of list) {
+        if (e.time) e.time = Object.assign({}, e.time, { start: (e.time.start || 0) + at, end: e.time.end != null ? e.time.end + at : null });
+        if (e.anim) e.anim = Object.assign({}, e.anim, { delay: (e.anim.delay || 0) + at });
+      }
+      const ids = S.addElements(list);
+      const g = S.makeGroup(ids && ids.length ? ids : list.map(e => e.id), { name: t.name, start: at, origin: at, len });
+      if (g && S.openTimeline) S.openTimeline();
+      toast(`Added “${t.name}” as a group of ${list.length} layers — open it on the timeline to see them`);
+      return;
+    }
     S.addElements(list);
     toast(`Added ${list.length} layer${list.length > 1 ? 's' : ''} from “${t.name}”`);
   }
@@ -3888,6 +3917,9 @@
     h, ic, icon, hydrateIcons, sec, row, full, two, more, label, num, selectCtl, seg, toggle, colorCtl, inputCtl, menu, panelHead, searchBox,
     get tab() { return tab; },
     registerPanel(name, title, fn) { extraPanels[name] = fn; TAB_TITLES[name] = title; if (tab === name) renderPanel(); },
+    // the inspector shows fn()'s sections instead of the canvas while nothing on the canvas is selected and fn returns some
+    setInspectorOverride(fn) { inspectorOverride = fn; },
+    speedControls, soundControls, addTemplateLayers,
     addSection(kind, fn) { hooks[kind].push(fn); renderInspector(); },
   };
 

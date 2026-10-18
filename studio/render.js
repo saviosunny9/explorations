@@ -5494,6 +5494,34 @@
   // stepped motion (doc.anim.step, e.g. 12): layers, camera and cuts move in held steps, like graphics animated on twos;
   // grain and film finishes keep the real time so the frame still breathes
   R.stepTime = (doc, t) => (t == null || !(doc && doc.anim && doc.anim.step > 0)) ? t : Math.floor(t * doc.anim.step + 1e-6) / doc.anim.step;
+  /* ── groups: a template or several layers over a video kept together as one piece (timeline.js / app.js) ──
+     doc.groups[gid] = { id, name, origin, start, end, lane, hidden, sfx, opacity, blend }; members carry el.grp. A group with
+     its own look (a Style, opacity under 100 % or a blend) is drawn as one picture: its layers into a buffer, the style on that. */
+  R.groupOf = (doc, el) => (el && el.grp && doc && doc.groups && doc.groups[el.grp]) || null;
+  R.groupComposite = g => !!g && ((g.sfx && styleOn(g.sfx)) || (g.opacity ?? 1) < 0.999 || (!!g.blend && g.blend !== 'normal'));
+  function drawGroup(ctx, doc, g, env = {}) {
+    const W = doc.width, H = doc.height, t = 'time' in env ? env.time : R.playTime;
+    if (t != null && (t < (g.start || 0) - 1e-6 || (g.end != null && t >= g.end))) return;
+    const m = ctx.getTransform(), k = Math.max(0.1, Math.min(Math.hypot(m.a, m.b), 1600 / Math.max(W, H)));
+    const c = canvas(Math.max(1, Math.round(W * k)), Math.max(1, Math.round(H * k))), x = c.getContext('2d');
+    x.scale(k, k);
+    for (const el of doc.elements) {
+      if (el.grp !== g.id || el.hidden) continue;
+      x.save(); x.translate(el.x, el.y); x.rotate((el.rotation || 0) * Math.PI / 180);
+      x.globalAlpha = el.opacity ?? 1;
+      if (el.blend && el.blend !== 'normal') x.globalCompositeOperation = el.blend;
+      drawElement(x, el, env);
+      x.restore();
+    }
+    let out = c;
+    if (g.sfx && styleOn(g.sfx) && window.StudioStyles) out = window.StudioStyles.apply(c, g.sfx, { t, mask: g.sfx.keepShape !== false });
+    ctx.save();
+    ctx.globalAlpha *= g.opacity ?? 1;
+    if (g.blend && g.blend !== 'normal') ctx.globalCompositeOperation = g.blend;
+    ctx.drawImage(out, 0, 0, W, H);
+    ctx.restore();
+  }
+  R.drawGroup = drawGroup;
   R.renderDoc = function (doc, opts = {}) {
     const scale = opts.scale || 1;
     const tReal = opts.time ?? null;
@@ -5513,8 +5541,13 @@
     else {
       drawBackground(ctx, doc, opts);
       const env = Object.assign({}, opts, { time: opts.time ?? null, doc });
+      const grpDone = new Set();
       for (const el of doc.elements || []) {
         if (el.hidden) continue;
+        const g = el.grp ? R.groupOf(doc, el) : null;
+        if (g && g.hidden) continue;
+        // a group with its own look is drawn once, as one picture, where its lowest layer sits
+        if (g && R.groupComposite(g)) { if (!grpDone.has(g.id)) { grpDone.add(g.id); drawGroup(ctx, doc, g, env); } continue; }
         ctx.save();
         ctx.translate(el.x, el.y);
         ctx.rotate((el.rotation || 0) * Math.PI / 180);

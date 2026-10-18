@@ -82,6 +82,10 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   Then: layer tracks on the timeline (video / photo / text layers over the video, several sound tracks), a synthesized
   Sounds library (49 effects, 9 music beds, sound for every transition / entrance) and templates sorted by category
   (Photos / Videos / Text / Collage & notes / Explainers → kinds, Any / Still / Video).
+  Then: real recorded sounds (142 CC0 recordings from BigSoundBank: typing, phones, cameras, film, foley, nature,
+  places, a drum kit), original marimba / vibraphone ringtones, 14 music beds incl. lo-fi, slow jazz, café jazz, bossa
+  (real drums); timeline groups (a template over a video = one bar that opens into its layers, a Style on the whole group),
+  Shift-click multi-select with shared settings, native timeline scrolling.
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 
@@ -105,8 +109,10 @@ coffee tastes OFF!", "TO MAKE USING MONEY" → "TO MAKE MONEY SIMPLE". Earlier s
   project zip round trip). AAC-in-MP4 export needs real Chrome; if a browser has no AAC encoder the MP4 gets Opus sound.
   Speed changes shift a clip's pitch; a reversed clip is silent in the preview (its reversed sound is in the export).
 - A design with sound plays it in the preview only while playing (scrubbing is silent).
-- The library sounds are synthesized (no samples), so they sound clean / electronic rather than recorded; music beds take
-  1–4 s to make the first time (previews show a pulsing button meanwhile).
+- Recorded sounds are real (BigSoundBank); the designed ones (ringtones, risers) and the music beds are synthesized around
+  real drum / cymbal / music-box samples — they were checked by level and spectrum only, not by ear, so the owner's listen
+  is the real test. Music beds take 1–5 s to make the first time (the preview button pulses meanwhile).
+- The single-file build is ~13 MB (sounds ~5 MB); the artifact page limit is 16 MB.
 - The online copy is meant to read the background-removal model from parts published with it
   (`models/rmbg.part0–4.txt`, `models/ultraface.txt`), but those aren't published yet: huggingface.co was blocked
   from the cloud environment when the project moved. Until they are, background removal there depends on the

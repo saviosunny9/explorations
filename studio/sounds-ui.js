@@ -1,4 +1,4 @@
-/* Savio's editor — the Sounds panel: the generated library (music beds and sound effects, sfx.js) by category, your own
+/* Savio's editor — the Sounds panel: the library (recordings, designed effects and music beds, sfx.js) by category, your own
    sound files, previews, and one-click sound for every transition / entrance of a design. */
 (function () {
   'use strict';
@@ -33,7 +33,7 @@
     const t = at != null ? at : music ? 0 : now();
     // effects line their loudest moment up with the playhead
     const start = Math.max(0, t - (music ? 0 : s.peak || 0));
-    const tr = S.addSound(id, { name: s.name, duration: s.dur, at: start, loop: music && edit, keepLength: !music || edit, volume: music ? 0.7 : 0.9, fadeOut: music ? 1.5 : 0, sfx: s.id });
+    const tr = S.addSound(id, { name: s.name, duration: s.dur, at: start, loop: music ? edit : !!s.loop, keepLength: !music || edit, volume: music ? 0.7 : 0.9, fadeOut: music || s.loop ? 1.5 : 0, sfx: s.id });
     if (S.openTimeline) S.openTimeline();
     toast(`Added “${s.name}”` + (music ? (edit ? ' — it loops to the end of the video' : '') : ` at ${t.toFixed(1)}s`), { label: 'Undo', run: () => S.removeSound(tr.id) });
   }
@@ -44,7 +44,7 @@
     doc.audio = (doc.audio || []).filter(a => a.auto !== kind);
     let n = 0;
     for (const m of moments) {
-      const s = X.byId[m.sfx];
+      const s = X.get(m.sfx);
       if (!s) continue;
       S.ensureSound('sfx-' + s.id);
       doc.audio.push({ id: 'au' + Math.random().toString(36).slice(2, 9), assetId: 'sfx-' + s.id, name: s.name, start: Math.max(0, m.t - (s.peak || 0)), trim: 0, end: 0, dur: s.dur, volume: m.volume ?? 0.75, fadeIn: 0, fadeOut: 0, loop: false, mute: false, sfx: s.id, auto: kind });
@@ -127,13 +127,13 @@
     const auto = h('div.snd-auto', null,
       h('button.btn.grow', { type: 'button', title: 'A whoosh, swish or hit that fits each transition and cut', disabled: !edit || S.clips().length < 2, onclick: () => S.soundTransitions() }, ic('scissors'), 'Every transition'),
       h('button.btn.grow', { type: 'button', title: 'A pop, swish or typing sound for every layer that animates in', onclick: () => S.soundEntrances() }, ic('sparkle'), 'Every entrance'));
-    const search = searchBox('Search sounds — whoosh, pop, lo-fi…', v => { q = v; draw(); });
+    const search = searchBox('Search sounds — whoosh, typing, rain, jazz…', v => { q = v; draw(); });
     return [panelHead('Sounds'), search, chips,
       h('div.btn-row.snd-top', null,
         h('button.btn.grow', { type: 'button', onclick: () => upload.click() }, ic('upload'), 'Upload sound'),
         h('button.btn.grow', { type: 'button', title: 'Record a voiceover from the playhead', onclick: () => { if (S.openTimeline) S.openTimeline(); document.querySelector('.vtl-btn[title^="Record"]')?.click(); } }, ic('mic'), 'Record')),
       h('div.sub-label', null, 'Sound for every…'), auto,
-      h('p.hint', null, 'Every sound here is made in your browser — free to use anywhere, nothing to download. Effects line up their loudest moment with the playhead.'),
+      h('p.hint', null, 'Real recordings (BigSoundBank, CC0) and sounds made in the app — free to use anywhere. Effects line up their loudest moment with the playhead; ambiences loop.'),
       list, upload];
   }
   U.registerPanel('sounds', 'Sounds', panel);

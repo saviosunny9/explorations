@@ -19,7 +19,8 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `video.js` | Frame-by-frame video export (WebCodecs H.264 → MP4 or VP9 → WebM, with sound; MediaRecorder fallback) |
 | `audio.js` | Sound: video sound and music / voice tracks — playback in step with the timeline, offline mix, AAC / Opus encoding |
 | `clips.js` | Video edits: clips one after another, trimming, splitting, reordering, transitions, auto fix |
-| `sfx.js` | The sound library: 49 sound effects and 9 music beds, all synthesized in the browser |
+| `soundpack.js` | 142 recorded sounds (BigSoundBank, CC0), trimmed and levelled by `tools/sounds_prep.py` |
+| `sfx.js` | The sound library: the recordings plus designed sounds (risers, ringtones) and 14 music beds made in the browser |
 | `sounds-ui.js` | The Sounds panel (library by category, your sounds, previews, sound for every transition / entrance) |
 | `timeline.js` | The video timeline under the canvas (clips, text, sound lanes) and the Clip / Sound inspector sections |
 | `ui.js` | Panels, inspector, popovers, dialogs |
@@ -37,18 +38,35 @@ Start one from the home page (**Video editor** — pick or drop several videos a
 - **Layers over the video**: tracks above the video track hold anything that plays over it — videos and photos (picture in picture: the *Layer* button or the **+** on *New layer* adds them at the playhead), titles, stickers and shapes. Drag a bar along to move it in time, its edges to trim (a video's left edge trims the clip itself), or up and down to another track — a higher track draws on top. Drop files onto a layer track to add them there.
 - **Text**: the *Text* button adds a title at the playhead for 3 s; drag its bar to move it, its edges to change when it comes and goes. Any layer with timing shows here.
 - **Sound**: every video keeps its own sound — mute it, set its volume (up to 200 %) and fades in the clip's *Sound* row. **Music** adds any sound file (mp3, m4a, wav, ogg, opus, flac…) at the playhead; drag it along, trim either end, split it, and set its volume, fade in / out and *Loop to the end of the video* when it's selected. **Voice** records a voiceover from the microphone while the video plays from the playhead. Dropping files on the timeline puts sound files on a sound lane and videos / photos into the video track where you drop them. The canvas inspector's **Sound** section lists the tracks and adds music to any design, animated or still (a still design grows to the music's length).
+- **Groups (compositing)**: adding a template over a video brings all its layers in as **one group** — one bar on one track, starting at the playhead — instead of a track per layer. Click the bar for the group's settings (name, opacity, blend, hide, a **Style** for the whole group — its layers are styled together as one picture — Ungroup, Delete); double-click it (or its ›) to **open** it: the timeline then shows the group's own layers on their own tracks, which you can move and trim inside the group's window (shaded outside). *All tracks* (or Esc) goes back. Move the group to move everything in it, entrance timings included; trim its ends to cut it. Any layers can be grouped: select them and press the *Group* button or ⌘G (⇧⌘G ungroups).
+- **Selecting several**: Shift- or ⌘-click clips and layers on the timeline (or on the canvas) to select more than one; the inspector then changes them together — Style, transitions, speed and play backwards, sound, look, adjustments, film effects, blur, frame and motion.
+- **Scrolling**: the mouse wheel / trackpad scrolls the timeline up and down, Shift + wheel or a sideways swipe scrolls along it, and ⌘ / Ctrl + wheel zooms it — the canvas stays where it is.
 - **Sound tracks**: as many as you need; drag a sound up or down to another track, mute a whole track from its label, drop files or library sounds where they should play.
 - **Export** mixes all of it into the video: AAC sound in MP4 (Opus where the browser has no AAC encoder), Opus in WebM, and a `sound.wav` next to PNG frame sequences. A *Sound* switch leaves it out. Changing a clip's speed changes the pitch of its sound, the same in the preview and the file.
 
 ## Sounds (music and sound effects)
 
-The **Sounds** tab holds a library made entirely in the browser (synthesized, so nothing to download and free to use anywhere):
+The **Sounds** tab holds about 160 sounds, free to use anywhere:
 
-- **Music** — 9 loopable beds: Lo-fi afternoon, Upbeat pop, Ambient haze, Boom bap, Cinematic pulse, House groove, Sunny pluck, Piano story, Dark trap (tempo shown). In a video edit they loop to the end; on a still design the length grows to the music.
-- **Sound effects** in 7 groups — *Transitions* (whoosh, soft whoosh, swish, swipe, whip, riser, down sweep, reverse swell, impact boom, tape stop), *Motion* (pop, bubble, boing, bounce, slide up / down, zip, wobble, soft thud), *Interface* (click, tick, typing, notification, success, error, message pop, return key), *Camera & film* (shutter, film projector, flash charge, instant photo, tape rewind), *Glitch* (glitch burst, static, stutter, data drop), *Hits & drums* (kick, snare, clap, cymbal crash, drum roll, record scratch, tom fill) and *Magic* (sparkle, chime, shimmer, ding, level up, fairy dust).
-- Search, preview (▶), click to add at the playhead — an effect lines its loudest moment up with the playhead — or drag one onto a sound track. *Yours* lists the sound files you've added; *Upload sound* and *Record* sit at the top.
-- **Sound for every transition** puts the effect that fits each transition (a whoosh for a push, a hit for a dip to black, a glitch for a glitch…) on every cut of a video edit; **every entrance** adds a pop, swish or typing sound to each layer that animates in. Running either again replaces the ones it added before. The transition picker also has *Add a sound*.
-- Library sounds aren't stored in projects or project files — they're remade from the same recipe when a design opens.
+- **Real recordings** (from BigSoundBank by Joseph Sardin, CC0):
+  - *Transitions*: 10 whooshes and swishes, whip crack, light and bulb flickers, neon hum, light and power switches.
+  - *Phone & typing*: typewriter (and bell & return), laptop and desktop keyboards, mouse clicks, message and notification sounds, landline, old telephone, phone booth and office rings, rotary dial, phone vibrate, calling tone, desk bell.
+  - *Camera & film*: shutters (incl. DSLR), burst, paparazzi, film camera click and advance lever, Super 8 and 16 mm cameras, 8 mm and cinema projectors, slide projector, film reel rewind.
+  - *Everyday*: footsteps on wood, gravel, leaves, snow and stairs, high heels, creaky floor, thud and body fall, knock, doors, pencil writing and signing, page turns, book, paper tear and crumple, keys, zipper, pouring, espresso machine, match, splash, drips, applause, record scratches, needle drop, clock ticking, alarm clock.
+  - *Nature & places*: dawn chorus, blackbird, robin, nightingale, owl, crows, birds in town, forest, forest stream, crickets, summer insects, countryside at night, frogs, brook, mountain stream, waterfall, rain, rain & thunder, thunder, waves, ocean beach, wind (strong, trees, whistling), fireplace, campfire, town square, café, city street. Ambiences loop seamlessly.
+  - *Drums & hits*: snares, hi-hats, ride and crash cymbals, toms (the same kit plays in the music).
+- **Designed in the app**:
+  - Transitions: riser, down sweep, reverse swell, impact boom, tape stop.
+  - Original ringtones and notification tones played on modelled marimba and vibraphone: *Marimba*, *Morning*, *Vibraphone* and *Digital* ringtones, *Three-note chime*, *Marimba note*, *Glass tap*, *Soft vibes note*, *Pop note*, plus a *Phone keyboard* typing sound. These are original melodies, not copies of any phone maker's tones.
+- **Music** — 14 loopable beds with real drums and cymbals, FM electric piano, piano, upright bass and nylon guitar, plus the music box and thumb piano, which are real recorded notes:
+  - *Lo-fi*: Lo-fi afternoon, Lo-fi rain (with real rain), Lo-fi night (with crickets), Music box lo-fi.
+  - *Jazz*: Slow jazz (brushes, ride, walking bass), Café jazz, Bossa evening.
+  - *Others*: Ambient haze, Piano story, Boom bap, Upbeat pop, House groove, Cinematic pulse, Thumb piano.
+- **Using them:**
+  - Search, preview (▶), then click to add at the playhead (an effect lines its loudest moment up with the playhead) or drag one onto a sound track. *Yours* lists the sound files you've added; *Upload sound* and *Record* sit at the top.
+  - In a video edit, music and ambiences loop to the end; on a still design a music bed sets the length.
+  - **Sound for every transition** puts the effect that fits each cut (a whoosh for a push, a boom for a dip to black, a flicker for a glitch…); **every entrance** adds a flick, swish, thud or typing sound to each layer that animates in. Running either again replaces the ones it added before. The transition picker also has *Add a sound*.
+- Library sounds aren't stored in projects or project files: they're part of the app and come back when a design opens. Older designs that used a sound since retired get the closest one.
 
 ## Finding templates
 
@@ -346,6 +364,10 @@ Select a photo and choose **Remove background** (or **Cut out to layer** to keep
 - **Your fonts**: upload `.otf`, `.ttf`, `.woff`, `.woff2` files or a `.zip` from the font picker or the Text tab. They are registered with the FontFace API, kept in this browser only, and packed into saved project files. Commercial fonts are deliberately not bundled in this repo.
 - **Outfits** (`outfits-girls.js`, `outfits-boys.js`): neck-down outfit bodies plus shoes, bags and accessories. Adding one also adds an oversized face slot; a selfie dropped into it is cut out and trimmed to the head automatically for the "big head" look. They're in **Elements → Outfits · Girls / Outfits · Boys / Shoes & Bags**.
 - **Text → Styles** keeps the type looks of retired templates (Happy birthday, Café chalkboard, Coming soon, Y2K vibes, Outfit line-up, Halftone duo, Tools I use, Creative partner, Meet the agent…): *Birthday 3D*, *Chalk heading*, *Italic display*, *Wide spaced*, *Light caps*, *Bubble sticker*, *Stitched label*, *Marker blocks*, *Wide heavy*, *Chalk note* and more. Their stickers, shapes, calendars and checklists are all in Elements.
+
+## Sound credits
+
+Recorded sounds: Joseph Sardin — [BigSoundBank.com](https://bigsoundbank.com) (CC0 / royalty free; credit appreciated, not required). Every sound used was marked "Free and Royalty Free" on its page; `tools/sounds_prep.py` lists each one with its BigSoundBank id. Designed sounds and music are made in the app.
 
 ## Photo credits
 

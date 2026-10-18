@@ -12,7 +12,9 @@
   const MIN_H = 150, DEF_H = 236;
   const area = document.getElementById('stage-area');
 
-  let open = false, userClosed = false, pps = 0, fitZoom = true, selSound = null, drag = null, raf = 0, height = DEF_H;
+  let open = false, userClosed = false, pps = 0, fitZoom = true, selSound = null, selGroup = null, inGroup = null, drag = null, raf = 0, height = DEF_H;
+  // a group picked on the timeline is what the Styles panel and the inspector work on
+  S.groupTarget = () => (selGroup && S.groupById(selGroup) ? selGroup : null);
   try { height = clamp(+localStorage.getItem('studio.vtlHeight') || DEF_H, MIN_H, 520); } catch (e) { /* storage blocked */ }
   Object.defineProperty(S, 'vtlOpen', { get: () => open });
 
@@ -36,6 +38,7 @@
     btn('scissors', 'Split at the playhead (S)', () => split()),
     btn('copy', 'Duplicate', () => duplicate()),
     btn('trash', 'Delete', () => remove()),
+    btn('layers', 'Group the selected layers (⌘G)', () => groupSelected()),
     h('span.vtl-sep'),
     btn('clip', 'Add video clips or photos to the end', () => S.pickClips({}), 'Clips'),
     btn('image', 'Add a video or photo as a layer over the video, from the playhead', () => addLayerMedia(), 'Layer'),
@@ -106,10 +109,25 @@
 
   /* ── what's on the timeline ── */
   // the layers over the video: everything timed (in a video edit, every layer that isn't a clip)
+  // a group is one item (a template added over the video stays one bar); opened, the timeline shows its own layers
   function overlayItems() {
-    const d = S.doc, edit = S.isVideoEdit();
-    return d.elements.filter(e => !e.clip && (e.time || edit) && !e.vox && !e.mcut && !e.cutin && !e.layoutSlot)
-      .map(e => ({ el: e, want: e.lane, s: (e.time && e.time.start) || 0, e: e.time && e.time.end != null && e.time.end > (e.time.start || 0) ? e.time.end : D() }));
+    const d = S.doc, edit = S.isVideoEdit(), out = [], seen = new Set();
+    const g0 = inGroup && S.groupById(inGroup);
+    if (inGroup && !g0) inGroup = null;
+    for (const e of d.elements) {
+      if (e.clip || e.vox || e.mcut || e.cutin || e.layoutSlot) continue;
+      if (g0) {
+        if (e.grp !== g0.id) continue;
+        const [a, b] = e.gt || [0, null];
+        out.push({ el: e, want: e.lane, s: g0.origin + a, e: b != null ? g0.origin + b : g0.end });
+        continue;
+      }
+      const g = e.grp ? S.groupById(e.grp) : null;
+      if (g) { if (!seen.has(g.id)) { seen.add(g.id); out.push({ g, members: S.groupMembers(g.id), want: g.lane, s: g.start, e: g.end }); } continue; }
+      if (!(e.time || edit)) continue;
+      out.push({ el: e, want: e.lane, s: (e.time && e.time.start) || 0, e: e.time && e.time.end != null && e.time.end > (e.time.start || 0) ? e.time.end : D() });
+    }
+    return out;
   }
   // tracks: each item keeps its own lane (el.lane / a.lane, 0 = nearest the video track); items without one, or that would
   // overlap another item there, take the next free lane up
@@ -140,15 +158,24 @@
     const snd = (d.audio || []).map(a => ({ a, want: a.lane, s: a.start || 0, e: A.trackEnd(a, dur) }));
     const auLanes = snd.length ? pack(snd) : 0;
     // tracks are kept closed up, so the numbers stored match the ones shown
-    for (const it of ov) if (it.want != null) it.el.lane = it.lane;
+    for (const it of ov) if (it.want != null) (it.g || it.el).lane = it.lane;
     for (const it of snd) if (it.want != null) it.a.lane = it.lane;
     const rows = [];
     // layer tracks, the top one first, plus an empty one to drop or drag new layers onto
+    const g0 = inGroup && S.groupById(inGroup);
+    if (g0) rows.push(h('div.vtl-crumb', null,
+      h('button.link-btn', { type: 'button', onclick: () => { inGroup = null; render(); } }, ic('chevLeft'), 'All tracks'),
+      h('span', null, ' / ', h('b', null, g0.name || 'Group'), ` · ${S.groupMembers(g0.id).length} layers, ${fmt(g0.start)} – ${fmt(g0.end)}`),
+      h('button.link-btn', { type: 'button', onclick: () => pickGroup(g0.id) }, 'Group settings')));
     for (let k = ovLanes; k >= 0; k--) {
       const lane = h('div.vtl-track.ov');
       const items = ov.filter(x => x.lane === k);
-      for (const it of items) lane.append(overlayBar(it, sel.has(it.el.id)));
-      const media = items.some(it => it.el.type === 'image');
+      for (const it of items) lane.append(it.g ? groupBar(it) : overlayBar(it, sel.has(it.el.id)));
+      if (g0) {
+        // the group's window: outside it its layers don't show
+        lane.append(h('div.vtl-gshade', { style: { left: 0, width: Math.max(0, g0.start * pps) + 'px' } }), h('div.vtl-gshade', { style: { left: g0.end * pps + 'px', right: 0 } }));
+      }
+      const media = items.some(it => (it.el && it.el.type === 'image') || it.g);
       rows.push(h('div.vtl-row.ov' + (media ? '.media' : '') + (k === ovLanes ? '.spare' : ''), { 'data-kind': 'ov', 'data-lane': k },
         h('div.vtl-lab', null, h('span', null, k === ovLanes ? 'New layer' : `Layer ${k + 1}`),
           k === ovLanes ? h('button.vtl-mini', { type: 'button', title: 'Add a video or photo layer at the playhead', 'aria-label': 'Add a layer', onclick: () => addLayerMedia(k) }, ic('plus')) : null),
@@ -315,6 +342,38 @@
     b.addEventListener('click', e => { e.stopPropagation(); transPop(el, b); });
     return b;
   }
+  // a group's bar: its name, how many layers, a picture of it, and the way in
+  const gThumbs = new Map();
+  function groupThumb(g, members) {
+    const key = g.id + '|' + members.length + '|' + g.start + '|' + JSON.stringify(g.sfx || '').length;
+    if (gThumbs.has(key)) return gThumbs.get(key);
+    let c = null;
+    try {
+      const d = S.doc, sub = { width: d.width, height: d.height, background: { none: true }, elements: members.map(e => Object.assign({}, e, { grp: null })), anim: d.anim };
+      c = R.renderDoc(sub, { scale: 40 / d.height, time: Math.min(g.end - 0.01, g.start + 0.6), transparent: true });
+    } catch (e) { c = null; }
+    gThumbs.set(key, c);
+    if (gThumbs.size > 60) gThumbs.delete(gThumbs.keys().next().value);
+    return c;
+  }
+  function groupBar(it) {
+    const g = it.g, w = Math.max(6, (it.e - it.s) * pps), on = selGroup === g.id;
+    const th = groupThumb(g, it.members), styled = R.groupComposite(g);
+    const pic = th ? h('canvas.vtl-gpic') : null;
+    if (pic) { pic.width = th.width; pic.height = th.height; pic.getContext('2d').drawImage(th, 0, 0); }
+    const b = h('div.vtl-ovb.t-group' + (on ? '.on' : '') + (g.hidden ? '.muted' : ''), { style: { left: it.s * pps + 'px', width: w + 'px' }, title: 'Double-click to open the group' },
+      pic, h('i', { 'data-icon': 'layers' }), h('span', null, `${g.name || 'Group'} · ${it.members.length}`), styled ? h('small.vtl-gfx', null, g.sfx && g.sfx.id ? 'style' : 'look') : null,
+      h('button.vtl-gopen', { type: 'button', title: 'Open the group — see and move its layers', 'aria-label': 'Open the group' }, ic('chevRight')),
+      h('div.vtl-h.l'), h('div.vtl-h.r'));
+    b.querySelector('.vtl-gopen').addEventListener('pointerdown', e => e.stopPropagation());
+    b.querySelector('.vtl-gopen').addEventListener('click', e => { e.stopPropagation(); enterGroup(g.id); });
+    b.addEventListener('dblclick', () => enterGroup(g.id));
+    b.addEventListener('pointerdown', e => startDrag(e, { kind: 'grp', g, side: e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : null, b }));
+    return b;
+  }
+  function enterGroup(gid) { inGroup = gid; selGroup = null; S.select(S.groupMembers(gid).map(e => e.id).slice(0, 1)); render(); }
+  function pickGroup(gid) { selGroup = gid; selSound = null; if (S.sel.length) S.select([]); U.renderInspector(); render(); S.emit('change'); }
+  S.pickGroup = pickGroup;
   function overlayBar(it, on) {
     const el = it.el, w = Math.max(6, (it.e - it.s) * pps), media = el.type === 'image' && el.assetId;
     const c = media ? h('canvas.vtl-strip') : null;
@@ -344,22 +403,38 @@
     U.renderInspector();
     render();
   }
+  let lastTap = {}; // a second click on a group bar soon after the first opens it (the bar is redrawn in between)
   function startDrag(e, o) {
     if (e.button !== 0) return;
     e.preventDefault(); e.stopPropagation();
     closePop();
     const x0 = e.clientX, y0 = e.clientY;
     let moved = false;
-    if (o.kind === 'snd') {
-      selSound = o.a.id; if (S.sel.length) S.select([]);
+    // Shift / ⌘ click adds a layer or clip to the selection (or takes it out); the settings then change all of them
+    if ((e.shiftKey || e.metaKey || e.ctrlKey) && (o.kind === 'clip' || o.kind === 'ov' || o.kind === 'grp')) {
+      const ids = o.kind === 'grp' ? S.groupMembers(o.g.id).map(x => x.id) : [o.el.id], cur = S.sel;
+      const has = ids.every(id => cur.includes(id));
+      selGroup = null; selSound = null;
+      S.select(has ? cur.filter(id => !ids.includes(id)) : [...cur, ...ids.filter(id => !cur.includes(id))]);
+      render();
+      return;
+    }
+    if (o.kind === 'grp') {
+      selSound = null;
+      if (selGroup !== o.g.id) pickGroup(o.g.id);
+      o.g0 = Object.assign({}, o.g);
+      o.lane0 = o.g.lane;
+    } else if (o.kind === 'snd') {
+      selSound = o.a.id; selGroup = null; if (S.sel.length) S.select([]);
       for (const x of lanes.querySelectorAll('.on')) x.classList.remove('on');
       o.b.classList.add('on');
       U.renderInspector();
       o.a0 = Object.assign({}, o.a);
     } else {
       if (selSound) selSound = null;
+      selGroup = null;
       if (!S.sel.includes(o.el.id)) S.select([o.el.id]);
-      o.v0 = JSON.parse(JSON.stringify({ video: o.el.video || null, clip: o.el.clip || null, time: o.el.time || null }));
+      o.v0 = JSON.parse(JSON.stringify({ video: o.el.video || null, clip: o.el.clip || null, time: o.el.time || null, anim: o.el.anim || null, gt: o.el.gt || null }));
       o.lane0 = o.b && o.b.parentNode && o.b.parentNode.parentNode ? +o.b.parentNode.parentNode.dataset.lane : null;
     }
     drag = o;
@@ -376,9 +451,11 @@
       drag = null;
       if (target.hasPointerCapture(ev.pointerId)) target.releasePointerCapture(ev.pointerId);
       if (moved) dragEnd(o, (ev.clientX - x0) / pps, ev);
-      else if (o.kind === 'clip' || o.kind === 'ov') {
+      else if (o.kind === 'grp' && lastTap.id === o.g.id && performance.now() - lastTap.t < 420) { lastTap = {}; enterGroup(o.g.id); return; }
+      else if (o.kind === 'clip' || o.kind === 'ov' || o.kind === 'grp') {
+        if (o.kind === 'grp') lastTap = { id: o.g.id, t: performance.now() };
         // a click: show this layer at the playhead, or jump into it
-        const t = now(), tm = o.el.time;
+        const t = now(), tm = o.kind === 'grp' ? { start: o.g.start, end: o.g.end } : o.el.time;
         if (tm && (t < tm.start || t >= (tm.end ?? D()))) S.seek(tm.start + 0.01);
       }
       render();
@@ -408,8 +485,23 @@
       S.layoutClips();
       // show the frame at the cut
       S.seek(o.side === 'l' ? el.time.start + 0.001 : el.time.end - 0.02);
+    } else if (o.kind === 'grp') {
+      const g0 = o.g0, lane = o.side ? null : laneAt(ev.clientY, 'ov');
+      S.changeGroup(g0.id, g => {
+        if (!o.side) {
+          const k = Math.max(dt, -g0.start, -g0.origin), d0 = g.start - g0.start;
+          g.origin = g0.origin + k; g.start = g0.start + k; g.end = g0.end + k;
+          // entrance timings travel with the group
+          for (const e of S.groupMembers(g.id)) if (e.anim && e.anim.delay != null) e.anim.delay = Math.round((e.anim.delay + (k - d0)) * 1000) / 1000;
+          if (lane != null) g.lane = lane;
+        } else if (o.side === 'l') g.start = clamp(g0.start + dt, 0, g0.end - 0.1);
+        else g.end = clamp(g0.end + dt, g0.start + 0.1, S.MAX_LEN);
+      }, true);
+      S.seek(o.side === 'r' ? S.groupById(g0.id).end - 0.02 : S.groupById(g0.id).start + 0.001);
     } else if (o.kind === 'ov') {
-      const t0 = o.v0.time || { start: 0, end: null }, s0 = t0.start || 0, e0 = t0.end != null && t0.end > s0 ? t0.end : D();
+      const g = o.el.grp ? S.groupById(o.el.grp) : null;
+      const t0 = g ? { start: g.origin + ((o.v0.gt || [0])[0] || 0), end: (o.v0.gt || [])[1] != null ? g.origin + o.v0.gt[1] : g.end } : o.v0.time || { start: 0, end: null };
+      const s0 = t0.start || 0, e0 = t0.end != null && t0.end > s0 ? t0.end : D();
       let s = s0, en = e0;
       if (!o.side) { const k = clamp(dt, -s0, D() - e0 + (e0 - s0) - 0.1); s = s0 + k; en = e0 + k; }
       else if (o.side === 'l') s = clamp(s0 + dt, 0, e0 - 0.1);
@@ -419,8 +511,12 @@
       if (vid && o.side === 'l') s = Math.max(s, s0 - (vd0.trim || 0) / (vd0.speed || 1));
       if (vid && o.side === 'r' && vd0.loop === false) { const src = S.clipSrcLen(Object.assign({ clip: null }, o.el)) || R.assetVideo(o.el.assetId).v.duration || 9999; en = Math.min(en, s0 + ((vd0.end > 0 ? vd0.end : src) - (vd0.trim || 0)) / (vd0.speed || 1)); }
       const lane = o.side ? null : laneAt(ev.clientY, 'ov');
+      const a0 = o.v0.anim;
       S.changeEl(o.el, e => {
-        e.time = Object.assign({}, e.time, { start: Math.round(s * 100) / 100, end: en >= D() - 0.005 && !vid ? null : Math.round(en * 100) / 100 });
+        // a moved layer's entrance moves with it
+        if (!o.side && a0 && a0.delay != null) e.anim = Object.assign({}, e.anim, { delay: Math.round((a0.delay + (s - s0)) * 1000) / 1000 });
+        if (g) { e.gt = [Math.round((s - g.origin) * 1000) / 1000, en >= g.end - 0.005 ? null : Math.round((en - g.origin) * 1000) / 1000]; S.syncGroups(); }
+        else e.time = Object.assign({}, e.time, { start: Math.round(s * 100) / 100, end: en >= D() - 0.005 && !vid ? null : Math.round(en * 100) / 100 });
         if (vid && o.side === 'l') e.video = Object.assign({}, e.video, { trim: Math.max(0, Math.round(((vd0.trim || 0) + (s - s0) * (vd0.speed || 1)) * 1000) / 1000) });
         if (lane != null) e.lane = lane;
       }, true);
@@ -441,7 +537,8 @@
       if (o.to != null && o.to !== S.clips().indexOf(o.el)) S.moveClip(o.el, o.to); else render();
       return;
     }
-    if (o.kind === 'ov' && o.el.lane !== (o.lane0 ?? o.el.lane)) restack(o.el);
+    if (o.kind === 'ov' && o.el.lane !== (o.lane0 ?? o.el.lane)) restack([o.el], o.el.lane || 0);
+    if (o.kind === 'grp' && o.g.lane !== o.lane0 && o.g.lane != null) restack(S.groupMembers(o.g.id), o.g.lane);
     S.commit();
     S.emit('doc');
   }
@@ -455,16 +552,18 @@
     return null;
   }
   // a higher track draws over a lower one: move the layer in the stack to match its track
-  function restack(el) {
-    const d = S.doc, L = el.lane || 0, items = overlayItems();
+  function restack(els, L) {
+    const d = S.doc, items = overlayItems();
     pack(items);
-    const laneOf = new Map(items.map(it => [it.el, it.lane]));
-    const from = d.elements.indexOf(el);
-    d.elements.splice(from, 1);
+    const laneOf = new Map();
+    for (const it of items) for (const e of it.g ? it.members : [it.el]) laneOf.set(e, it.lane);
+    const from = d.elements.indexOf(els[0]);
+    const keep = d.elements.filter(e => !els.includes(e));
     let at = -1;
-    d.elements.forEach((e, i) => { if (laneOf.has(e) && laneOf.get(e) <= L) at = i + 1; });
-    if (at < 0) { const i = d.elements.findIndex(e => laneOf.has(e) && laneOf.get(e) > L); at = i >= 0 ? i : from; }
-    d.elements.splice(at, 0, el);
+    keep.forEach((e, i) => { if (laneOf.has(e) && laneOf.get(e) <= L) at = i + 1; });
+    if (at < 0) { const i = keep.findIndex(e => laneOf.has(e) && laneOf.get(e) > L); at = i >= 0 ? i : Math.min(from, keep.length); }
+    keep.splice(at, 0, ...els);
+    d.elements.splice(0, d.elements.length, ...keep);
     S.rebuild();
   }
   // videos / photos as layers over the video, from the playhead
@@ -478,7 +577,7 @@
     S.seek(clamp((clientX - r.left - LAB) / pps, 0, D() - 0.001));
   }
   inner.addEventListener('pointerdown', e => {
-    if (e.button !== 0 || e.target.closest('.vtl-clip, .vtl-ovb, .vtl-sound, .vtl-trans, .vtl-empty, .vtl-lab button')) return;
+    if (e.button !== 0 || e.target.closest('.vtl-clip, .vtl-ovb, .vtl-sound, .vtl-trans, .vtl-empty, .vtl-lab button, .vtl-crumb')) return;
     if (e.clientX - inner.getBoundingClientRect().left < LAB) return;
     closePop();
     if (selSound) { selSound = null; U.renderInspector(); }
@@ -499,7 +598,7 @@
     if (snd) {
       e.preventDefault(); e.stopPropagation(); root.classList.remove('over');
       const p = JSON.parse(snd), lane = laneAt(e.clientY, 'au');
-      if (p.lib && S.addLibrarySound) S.addLibrarySound(window.StudioSfx.byId[p.id], t).then(() => { const a = S.doc.audio[S.doc.audio.length - 1]; if (a && lane != null) { a.lane = lane; S.commit(); render(); } });
+      if (p.lib && S.addLibrarySound) S.addLibrarySound(window.StudioSfx.get(p.id), t).then(() => { const a = S.doc.audio[S.doc.audio.length - 1]; if (a && lane != null) { a.lane = lane; S.commit(); render(); } });
       else { const a = S.addSound(p.id, { at: t, lane }); if (a) render(); }
       return;
     }
@@ -534,8 +633,21 @@
   }
   function remove() {
     if (selSound) { const id = selSound; selSound = null; S.removeSound(id); U.renderInspector(); return; }
+    if (S.groupTarget()) { const gid = selGroup; selGroup = null; S.removeGroup(gid); U.renderInspector(); return; }
     if (S.sel.length) { S.removeSelected(); S.commit(); }
   }
+  // the selected layers become one group (one bar, one track); ⇧⌘G / Ungroup takes it apart
+  function groupSelected() {
+    const els = S.selEls().filter(e => !e.clip);
+    if (els.length < 2) { toast('Select two or more layers (not clips) to group them'); return; }
+    const g = S.makeGroup(els.map(e => e.id), { name: 'Group' });
+    if (g) { pickGroup(g.id); toast(`Grouped ${els.length} layers — double-click the bar to open it`); }
+  }
+  function ungroupPicked() {
+    const gid = S.groupTarget() || (S.selEls()[0] || {}).grp;
+    if (gid) { selGroup = null; S.ungroup(gid); U.renderInspector(); }
+  }
+  S.groupSelected = groupSelected;
   function addTitle() {
     const t = now(), W = S.doc.width;
     const el = S.mk('text', { text: 'Your title', fontSize: Math.round(Math.min(W, S.doc.height) * 0.08), fontFamily: 'Inter', fontWeight: 700, fill: '#ffffff', align: 'center', shadow: { on: true, color: '#000000', opacity: 0.45, blur: 18, x: 0, y: 4 } });
@@ -578,7 +690,7 @@
         cur.type !== 'none' && R.TRANS_DIRS.includes(cur.type) ? h('div.seg.vtl-dirs', null, [['left', '←'], ['right', '→'], ['up', '↑'], ['down', '↓']].map(([k, l]) => h('button' + ((cur.dir || 'left') === k ? '.on' : ''), { type: 'button', title: 'Moves ' + k, onclick: () => { S.setTransition(el, { dir: k }); draw(); } }, l))) : null,
         h('div.vtl-pop-foot', null,
           h('button.link-btn', { type: 'button', onclick: () => { S.setAllTransitions(el.clip.trans ? Object.assign({}, el.clip.trans) : { type: 'none' }); toast('Same transition between every clip'); render(); } }, 'Apply to all clips'),
-          h('button.link-btn', { type: 'button', title: 'A sound effect that fits this transition', onclick: () => { const X = window.StudioSfx, s = X && X.byId[X.FOR_TRANSITION[(el.clip.trans && el.clip.trans.type) || 'cut'] || 'swish']; if (s) S.addLibrarySound(s, el.time.start + (el.clip._in || 0) / 2); closePop(); } }, 'Add a sound'),
+          h('button.link-btn', { type: 'button', title: 'A sound effect that fits this transition', onclick: () => { const X = window.StudioSfx, s = X && X.get(X.FOR_TRANSITION[(el.clip.trans && el.clip.trans.type) || 'cut'] || 'swish'); if (s) S.addLibrarySound(s, el.time.start + (el.clip._in || 0) / 2); closePop(); } }, 'Add a sound'),
           h('button.link-btn', { type: 'button', onclick: () => { const t = el.time.start; S.seek(Math.max(0, t - 0.6)); S.play(); setTimeout(() => { if (S.isPlaying() && now() > t + (el.clip._in || 0) + 0.5) S.pause(); }, 1600); } }, 'Preview')));
       const val = pop.querySelector('.vtl-pop-row b');
       if (val) val.textContent = (cur.dur || 0.5).toFixed(2) + 's';
@@ -598,7 +710,10 @@
     if (!open || typing(e) || document.querySelector('.modal-back')) return;
     const mod = e.metaKey || e.ctrlKey;
     if ((!mod && e.key.toLowerCase() === 's' && !e.shiftKey && !e.altKey) || (mod && e.key.toLowerCase() === 'b')) { e.preventDefault(); e.stopImmediatePropagation(); split(); return; }
-    if (selSound && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); e.stopImmediatePropagation(); remove(); return; }
+    if ((selSound || S.groupTarget()) && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); e.stopImmediatePropagation(); remove(); return; }
+    // ⌘G groups the selected layers, ⇧⌘G takes a group apart
+    if (mod && e.key.toLowerCase() === 'g') { e.preventDefault(); e.stopImmediatePropagation(); if (e.shiftKey) ungroupPicked(); else groupSelected(); return; }
+    if (e.key === 'Escape' && inGroup) { e.preventDefault(); e.stopImmediatePropagation(); inGroup = null; render(); return; }
     // ← → step a frame (Shift: a second) when nothing is selected
     if (!mod && !S.sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault(); e.stopImmediatePropagation();
@@ -652,14 +767,15 @@
     if (el.clip || el.type !== 'image' || !el.assetId || !S.isVideoEdit()) return null;
     return full(h('button.btn', { type: 'button', style: { margin: '0 0 10px' }, onclick: () => { S.makeClip(el, true); U.renderInspector(); } }, ic('timeline'), 'Put in the video track'));
   });
-  U.addSection('doc', () => {
+  // a selected sound track or group takes the inspector (nothing on the canvas is selected then)
+  U.setInspectorOverride(() => {
     const a = selSound && S.soundById(selSound);
     if (a) {
       const set = (k, v, live) => { S.changeSound(a.id, { [k]: v }, live); render(); };
       const g = k => () => S.soundById(a.id) && S.soundById(a.id)[k];
       const len = A.trackLen(a);
-      return sec(a.voice ? 'Voiceover' : 'Music', [
-        h('p.hint', null, `${a.name || 'Sound'} · starts at ${fmt(a.start)} · ${fmt(len)} used of ${fmt(a.dur || len)}`),
+      return [h('div.insp-head', null, h('h2', null, a.voice ? 'Voiceover' : 'Sound')), sec(a.name || 'Sound', [
+        h('p.hint', null, `Starts at ${fmt(a.start)} · ${fmt(len)} used of ${fmt(a.dur || len)}`),
         row('Volume', num('doc', '', { min: 0, max: 200, scale: 100, unit: '%', slider: true, def: 1, get: g('volume'), set: (v, l) => set('volume', v, l) })),
         row('Fade in', num('doc', '', { min: 0, max: 10, step: 0.1, slider: true, unit: 's', get: g('fadeIn'), set: (v, l) => set('fadeIn', v, l) })),
         row('Fade out', num('doc', '', { min: 0, max: 10, step: 0.1, slider: true, unit: 's', get: g('fadeOut'), set: (v, l) => set('fadeOut', v, l) })),
@@ -669,8 +785,33 @@
         full(h('div.btn-row', null,
           h('button.btn.grow', { type: 'button', onclick: () => split() }, ic('scissors'), 'Split'),
           h('button.btn.grow', { type: 'button', onclick: () => remove() }, ic('trash'), 'Delete'))),
-      ], true, { key: 'sound-track', collapsible: false });
+      ], true, { key: 'sound-track', collapsible: false })];
     }
+    const gr = S.groupTarget() && S.groupById(S.groupTarget());
+    if (gr) {
+      const P = 'groups.' + gr.id, members = S.groupMembers(gr.id);
+      const name = h('input.sel', { type: 'text', value: gr.name || 'Group', 'aria-label': 'Group name' });
+      name.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') name.blur(); });
+      name.addEventListener('change', () => { S.changeGroup(gr.id, g => { g.name = name.value.trim() || 'Group'; }); render(); });
+      return [h('div.insp-head', null, h('h2', null, 'Group')),
+        sec('Group', [
+          full(name),
+          h('p.hint', null, `${members.length} layers · ${fmt(gr.start)} – ${fmt(gr.end)}. A Style, opacity or blend here treats the whole group as one picture.`),
+          row('Opacity', num('doc', P + '.opacity', { min: 0, max: 100, scale: 100, unit: '%', slider: true, def: 1 })),
+          row('Blend', U.selectCtl('doc', P + '.blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['lighten', 'Lighten'], ['darken', 'Darken'], ['difference', 'Difference'], ['color', 'Colour'], ['luminosity', 'Luminosity']], { def: 'normal' })),
+          toggle('doc', P + '.hidden', 'Hide the group'),
+          full(h('div.btn-row', null,
+            h('button.btn.grow', { type: 'button', onclick: () => enterGroup(gr.id) }, ic('chevRight'), 'Open'),
+            h('button.btn.grow', { type: 'button', title: 'Select its layers on the canvas', onclick: () => { selGroup = null; S.select(members.map(e => e.id)); render(); } }, ic('cursor'), 'Select layers'))),
+          full(h('div.btn-row', null,
+            h('button.btn.grow', { type: 'button', onclick: () => { selGroup = null; S.ungroup(gr.id); U.renderInspector(); toast('Ungrouped — its layers are on their own tracks'); } }, ic('layers'), 'Ungroup'),
+            h('button.btn', { type: 'button', title: 'Delete the group and its layers', 'aria-label': 'Delete the group', onclick: () => remove() }, ic('trash')))),
+        ], true, { key: 'group', collapsible: false }),
+        U.styleSection ? U.styleSection('grp') : null];
+    }
+    return null;
+  });
+  U.addSection('doc', () => {
     const tracks = S.doc.audio || [];
     const vidSound = A.sources(S.doc).filter(s => s.kind === 'video').length;
     return sec('Sound', [
@@ -682,5 +823,5 @@
         h('button.btn', { type: 'button', title: 'Open the video timeline', 'aria-label': 'Open the video timeline', onclick: () => S.openTimeline() }, ic('timeline')))),
     ], !!tracks.length, { key: 'sound' });
   });
-  S.on('selection', () => { if (S.sel.length && selSound) selSound = null; });
+  S.on('selection', () => { if (S.sel.length) { selSound = null; selGroup = null; } });
 })();

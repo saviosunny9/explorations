@@ -16,14 +16,18 @@
   const SUGGEST = ['golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'vitrine'];
 
   /* ── what a style lands on ── */
+  // a group picked on the timeline (S.groupTarget, timeline.js) takes the style as one picture
   function target() {
     const els = S.selEls();
+    const gid = !els.length && S.groupTarget ? S.groupTarget() : null;
+    if (gid && S.groupById(gid)) return { kind: 'group', gid, g: S.groupById(gid) };
     return els.length ? { kind: 'el', els } : { kind: 'doc' };
   }
-  const currentSfx = () => { const t = target(); return t.kind === 'doc' ? S.doc.sfx : t.els[0].sfx; };
+  const currentSfx = () => { const t = target(); return t.kind === 'doc' ? S.doc.sfx : t.kind === 'group' ? t.g.sfx : t.els[0].sfx; };
   function setSfx(sfx) {
     const t = target();
-    if (t.kind === 'doc') S.change('doc', 'sfx', sfx ? JSON.parse(JSON.stringify(sfx)) : null);
+    if (t.kind === 'group') S.changeGroup(t.gid, g => { if (sfx) g.sfx = JSON.parse(JSON.stringify(sfx)); else delete g.sfx; });
+    else if (t.kind === 'doc') S.change('doc', 'sfx', sfx ? JSON.parse(JSON.stringify(sfx)) : null);
     else { for (const el of t.els) S.changeEl(el, e => { if (sfx) e.sfx = JSON.parse(JSON.stringify(sfx)); else delete e.sfx; }, true); S.commit(); }
     U.renderInspector(); markActive();
   }
@@ -31,7 +35,7 @@
     const cur = currentSfx();
     if (cur && cur.id === id) return;
     setSfx(Object.assign(ST.defaults(id), { seed: (cur && cur.seed) || 1 }));
-    toast(`${ST.byId(id).name} — ${target().kind === 'doc' ? 'on the whole canvas' : 'on this layer'}`, { label: 'Undo', run: () => S.undo && S.undo() });
+    toast(`${ST.byId(id).name} — ${target().kind === 'doc' ? 'on the whole canvas' : target().kind === 'group' ? 'on the whole group' : 'on this layer'}`, { label: 'Undo', run: () => S.undo && S.undo() });
   }
   function restyle() {
     const cur = currentSfx();
@@ -134,7 +138,7 @@
   }
   function targetLine() {
     const t = target(), cur = currentSfx();
-    const what = t.kind === 'doc' ? 'Whole canvas' : t.els.length > 1 ? `${t.els.length} layers` : (S.elLabel ? S.elLabel(t.els[0]) : 'Selected layer');
+    const what = t.kind === 'doc' ? 'Whole canvas' : t.kind === 'group' ? 'Group · ' + (t.g.name || 'Group') : t.els.length > 1 ? `${t.els.length} layers` : (S.elLabel ? S.elLabel(t.els[0]) : 'Selected layer');
     return h('div.st-target', null, h('span.st-k', null, 'Applies to'), h('span.st-v', null, what),
       cur && ST.has(cur) ? h('button.st-clear', { type: 'button', title: 'Remove the style', onclick: () => setSfx(null) }, 'Remove') : null);
   }
@@ -189,16 +193,18 @@
   S.on('history', refresh);
 
   /* ── inspector: the style's own controls ── */
-  function control(T, d, p, P) {
-    const path = 'sfx.' + p.key, rerender = v => { S.change(T, path, v); U.renderInspector(); };
+  // T 'grp' = the targeted group: its style lives at doc.groups[gid].sfx
+  const grpBase = () => { const t = target(); return t.kind === 'group' ? `groups.${t.gid}.sfx` : 'sfx'; };
+  function control(T0, d, p, P) {
+    const T = T0 === 'grp' ? 'doc' : T0, path = (T0 === 'grp' ? grpBase() : 'sfx') + '.' + p.key, rerender = v => { S.change(T, path, v); U.renderInspector(); };
     if (p.type === 'range') return row(p.label, num(T, path, { min: p.min, max: p.max, step: p.step || 1, slider: true, def: P[p.key], unit: p.unit === '%' ? '%' : p.unit === 'px' ? 'px' : undefined }));
     if (p.type === 'select') return row(p.label, selectCtl(T, path, p.options, { def: P[p.key], set: rerender }));
-    if (p.type === 'toggle') return toggle(T, path, p.label, { get: () => !!ST.params(sfxOf(T))[p.key], set: rerender });
+    if (p.type === 'toggle') return toggle(T, path, p.label, { get: () => !!ST.params(sfxOf(T0))[p.key], set: rerender });
     if (p.type === 'color') return row(p.label, colorCtl(T, path, { def: P[p.key] }));
     if (p.type === 'text') return row(p.label, inputCtl(T, path, { placeholder: p.key === 'chars' ? 'Your own characters, densest first' : '' }));
     return null;
   }
-  const sfxOf = T => (T === 'doc' ? S.doc.sfx : (S.selEls()[0] || {}).sfx) || {};
+  const sfxOf = T => (T === 'grp' ? (target().g || {}).sfx : T === 'doc' ? S.doc.sfx : (S.selEls()[0] || {}).sfx) || {};
   function stylePicker(T, cur) {
     const s = h('select.sel.st-pick', { 'aria-label': 'Style' }, ST.CATS.map(([cat, title]) => h('optgroup', { label: title }, ST.LIST.filter(d => d.cat === cat).map(d => h('option', { value: d.id, selected: d.id === cur.id }, d.name)))));
     s.value = cur.id;
@@ -208,12 +214,12 @@
   const GROUPS = [['style', null], ['backdrop', 'Backdrop'], ['intensity', 'Intensity'], ['motion', 'Motion']];
   function section(T) {
     const cur = sfxOf(T);
-    const isDoc = T === 'doc';
+    const isDoc = T === 'doc', isGrp = T === 'grp';
     if (!cur || !ST.has(cur)) {
-      const el = !isDoc && S.selEls()[0];
-      if (!isDoc && !(el && el.type === 'image')) return null;
+      const el = !isDoc && !isGrp && S.selEls()[0];
+      if (!isDoc && !isGrp && !(el && el.type === 'image')) return null;
       return sec('Style', [h('div.st-cta', null,
-        h('p.hint', null, isDoc ? 'Turn the whole design into ASCII, pixels, print, glass and 100+ more looks.' : 'Turn this photo or video into ASCII, pixels, print, glass and 100+ more looks.'),
+        h('p.hint', null, isGrp ? 'Give the whole group one look — its layers are styled together, as one picture.' : isDoc ? 'Turn the whole design into ASCII, pixels, print, glass and 100+ more looks.' : 'Turn this photo or video into ASCII, pixels, print, glass and 100+ more looks.'),
         h('div.btn-row', null,
           h('button.btn.grow', { type: 'button', onclick: () => U.setTab('styles') }, ic('sparkle'), 'Browse styles'),
           h('button.btn', { type: 'button', title: 'A random style', onclick: shuffle }, ic('shuffle'))))], true, { key: 'style' });
@@ -230,9 +236,11 @@
       if (title) kids.push(h('div.st-group', null, title));
       for (const p of ps) kids.push(control(T, d, p, P));
     }
-    if (!isDoc) kids.push(toggle(T, 'sfx.keepShape', 'Keep the layer’s outline', { get: () => sfxOf(T).keepShape !== false, set: v => { S.change(T, 'sfx.keepShape', v); } }));
+    if (isGrp) kids.push(toggle('doc', grpBase() + '.keepShape', 'Keep the group’s outline', { get: () => sfxOf('grp').keepShape !== false, set: v => { S.change('doc', grpBase() + '.keepShape', v); } }));
+    else if (!isDoc) kids.push(toggle(T, 'sfx.keepShape', 'Keep the layer’s outline', { get: () => sfxOf(T).keepShape !== false, set: v => { S.change(T, 'sfx.keepShape', v); } }));
     return sec('Style', kids, true, { key: 'style', collapsible: false });
   }
+  U.styleSection = section;
   U.addSection('el', () => section('sel'));
   U.addSection('doc', () => section('doc'));
 
