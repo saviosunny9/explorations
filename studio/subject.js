@@ -35,7 +35,8 @@
     return { v, files: await v.FilesetResolver.forVisionTasks(VER + '/wasm'), local };
   }
   async function modelBytes(kind) {
-    try { const r = await fetch(MODELS[kind]); if (!r.ok) throw new Error('HTTP ' + r.status); return new Uint8Array(await r.arrayBuffer()); }
+    // (a stalled download gives up rather than holding everything up)
+    try { const r = await fetch(MODELS[kind], AbortSignal.timeout ? { signal: AbortSignal.timeout(60000) } : {}); if (!r.ok) throw new Error('HTTP ' + r.status); return new Uint8Array(await r.arrayBuffer()); }
     catch (e) {
       if (!window.STUDIO_MODEL_PARTS) throw new Error('Couldn’t download the subject finder — check the connection');
       let t = '';
@@ -99,14 +100,16 @@ onmessage = async e => {
     }
   } catch (err) { postMessage({ type: 'err', id: d.id, msg: String((err && err.message) || err) }); }
 };`;
-  const pose = { w: null, ready: null, fails: 0, off: false, n: 0, waits: new Map() };
+  const pose = { w: null, ready: null, bytes: null, fails: 0, cropFails: 0, off: false, noCrops: false, n: 0, waits: new Map() };
   function poseStop() { if (pose.w) pose.w.terminate(); pose.w = null; pose.ready = null; for (const f of pose.waits.values()) f(null); pose.waits.clear(); }
   function poseStart() {
     if (pose.off) return null;
     if (pose.ready) return pose.ready;
     pose.ready = (async () => {
       if (!vision) vision = runtime().catch(e => { vision = null; throw e; });
-      const rt = await vision, bytes = await modelBytes('pose');
+      // the model is downloaded once; a restarted worker gets the same bytes
+      if (!pose.bytes) pose.bytes = modelBytes('pose').catch(e => { pose.bytes = null; throw e; });
+      const rt = await vision, bytes = await pose.bytes;
       let w;
       // a classic worker (a module worker can't start from a file:// page); import() still works inside it
       try { w = new Worker(URL.createObjectURL(new Blob([POSE_SRC], { type: 'text/javascript' }))); }
@@ -127,9 +130,13 @@ onmessage = async e => {
     })();
     return pose.ready;
   }
-  // all the pose masks for a picture, as one { a, w, h } (null: no pose model, or it got stuck — then it's restarted)
-  async function poseRaw(c) {
-    if (pose.off || !(await poseStart())) return null;
+  // all the pose masks for a picture, as one { a, w, h } (null: no pose model, or it got stuck — then it's restarted).
+  // crop: a close-up of one person — the pictures it chokes on are nearly always these, so those stop being asked first
+  async function poseRaw(c, crop) {
+    if (pose.off || (crop && pose.noCrops)) return null;
+    let up;
+    try { up = await poseStart(); } catch (e) { pose.off = true; return null; }
+    if (!up || !pose.w) return null;
     const id = ++pose.n, img = await createImageBitmap(c);
     const d = await new Promise(res => {
       pose.waits.set(id, res);
@@ -138,7 +145,7 @@ onmessage = async e => {
     });
     if (d === 'stuck' || !d || d.type === 'err') {
       // a picture it chokes on: start it again (a few times a run at most)
-      if (d === 'stuck' || !d) { poseStop(); if (++pose.fails > 4) pose.off = true; }
+      if (d === 'stuck' || !d) { poseStop(); if (crop) { if (++pose.cropFails >= 2) pose.noCrops = true; } else if (++pose.fails >= 3) pose.off = true; }
       return null;
     }
     if (!d.masks.length) return { a: new Float32Array(4), w: 2, h: 2, none: true };
@@ -146,7 +153,7 @@ onmessage = async e => {
     for (const m of d.masks.slice(1)) if (m.w === o.w && m.h === o.h) for (let i = 0; i < o.a.length; i++) if (m.a[i] > o.a[i]) o.a[i] = m.a[i];
     return o;
   }
-  S.subjectPoseState = () => ({ off: pose.off, fails: pose.fails, calls: pose.n });
+  S.subjectPoseState = () => ({ off: pose.off, noCrops: pose.noCrops, fails: pose.fails, cropFails: pose.cropFails, calls: pose.n });
 
   /* ── one frame ── */
   function frameCanvas(src, w, h) {
@@ -226,7 +233,7 @@ onmessage = async e => {
       const bw = b[2] - b[0], bh = b[3] - b[1], L = 384, s = L / Math.max(bw, bh);
       const cc = document.createElement('canvas'); cc.width = Math.max(8, Math.round(bw * s)); cc.height = Math.max(8, Math.round(bh * s));
       cc.getContext('2d').drawImage(src, b[0] * k, b[1] * k, bw * k, bh * k, 0, 0, cc.width, cc.height);
-      const a = await peopleRaw(cc), p = await poseRaw(cc);
+      const a = await peopleRaw(cc), p = await poseRaw(cc, true);
       for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) {
         const u = (x + 0.5 - b[0]) / bw, v = (y + 0.5 - b[1]) / bh;
         if (u < 0 || v < 0 || u >= 1 || v >= 1) continue;
