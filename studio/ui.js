@@ -67,7 +67,7 @@
     mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3M8 21h8',
     scissors: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
     volume: 'M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13', mute: 'M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6',
-    timeline: 'M3 5h18M3 19h18M5 9h6v6H5zM13 9h6v6h-6z', captions: 'M3 5h18v14H3zM6 12h5M13 12h5M6 15.5h8M16 15.5h2', reverse: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+    refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', timeline: 'M3 5h18M3 19h18M5 9h6v6H5zM13 9h6v6h-6z', captions: 'M3 5h18v14H3zM6 12h5M13 12h5M6 15.5h8M16 15.5h2', reverse: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
     speed: 'M12 21a9 9 0 1 1 9-9M12 12l4-4', clip: 'M4 6h16v12H4zM9 9.5v5l4.5-2.5z', fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
     path: 'M3 17c3-7 6-9 9-5s6 3 9-5', sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   };
@@ -3831,7 +3831,7 @@
     Blur: ['drop', 'Blur'], Frame: ['square', 'Frame'], Typography: ['type', 'Font'], Background: ['square', 'Style'], Text: ['edit', 'Text'],
     Effects: ['sparkle', 'Effects'], Motion: ['play', 'Motion'], Position: ['move', 'Position'], Arrange: ['layers', 'Arrange'], Playback: ['film', 'Playback'],
     'Stop motion': ['film', 'Frames'], Shape: ['shapes', 'Shape'], Colours: ['palette', 'Colours'], Underneath: ['image', 'Under'], Photos: ['image', 'Photos'],
-    'Opacity & blend': ['blend', 'Blend'], Captions: ['captions', 'Captions'], Type: ['type', 'Type'], Words: ['edit', 'Words'],
+    'Opacity & blend': ['blend', 'Blend'], Captions: ['captions', 'Captions'], Type: ['type', 'Type'], Words: ['edit', 'Words'], Clones: ['copy', 'Clones'],
   };
   function mSections() {
     const out = [];

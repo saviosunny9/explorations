@@ -430,16 +430,44 @@ live camera app: `studio/dist/camera-looks.zip` with the looks as JSON, the exac
 real-time WebGL version with its shaders and a live webcam preview page (`web/preview.html`), 3D LUTs (`.cube` and PNG),
 sample photos with the expected results, and `CLAUDE_BRIEF.md` — instructions for Claude to build the looks into an app.
 
-## Finding the subject (Flash Light, *Apply to* subject / background)
+## Clones (the same person in several places)
 
-Runs in the browser with Google's MediaPipe Tasks (`@mediapipe/tasks-vision` from jsDelivr): the *selfie multiclass*
-segmenter finds people, *magic touch* finds whatever you click. The models download on first use (16 MB for people, 6 MB for
-picking, plus the runtime, from storage.googleapis.com and jsDelivr — so it needs a connection) and run on the graphics card when that is quicker,
-otherwise on the processor. Every frame of a video is looked at (up to 30 a second; fewer for clips over 80 s), each mask is
-sharpened along the picture's own edges and steadied against its neighbours; a clicked spot is followed forwards and
-backwards from the frame you clicked on by matching the picture around it, and the model is asked again there — kept
-near where the thing just was, looking like it did when you clicked, and with any person touching it cut out (so a
-picked chair doesn't slide onto the person sitting on it). The masks are saved with the design (small PNG sheets), so they're found only once.
+Select a video and open **Clones** in the inspector:
+
+- **Many places**: shoot one long take where you move to a new spot each time (a guitar in the chair, then the doorway,
+  then the desk…). The editor finds where you stood still, plays every spot at once, and trims the video to the shortest
+  take (or the longest — shorter takes then *hold* their last frame or *loop*). The takes are listed with where each starts
+  in the clip; change a start, hide or remove one, or add a take from where the clip is now.
+- **Trail**: copies follow a moment behind you — how many, the gap between them and how much they fade.
+- **Freeze trail**: a frozen copy is left behind each time you've moved about a body width on; each appears when the video
+  reaches it (or all from the start). *Freeze here* adds one at the frame on screen.
+- **In front**: whoever stands nearer the camera (lower in the picture) covers the others — the person on screen now
+  included — or the newest copy goes on top.
+- **More**: *Edge* makes the cut tighter or looser, *Softness* feathers it, and *Keep the copies still as the camera moves*
+  holds every copy in place when the camera wasn't on a tripod (the camera is followed through the clip).
+- The person is found in every frame of the whole clip once (it takes a while: a few minutes for a 10 s clip on a laptop
+  without a graphics card), and saved with the design.
+- Clones play in the editor and export with the video. The sound is the video's own.
+
+## Finding the subject (Flash Light, *Apply to* subject / background, Clones)
+
+Runs in the browser with Google's MediaPipe Tasks (`@mediapipe/tasks-vision` from jsDelivr):
+- **People**: the *pose landmarker*'s body mask finds whole people (legs and feet included). The *selfie multiclass*
+  segmenter adds hair and loose clothes. Both are run again on a close crop around each person, so someone small and far
+  away is found as well as someone near. On the DAVIS test videos this lifted the overlap with hand-drawn masks from
+  0.87 to 0.91 (a walker), 0.48 to 0.84 (two small people at a crossing) and 0.63 to 0.76 (a dark club).
+- **Anything you click**: *magic touch*.
+- The models download on first use (16 MB for people, 9 MB for whole bodies, 6 MB for picking, plus the runtime, from
+  storage.googleapis.com and jsDelivr — so it needs a connection) and run on the graphics card when that is quicker,
+  otherwise on the processor. The body model runs in the background and is restarted if it ever gets stuck on a frame.
+- Every frame of a video is looked at (up to 30 a second; fewer for clips over 80 s), each mask is sharpened along the
+  picture's own edges and steadied against its neighbours.
+- A clicked spot is followed forwards and backwards from the frame you clicked on by matching the picture around it, and
+  the model is asked again there — kept near where the thing just was, looking like it did when you clicked, and with any
+  person touching it cut out (so a picked chair doesn't slide onto the person sitting on it).
+- For clones the camera is followed too: corners of the background are matched frame to frame (the person left out) and
+  fitted with a perspective transform, accurate to about a tenth of a pixel on test footage.
+- The masks are saved with the design (small PNG sheets), so they're found only once.
 
 ## Background removal
 

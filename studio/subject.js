@@ -16,6 +16,7 @@
   const MODELS = {
     people: MP + 'image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',
     pick: MP + 'interactive_segmenter/magic_touch/float32/1/magic_touch.tflite',
+    pose: MP + 'pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task',
   };
   const AN = 512;      // analysis size (long side) fed to the models
   const SHEET = 4096;  // sprite sheet size limit
@@ -23,7 +24,7 @@
   /* ── models (loaded on first use) ──
      From jsDelivr / Google storage; the online copy (window.STUDIO_MODEL_PARTS) falls back to copies published next to
      the page: vendor/vision_bundle.mjs + vision_wasm_internal.{js,wasm}, models/subject-<kind>.part<i>.txt (base64). */
-  const PARTS = { people: 2, pick: 1 };
+  const PARTS = { people: 2, pick: 1, pose: 1 };
   let vision = null;
   const segs = {};
   async function runtime() {
@@ -76,6 +77,77 @@
   }
   S.subjectModelsReady = () => !!(segs.people || segs.pick);
 
+  /* ── the pose model (whole bodies, legs and feet included) runs in a worker: on a few pictures it never returns, and a
+     stuck worker can be stopped and started again — the main page would just freeze ── */
+  const POSE_SRC = `let lm = null;
+onmessage = async e => {
+  const d = e.data;
+  try {
+    if (d.type === 'init') {
+      const v = await import(d.bundle), files = d.files || await v.FilesetResolver.forVisionTasks(d.wasm);
+      const make = delegate => v.PoseLandmarker.createFromOptions(files, { baseOptions: { modelAssetBuffer: new Uint8Array(d.bytes), delegate }, runningMode: 'IMAGE', numPoses: 4, outputSegmentationMasks: true, minPoseDetectionConfidence: 0.4, minPosePresenceConfidence: 0.4 });
+      const test = new OffscreenCanvas(256, 256), tx = test.getContext('2d'); tx.fillStyle = '#888'; tx.fillRect(0, 0, 256, 256);
+      const run = m => { const r = m.detect(test); for (const k of r.segmentationMasks || []) k.close(); };
+      try { const g = await make('GPU'); run(g); const t0 = performance.now(); run(g); run(g); if ((performance.now() - t0) / 2 < 90) lm = g; else g.close(); } catch (err) { /* no WebGL here */ }
+      if (!lm) lm = await make('CPU');
+      postMessage({ type: 'ready' });
+    } else {
+      const r = lm.detect(d.img), out = [], tr = [];
+      for (const k of r.segmentationMasks || []) { const a = k.getAsFloat32Array().slice(); out.push({ a, w: k.width, h: k.height }); tr.push(a.buffer); k.close(); }
+      if (d.img.close) d.img.close();
+      postMessage({ type: 'res', id: d.id, masks: out }, tr);
+    }
+  } catch (err) { postMessage({ type: 'err', id: d.id, msg: String((err && err.message) || err) }); }
+};`;
+  const pose = { w: null, ready: null, fails: 0, off: false, n: 0, waits: new Map() };
+  function poseStop() { if (pose.w) pose.w.terminate(); pose.w = null; pose.ready = null; for (const f of pose.waits.values()) f(null); pose.waits.clear(); }
+  function poseStart() {
+    if (pose.off) return null;
+    if (pose.ready) return pose.ready;
+    pose.ready = (async () => {
+      if (!vision) vision = runtime().catch(e => { vision = null; throw e; });
+      const rt = await vision, bytes = await modelBytes('pose');
+      let w;
+      // a classic worker (a module worker can't start from a file:// page); import() still works inside it
+      try { w = new Worker(URL.createObjectURL(new Blob([POSE_SRC], { type: 'text/javascript' }))); }
+      catch (e) { pose.off = true; return false; }
+      pose.w = w;
+      w.onmessage = e => { const f = pose.waits.get(e.data.id ?? 'init'); if (f) { pose.waits.delete(e.data.id ?? 'init'); f(e.data); } };
+      w.onerror = () => { pose.fails++; poseStop(); };
+      const abs = u => new URL(u, location.href).href;
+      const msg = rt.files === rt.local || (rt.local && rt.files && rt.files.wasmLoaderPath === rt.local.wasmLoaderPath)
+        ? { bundle: abs('vendor/vision_bundle.mjs'), files: rt.local } : { bundle: VER + '/vision_bundle.mjs', wasm: VER + '/wasm' };
+      const ok = await new Promise(res => {
+        pose.waits.set('init', d => res(d && d.type === 'ready'));
+        w.postMessage(Object.assign({ type: 'init', bytes: bytes.slice().buffer }, msg));
+        setTimeout(() => { if (pose.waits.has('init')) { pose.waits.delete('init'); res(false); } }, 45000);
+      });
+      if (!ok) { poseStop(); pose.off = true; return false; }
+      return true;
+    })();
+    return pose.ready;
+  }
+  // all the pose masks for a picture, as one { a, w, h } (null: no pose model, or it got stuck — then it's restarted)
+  async function poseRaw(c) {
+    if (pose.off || !(await poseStart())) return null;
+    const id = ++pose.n, img = await createImageBitmap(c);
+    const d = await new Promise(res => {
+      pose.waits.set(id, res);
+      pose.w.postMessage({ type: 'detect', id, img }, [img]);
+      setTimeout(() => { if (pose.waits.has(id)) { pose.waits.delete(id); res('stuck'); } }, 4000);
+    });
+    if (d === 'stuck' || !d || d.type === 'err') {
+      // a picture it chokes on: start it again (a few times a run at most)
+      if (d === 'stuck' || !d) { poseStop(); if (++pose.fails > 4) pose.off = true; }
+      return null;
+    }
+    if (!d.masks.length) return { a: new Float32Array(4), w: 2, h: 2, none: true };
+    const o = d.masks[0];
+    for (const m of d.masks.slice(1)) if (m.w === o.w && m.h === o.h) for (let i = 0; i < o.a.length; i++) if (m.a[i] > o.a[i]) o.a[i] = m.a[i];
+    return o;
+  }
+  S.subjectPoseState = () => ({ off: pose.off, fails: pose.fails, calls: pose.n });
+
   /* ── one frame ── */
   function frameCanvas(src, w, h) {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -101,6 +173,68 @@
     for (let i = 0; i < m.length; i++) m[i] = 1 - bg[i];
     out.close();
     return resample(m, w, h, c.width, c.height);
+  }
+  // the selfie model's people (1 − background) at its own size
+  async function peopleRaw(c) {
+    const seg = await model('people'), out = seg.segment(c), cm = out.confidenceMasks, w = cm[0].width, h = cm[0].height;
+    const bg = cm[0].getAsFloat32Array(), a = new Float32Array(w * h);
+    for (let i = 0; i < a.length; i++) a[i] = 1 - bg[i];
+    out.close();
+    return { a, w, h };
+  }
+  /* ── people, done properly: where they are (the pose model every frame, the selfie model every few frames, and last
+     frame's people), then both models again on a close crop around each of them — a small person far away gets the
+     whole of the models' attention, and between them they keep legs, feet, hair and loose clothes ── */
+  function blobsOf(m, w, h, thr = 0.5) {
+    const seen = new Uint8Array(w * h), out = [], minN = Math.max(24, w * h * 0.0003);
+    for (let i = 0; i < w * h; i++) {
+      if (seen[i] || m[i] < thr) continue;
+      let x0 = w, y0 = h, x1 = 0, y1 = 0, n = 0; const st = [i]; seen[i] = 1;
+      while (st.length) {
+        const q = st.pop(), x = q % w, y = (q / w) | 0; n++;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x > 0 && !seen[q - 1] && m[q - 1] >= thr) { seen[q - 1] = 1; st.push(q - 1); }
+        if (x < w - 1 && !seen[q + 1] && m[q + 1] >= thr) { seen[q + 1] = 1; st.push(q + 1); }
+        if (y > 0 && !seen[q - w] && m[q - w] >= thr) { seen[q - w] = 1; st.push(q - w); }
+        if (y < h - 1 && !seen[q + w] && m[q + w] >= thr) { seen[q + w] = 1; st.push(q + w); }
+      }
+      if (n >= minN) out.push([x0, y0, x1, y1, n]);
+    }
+    return out;
+  }
+  // a roomy square crop around each blob; crops that touch become one
+  function cropsOf(boxes, w, h) {
+    let out = boxes.map(b => { const bw = b[2] - b[0] + 1, bh = b[3] - b[1] + 1, cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, sz = Math.max(bw, bh) * 1.35 + 8; return [Math.max(0, cx - sz / 2), Math.max(0, cy - sz / 2), Math.min(w, cx + sz / 2), Math.min(h, cy + sz / 2)]; });
+    for (let again = true; again;) {
+      again = false;
+      for (let i = 0; i < out.length && !again; i++) for (let j = i + 1; j < out.length && !again; j++) {
+        const a = out[i], b = out[j];
+        if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) { out[i] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]; out.splice(j, 1); again = true; }
+      }
+    }
+    return out.filter(b => b[2] - b[0] >= 8 && b[3] - b[1] >= 8).sort((a, b) => (b[2] - b[0]) * (b[3] - b[1]) - (a[2] - a[0]) * (a[3] - a[1])).slice(0, 6);
+  }
+  const sampleAt = (r, u, v) => r.a[Math.min(r.h - 1, (v * r.h) | 0) * r.w + Math.min(r.w - 1, (u * r.w) | 0)];
+  async function peopleFine(src, c, prev, wide) {
+    const w = c.width, h = c.height, size = R.mediaSize(src) || { w, h }, k = size.w / w;
+    const pf = await poseRaw(c);
+    let seed = pf && !pf.none ? resample(pf.a, pf.w, pf.h, w, h) : null;
+    if (wide || !seed) { const mc = await peopleMask(c); if (!seed) seed = mc; else for (let i = 0; i < seed.length; i++) if (mc[i] > seed[i]) seed[i] = mc[i]; }
+    const crops = cropsOf(blobsOf(seed, w, h).concat(prev || []), w, h), o = seed.slice();
+    for (const b of crops) for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) o[y * w + x] = 0;
+    for (const b of crops) {
+      const bw = b[2] - b[0], bh = b[3] - b[1], L = 384, s = L / Math.max(bw, bh);
+      const cc = document.createElement('canvas'); cc.width = Math.max(8, Math.round(bw * s)); cc.height = Math.max(8, Math.round(bh * s));
+      cc.getContext('2d').drawImage(src, b[0] * k, b[1] * k, bw * k, bh * k, 0, 0, cc.width, cc.height);
+      const a = await peopleRaw(cc), p = await poseRaw(cc);
+      for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) {
+        const u = (x + 0.5 - b[0]) / bw, v = (y + 0.5 - b[1]) / bh;
+        if (u < 0 || v < 0 || u >= 1 || v >= 1) continue;
+        let val = sampleAt(a, u, v); if (p && !p.none) val = Math.max(val, sampleAt(p, u, v));
+        const i = y * w + x; if (val > o[i]) o[i] = val;
+      }
+    }
+    return o;
   }
   async function pickMask(c, u, v) {
     const seg = await model('pick'), out = seg.segment(c, { keypoint: { x: clamp(u, 0.001, 0.999), y: clamp(v, 0.001, 0.999) } });
@@ -216,7 +350,7 @@
   function refine(m, frame, w, h) {
     const d = frame.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data, I = new Float32Array(w * h);
     for (let i = 0; i < I.length; i++) I[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) / 255;
-    const q = guided(I, m, w, h, Math.max(2, Math.round(Math.max(w, h) / 110)), 0.004), o = new Uint8Array(w * h);
+    const q = guided(I, m, w, h, Math.max(1, Math.round(Math.max(w, h) / 240)), 0.004), o = new Uint8Array(w * h);
     for (let i = 0; i < o.length; i++) { const t = clamp((q[i] - 0.18) / 0.64, 0, 1); o[i] = Math.round(t * t * (3 - 2 * t) * 255); }
     return o;
   }
@@ -238,8 +372,15 @@
   });
   const sizeOf = (iw, ih, L) => iw >= ih ? [L, Math.max(2, Math.round(L * ih / iw))] : [Math.max(2, Math.round(L * iw / ih)), L];
 
+  const CT = () => window.StudioCamTrack;
+  // corners of the picture moved by H (how far the camera went), in px
+  const camShift = (H, w, h) => Math.max(...[[0, 0], [w, 0], [0, h], [w, h]].map(([x, y]) => { const q = CT().apply(H, x, y); return Math.hypot(q[0] - x, q[1] - y); }));
+  // px homography → one across the picture (u, v in 0..1)
+  const toUv = (H, w, h) => [H[0], H[1] * h / w, H[2] / w, H[3] * w / h, H[4], H[5] / h, H[6] * w, H[7] * h, H[8]].map(x => +x.toPrecision(7));
+
   /* ── a run: every frame of the clip (or the one photo) ── */
-  // what: { people: bool, pts: [[u, v], …] } — u, v across the source picture
+  // what: { people: bool, pts: [[u, v], …], whole (the whole file, not just the trimmed part), cam (follow the camera) }
+  // — u, v across the source picture
   async function analyse(el, what, { onProgress = () => {}, signal, at } = {}) {
     if (!el || el.type !== 'image' || !el.assetId) throw new Error('Pick a photo or video layer');
     const people = !!what.people, pts = (what.pts || []).map(p => [p[0], p[1]]);
@@ -251,7 +392,7 @@
     // the times to look at (source time, seconds)
     let times = [0], fps = 0, t0 = 0, v = null;
     if (isVid) {
-      const vd = el.video || {}, dur = shown.duration, end = vd.end > 0 ? Math.min(dur, vd.end) : dur, ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05));
+      const vd = what.whole ? {} : el.video || {}, dur = shown.duration, end = vd.end > 0 ? Math.min(dur, vd.end) : dur, ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05));
       if (at != null) times = [at];
       else {
         const len = Math.max(0.05, end - ts);
@@ -276,10 +417,13 @@
     // picks are clicked on one frame (what.at, in the clip's own time): follow them forwards from there, then backwards
     const i0 = isVid && fps && what.at != null ? clamp(Math.round((what.at - t0) * fps), 0, n - 1) : 0;
     const order = []; for (let i = i0; i < n; i++) order.push(i); for (let i = i0 - 1; i >= 0; i--) order.push(i);
+    // the camera is followed frame after frame, so only when the frames come in order
+    const camOn = !!what.cam && isVid && n > 2 && i0 === 0 && !!CT(), tracker = camOn ? CT().create(aw, ah) : null, Hs = camOn ? new Array(n) : null;
     const looks = pts.map(() => null), cutPeople = pts.map(() => false); // each thing's colours on the frame it was clicked on
-    const fresh = () => ({ keys: pts.map(p => p.slice()), last: pts.map(() => null), lastPm: pts.map(() => null), coast: pts.map(() => 0), prevGrey: null });
-    const copy = st => ({ keys: st.keys.map(k => k && k.slice()), last: st.last.slice(), lastPm: st.lastPm.slice(), coast: st.coast.slice(), prevGrey: st.prevGrey });
-    let st = fresh(), snap = null, done = 0;
+    const fresh = () => ({ keys: pts.map(p => p.slice()), last: pts.map(() => null), lastPm: pts.map(() => null), coast: pts.map(() => 0), prevGrey: null, boxes: null });
+    const copy = st => ({ keys: st.keys.map(k => k && k.slice()), last: st.last.slice(), lastPm: st.lastPm.slice(), coast: st.coast.slice(), prevGrey: st.prevGrey, boxes: st.boxes });
+    let st = fresh(), snap = null, done = 0, seen = 0;
+    const total = n;
     // one clicked thing on one frame → its mask (or null)
     async function pickOne(c, grey, j, cut) {
       const prev = st.last[j], old = st.keys[j];
@@ -317,14 +461,16 @@
       st.keys[j] = at01(pm, k[0], k[1]) < 0.75 ? nextPrompt(G, k[0], k[1], 1.5) || k : k;
       return pm;
     }
+    const tick = async () => { onProgress(++done / total); if (done % 2 === 0) await new Promise(r => setTimeout(r, 0)); };
     for (const i of order) {
       if (signal && signal.aborted) throw new DOMException('Cancelled', 'AbortError');
       if (i === i0 - 1 && snap) st = copy(snap);
       if (v) await seek(v, times[i]);
-      const c = frameCanvas(v || shown, aw, ah), grey = pts.length ? greyOf(c) : null;
-      // people are found when asked for — and also when something that isn't a person was clicked, so a person
-      // touching it (sitting on the picked chair, holding the picked cup) can be cut out of its mask
-      const pp = people || (pts.length && (i === i0 || cutPeople.some(Boolean))) ? await peopleMask(c) : null;
+      const c = frameCanvas(v || shown, aw, ah), grey = pts.length || camOn ? greyOf(c) : null;
+      // people (crops around each, pose + selfie models) — and also when something that isn't a person was clicked, so a
+      // person touching it (sitting on the picked chair, holding the picked cup) can be cut out of its mask
+      const wantPeople = people || (pts.length && (i === i0 || cutPeople.some(Boolean)));
+      const pp = wantPeople ? await peopleFine(v || shown, c, st.boxes, seen++ % 6 === 0) : null;
       if (i === i0 && pp && !people) pts.forEach((q, j) => { cutPeople[j] = at01(pp, q[0], q[1]) < 0.3; });
       let m = people ? pp.slice() : null;
       for (let j = 0; j < pts.length; j++) {
@@ -332,12 +478,21 @@
         if (!pm) continue;
         if (!m) m = pm.slice(); else for (let k = 0; k < m.length; k++) if (pm[k] > m[k]) m[k] = pm[k];
       }
+      m = m || new Float32Array(aw * ah);
       st.prevGrey = grey;
+      st.boxes = people ? blobsOf(m, aw, ah).map(b => b.slice(0, 4)) : null;
+      if (camOn) Hs[i] = tracker.step(grey, m);
       if (i === i0) snap = copy(st);
-      const small = resample(m || new Float32Array(aw * ah), aw, ah, mw, mh), fc = frameCanvas(c, mw, mh);
+      const small = resample(m, aw, ah, mw, mh), fc = frameCanvas(c, mw, mh);
       masks[i] = refine(small, fc, mw, mh);
-      onProgress(++done / n);
-      if (done % 2 === 0) await new Promise(r => setTimeout(r, 0));
+      await tick();
+    }
+    // the camera: still enough to leave alone? (well under a pixel of the source at its largest move)
+    let cam = null, still = true;
+    if (camOn) {
+      const shift = Math.max(...Hs.map(H => camShift(H, aw, ah)));
+      still = shift < 0.5 * aw / Math.max(1, size.w) * 2;
+      cam = { w: aw, h: ah, moving: !still, shift: +(shift / aw).toFixed(4), H: Hs.map(H => toUv(H, aw, ah)) };
     }
     if (v) { v.removeAttribute('src'); v.load(); }
     // steadier edges: the median of each frame and its neighbours
@@ -348,9 +503,16 @@
       return o;
     });
     let cover = 0;
-    for (const m of steady) { let s = 0; for (let k = 0; k < m.length; k += 7) s += m[k]; cover = Math.max(cover, s / (m.length / 7) / 255); }
+    // each frame's subject box (u, v ‰): how far away clones stand, where they are over time
+    const box = [];
+    for (const m of steady) {
+      let s2 = 0; for (let k = 0; k < m.length; k += 7) s2 += m[k]; cover = Math.max(cover, s2 / (m.length / 7) / 255);
+      let x0 = mw, y0 = mh, x1 = -1, y1 = -1;
+      for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) if (m[y * mw + x] > 127) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      box.push(...(x1 < 0 ? [0, 0, 0, 0] : [Math.round(x0 / mw * 1000), Math.round(y0 / mh * 1000), Math.round((x1 + 1) / mw * 1000), Math.round((y1 + 1) / mh * 1000)]));
+    }
     const sheets = await pack(steady, mw, mh);
-    return { of: el.assetId, people, pts, at: what.at ?? null, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000 };
+    return { v: 2, of: el.assetId, people, pts, at: what.at ?? null, whole: !!what.whole, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000, box, cam };
   }
   // masks → PNG sprite sheets (white, alpha = mask)
   async function pack(masks, w, h) {

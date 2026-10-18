@@ -1386,6 +1386,20 @@ body.mobile .snd-add { opacity: 1; }
 .cap-card-demo span { font-weight: 500; font-size: 15px; opacity: .85; }
 .cap-card-txt { font-size: 11px; color: rgba(255,255,255,.7); }
 
+/* clones (clones.js) */
+.clone-tiles { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.clone-tile { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); color: var(--ink); cursor: pointer; }
+.clone-tile:hover { border-color: var(--line-strong); }
+.clone-tile .clone-art { grid-row: span 2; color: var(--ink); }
+.clone-tile .clone-art svg { width: 56px; height: 38px; fill: currentColor; display: block; }
+.clone-tile b { font-weight: 600; font-size: 12.5px; }
+.clone-tile span:not(.clone-art) { font-size: 11px; color: var(--ink-3); line-height: 1.35; }
+.clone-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+.clone-row { display: grid; grid-template-columns: 18px 1fr auto auto auto; gap: 4px; align-items: center; }
+.clone-row.off { opacity: .45; }
+.clone-n { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); text-align: center; }
+.clone-busy { display: flex; flex-direction: column; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); padding: 4px 0 8px; }
+
 /* subject picking (subject.js): click what should light up */
 .subj-pick { position: absolute; inset: 0; z-index: 30; cursor: crosshair; }
 .subj-pick.busy { cursor: progress; }

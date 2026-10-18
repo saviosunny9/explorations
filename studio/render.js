@@ -70,10 +70,12 @@
     for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
     return URL.createObjectURL(new Blob([u], { type: mime }));
   }
-  function assetVideo(id) {
+  // slot: another <video> of the same file (a clone showing a different moment of it)
+  function assetVideo(id, slot) {
     const src = assets[id];
     if (!src) return null;
-    let e = vidCache.get(id);
+    const key = slot ? id + '#' + slot : id;
+    let e = vidCache.get(key);
     if (e && e.src === src) return e;
     const v = document.createElement('video');
     v.muted = true; v.defaultMuted = true; v.playsInline = true; v.preload = 'auto'; v.loop = false;
@@ -85,7 +87,7 @@
     });
     v.addEventListener('seeked', () => requestRedraw());
     try { v.src = src.startsWith('data:') ? dataToBlobUrl(src) : src; } catch (err) { e.failed = true; }
-    vidCache.set(id, e);
+    vidCache.set(key, e);
     return e;
   }
   R.assetVideo = assetVideo;
@@ -109,16 +111,19 @@
     const bg = doc.background || {};
     if (isVideoAsset(bg.assetId)) out.push({ id: bg.assetId, vd: bg.video, start: 0, el: null });
     for (const el of doc.elements || []) if (el.type === 'image' && !el.hidden && isVideoAsset(el.assetId)) out.push({ id: el.assetId, vd: el.video, start: (el.time && el.time.start) || 0, el });
+    // more <video>s of the same files (clones.js): { id, slot, vd, start, el, tgt(t, v) → the moment to show }
+    for (const f of R.extraVideoUsers) out.push(...f(doc));
     return out;
   }
+  R.extraVideoUsers = [];
   R.videoUsers = videoUsers;
   // a layer that's cut out at this moment needs no frame (clips after each other each have their own window)
   const userOn = (u, t) => !u.el || t == null || R.visibleAt(u.el, t);
   R.hasVideo = doc => videoUsers(doc).length > 0;
   R.playing = false;
   // editor preview: let the video run and only correct it when it drifts
-  function liveSync(v, vd, t, start) {
-    const target = R.videoTarget(vd, t, v, start);
+  function liveSync(v, vd, t, start, tgt) {
+    const target = tgt ? tgt(t, v) : R.videoTarget(vd, t, v, start);
     // a video can't play backwards: a reversed clip is stepped by seeking
     if (t == null || !R.playing || (vd && vd.reverse)) {
       if (!v.paused) v.pause();
@@ -130,13 +135,14 @@
     if (v.paused) { if (!v.seeking) v.currentTime = target; v.play().catch(() => {}); }
     else if (Math.abs(v.currentTime - target) > 0.3 && !v.seeking) v.currentTime = target;
   }
+  R.liveSync = liveSync;
   R.liveSyncVideos = function (doc, t) {
     const seen = new Set();
     for (const u of videoUsers(doc)) {
-      const e = assetVideo(u.id);
+      const e = assetVideo(u.id, u.slot), key = u.slot ? u.id + '#' + u.slot : u.id;
       if (!e || !e.ok) continue;
-      if (userOn(u, t)) { seen.add(u.id); liveSync(e.v, u.vd, t, u.start); continue; }
-      if (seen.has(u.id)) continue;
+      if (userOn(u, t)) { seen.add(key); liveSync(e.v, u.vd, t, u.start, u.tgt); continue; }
+      if (seen.has(key) || u.slot) continue;
       // off screen: stop it, and park a clip that's about to come in on its first frame
       if (!e.v.paused) e.v.pause();
       const s0 = u.el.time && u.el.time.start;
@@ -349,7 +355,7 @@
     const jobs = [];
     for (const u of videoUsers(doc)) {
       if (!userOn(u, t)) continue;
-      const e = assetVideo(u.id);
+      const e = assetVideo(u.id, u.slot);
       if (!e) continue;
       if (!e.ok) await e.promise;
       if (!e.ok) continue;
@@ -358,8 +364,8 @@
       // a seek still in flight (from the editor) would leave its old frame on screen
       if (v.seeking) await new Promise(res => { const fin = () => { v.removeEventListener('seeked', fin); res(); }; v.addEventListener('seeked', fin); setTimeout(fin, 1500); });
       // slowed down with smooth frames: build the in-between frame (one video, two seeks, so not in parallel)
-      if (t != null && u.vd && (u.vd.speed || 1) < 0.999 && !u.vd.reverse) { await smoothFrame(u, e, t); continue; }
-      const target = R.videoTarget(u.vd, t, v, u.start);
+      if (t != null && !u.slot && u.vd && (u.vd.speed || 1) < 0.999 && !u.vd.reverse) { await smoothFrame(u, e, t); continue; }
+      const target = u.tgt ? u.tgt(t, v) : R.videoTarget(u.vd, t, v, u.start);
       if (!force && Math.abs(v.currentTime - target) < 0.0005) continue;
       jobs.push(new Promise(res => {
         let done = false;
@@ -370,7 +376,10 @@
       }));
     }
     await Promise.all(jobs);
+    // anything else a frame needs before it's drawn (clones' still frames)
+    for (const f of R.extraSync) await f(doc, t);
   };
+  R.extraSync = [];
 
   let stickerMap = null;
   function stickerDef(id) {
@@ -3092,6 +3101,8 @@
     if (img && env.editor && isVideoAsset(el.assetId)) liveSync(img, el.video, 'time' in env ? env.time : R.playTime, (el.time && el.time.start) || 0);
     // exporting a slowed-down clip: draw the smooth in-between frame made for this moment
     if (img && !env.editor && isVideoAsset(el.assetId)) img = R.interpFrame(el.assetId, el.video, (el.time && el.time.start) || 0, 'time' in env ? env.time : null) || img;
+    // clones (clones.js): the frame with the subject's other moments laid into it
+    if (img && el.clones && el.clones.on && R.cloneFrame) img = R.cloneFrame(el, img, env) || img;
     if (el.outline && el.outline.on && el.outline.width > 0 && img && (f.style || 'none') === 'none') {
       const src = filteredSource(el.assetId, img, el.filters);
       drawOutlined(ctx, el, 'img:' + el.assetId + JSON.stringify(el.filters || {}) + JSON.stringify(el.crop || {}) + (el.flipX ? 1 : 0), (c, w, h) => drawCover(c, src, { x: 0, y: 0, w, h }, el));
@@ -4658,14 +4669,16 @@
   const subjCache = new Map();
   // a subject found for this layer's own picture (split clips share the file under another id: same URL)
   R.hasSubject = el => { const sj = el && el.subj; return !!(sj && sj.sheets && sj.sheets.length && sj.n && (!sj.of || assets[sj.of] === assets[el.assetId])); };
-  R.subjectMask = function (el, st) {
+  // slot: a second cache line for the same layer (clones ask for several moments at once)
+  R.subjectMask = function (el, st, slot) {
     const sj = el && el.subj;
     if (!R.hasSubject(el)) return null;
     const f = sj.n > 1 && sj.fps ? clamp(((st || 0) - (sj.t0 || 0)) * sj.fps, 0, sj.n - 1) : 0;
     // masks taken at the clip's own frame rate: the one for this frame; sparser ones (long clips): blended
     const dense = (sj.fps || 0) >= 23.5, i = dense ? Math.round(f) : Math.floor(f), fr = dense ? 0 : Math.round((f - i) * 8) / 8, j = Math.min(sj.n - 1, i + 1);
     const key = sj.sheets.join(',') + '|' + i + '|' + fr;
-    let hit = subjCache.get(el.id);
+    const ck = slot ? el.id + '#' + slot : el.id;
+    let hit = subjCache.get(ck);
     if (hit && hit.key === key) return hit.c;
     const cell = k => { const sh = assetImage(sj.sheets[Math.floor(k / sj.per)]); if (!sh) return null; const q = k % sj.per; return [sh, (q % sj.cols) * sj.cw, Math.floor(q / sj.cols) * sj.ch]; };
     const A = cell(i), B = fr > 0 ? cell(j) : null;
@@ -4675,8 +4688,8 @@
     x.globalAlpha = 1 - fr; x.drawImage(A[0], A[1], A[2], sj.cw, sj.ch, 0, 0, sj.cw, sj.ch);
     if (B) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = fr; x.drawImage(B[0], B[1], B[2], sj.cw, sj.ch, 0, 0, sj.cw, sj.ch); x.globalCompositeOperation = 'source-over'; }
     x.globalAlpha = 1;
-    if (subjCache.size > 40) subjCache.clear();
-    subjCache.set(el.id, { key, c });
+    if (subjCache.size > 80) subjCache.clear();
+    subjCache.set(ck, { key, c });
     return c;
   };
   // a layer's subject mask in its own box, scaled by k (for captions set behind the person)
@@ -4891,7 +4904,7 @@
   }
 
   function isComplete(el) {
-    if (el.type === 'image') return (!el.assetId || !!assetImage(el.assetId)) && (!(el.studio && el.studio.on && el.studio.cutId) || !!assetImage(el.studio.cutId)) && R.subjectReady(el);
+    if (el.type === 'image') return (!el.assetId || !!assetImage(el.assetId)) && (!(el.studio && el.studio.on && el.studio.cutId) || !!assetImage(el.studio.cutId)) && R.subjectReady(el) && (!el.clones || !R.clonesReady || R.clonesReady(el));
     if (el.type === 'sticker') { const svg = stickerSvg(el); return !svg || !!svgImage(svg); }
     return true;
   }
