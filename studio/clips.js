@@ -114,6 +114,27 @@
     if (!opts.newProject) S.emit('toast', `${added.length} clip${added.length > 1 ? 's' : ''} added to the video`);
     return added;
   };
+  // photos / videos as layers over the video (picture in picture), from design time `at`, on track `lane`
+  S.addOverlays = function (added, o = {}) {
+    const d = S.doc, W = d.width, H = d.height, t = Math.max(0, o.at || 0), ids = [];
+    added.forEach((a, i) => {
+      const box = Math.min(W, H) * 0.42, k = Math.min(box / a.w, box / a.h);
+      const el = S.mk('image', { assetId: a.id, name: a.name || '', width: a.w * k, height: a.h * k, shadow: { on: true, color: '#000000', opacity: 0.35, blur: 30, x: 0, y: 10 } });
+      el.x = W - el.width - W * 0.05 - i * 30; el.y = H * 0.06 + i * 30;
+      const len = a.video ? a.duration || 3 : 3;
+      el.time = { start: round(t), end: round(Math.min(S.MAX_LEN, t + len)) };
+      if (a.video) el.video = { trim: 0, speed: 1, loop: false, volume: 1 };
+      if (o.lane != null) el.lane = o.lane;
+      ids.push(S.addElement(el, { select: false, commit: false, center: false }).id);
+    });
+    // without clips the design's length is its own: make room for the new layers
+    if (!S.isVideoEdit()) { const end = Math.max(...ids.map(id => S.elById(id).time.end)); if (end > d.anim.duration + 0.01) d.anim.duration = Math.min(S.MAX_LEN, end); }
+    S.commit();
+    S.select(ids);
+    S.emit('doc');
+    S.seek(t + 0.01);
+    return added;
+  };
   S.pickClips = function (opts = {}) { S.pickImages(Object.assign({ asClips: true }, opts)); };
 
   // cut a clip in two at design time t

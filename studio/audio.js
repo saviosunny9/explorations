@@ -83,6 +83,7 @@
   const musicEls = new Map(); // track id → { m, src }
   function musicEl(s) {
     const src = S.assets[s.id];
+    if (!src) { if (S.ensureSound) S.ensureSound(s.id); return null; }
     let e = musicEls.get(s.key);
     if (e && e.src === src) return e.m;
     if (e) { e.m.pause(); }
@@ -103,6 +104,7 @@
         continue;
       }
       const m = musicEl(s), on = t >= s.start && t < s.end;
+      if (!m) continue;
       live.set(m, Math.max(live.get(m) || 0, on ? gainAt(s, t) : 0));
       if (!on) { if (!m.paused) m.pause(); continue; }
       const want = srcTime(s, t, m.duration);
@@ -123,7 +125,7 @@
   const decoded = new Map(); // asset URL → Promise<AudioBuffer | null>
   A.decode = function (id) {
     const url = S.assets[id];
-    if (!url) return Promise.resolve(null);
+    if (!url) return /^sfx-/.test(id || '') && S.ensureSound ? S.ensureSound(id).then(ok => (ok ? A.decode(id) : null)) : Promise.resolve(null);
     if (decoded.has(url)) return decoded.get(url);
     const p = (async () => {
       try {
@@ -246,7 +248,10 @@
     const doc = S.doc;
     doc.audio = doc.audio || [];
     const dur = o.duration || 0;
-    const tr = { id: uid(), assetId, name: o.name || 'Music', start: Math.max(0, o.at || 0), trim: 0, end: 0, dur, volume: 1, fadeIn: 0, fadeOut: dur > 4 ? 1 : 0, loop: false, mute: false, voice: !!o.voice };
+    const tr = { id: uid(), assetId, name: o.name || 'Music', start: Math.max(0, o.at || 0), trim: 0, end: 0, dur, volume: 1, fadeIn: 0, fadeOut: dur > 4 ? 1 : 0, loop: !!o.loop, mute: false, voice: !!o.voice, sfx: o.sfx || undefined };
+    if (o.lane != null) tr.lane = o.lane;
+    if (o.volume != null) tr.volume = o.volume;
+    if (o.fadeOut != null) tr.fadeOut = o.fadeOut;
     doc.audio.push(tr);
     const hasClips = doc.elements.some(e => e.clip);
     if (!hasClips && dur && tr.start + dur > doc.anim.duration + 0.05 && !o.keepLength) {

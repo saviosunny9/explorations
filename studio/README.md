@@ -19,6 +19,8 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `video.js` | Frame-by-frame video export (WebCodecs H.264 → MP4 or VP9 → WebM, with sound; MediaRecorder fallback) |
 | `audio.js` | Sound: video sound and music / voice tracks — playback in step with the timeline, offline mix, AAC / Opus encoding |
 | `clips.js` | Video edits: clips one after another, trimming, splitting, reordering, transitions, auto fix |
+| `sfx.js` | The sound library: 49 sound effects and 9 music beds, all synthesized in the browser |
+| `sounds-ui.js` | The Sounds panel (library by category, your sounds, previews, sound for every transition / entrance) |
 | `timeline.js` | The video timeline under the canvas (clips, text, sound lanes) and the Clip / Sound inspector sections |
 | `ui.js` | Panels, inspector, popovers, dialogs |
 | `templates.js` | About 379 templates plus text, paper, planner, photo-layout and background presets |
@@ -32,9 +34,25 @@ Start one from the home page (**Video editor** — pick or drop several videos a
 - **The timeline** sits under the canvas (drag its top edge to make it taller): the **Video** track holds the clips one after another, **Text & layers** above it shows anything timed, **Sound** below holds music and voiceovers with their waveforms. Click or drag on the ruler to move the playhead; the canvas shows that moment and you can edit right there. Zoom with the slider or ⌘/Ctrl-scroll, *Fit* shows the whole video.
 - **Clips**: drag a clip to put it somewhere else, drag its edges to trim (everything after it moves up — no gaps), press **S** (or ⌘B) or the scissors to split at the playhead, ⌘D / the copy button to duplicate, ⌫ to delete. Photos show for 3 s (drag the edge or set *Shows for*). Each clip keeps everything a photo or video layer has: speed (5–400 %, smooth slow motion), **Play backwards**, crop and position (*Fill* or *Fit* the frame), filters and film looks, the 109 Styles, blur, animation — plus **Auto fix**, which evens out exposure, contrast and colour from the clip itself. *Take out of the video track* turns a clip into a free layer over the video (picture in picture); a free photo or video gets *Put in the video track*.
 - **Transitions**: the small square between two clips — Cut, Dissolve, Dip to black, Flash, Slide, Push, Whip pan, Wipe, Circle, Zoom, Blur, Spin and Glitch, with their length (0.1–3 s), a direction for the moving ones, *Apply to all clips* and *Preview*. A transition overlaps the two clips by its length.
+- **Layers over the video**: tracks above the video track hold anything that plays over it — videos and photos (picture in picture: the *Layer* button or the **+** on *New layer* adds them at the playhead), titles, stickers and shapes. Drag a bar along to move it in time, its edges to trim (a video's left edge trims the clip itself), or up and down to another track — a higher track draws on top. Drop files onto a layer track to add them there.
 - **Text**: the *Text* button adds a title at the playhead for 3 s; drag its bar to move it, its edges to change when it comes and goes. Any layer with timing shows here.
 - **Sound**: every video keeps its own sound — mute it, set its volume (up to 200 %) and fades in the clip's *Sound* row. **Music** adds any sound file (mp3, m4a, wav, ogg, opus, flac…) at the playhead; drag it along, trim either end, split it, and set its volume, fade in / out and *Loop to the end of the video* when it's selected. **Voice** records a voiceover from the microphone while the video plays from the playhead. Dropping files on the timeline puts sound files on a sound lane and videos / photos into the video track where you drop them. The canvas inspector's **Sound** section lists the tracks and adds music to any design, animated or still (a still design grows to the music's length).
+- **Sound tracks**: as many as you need; drag a sound up or down to another track, mute a whole track from its label, drop files or library sounds where they should play.
 - **Export** mixes all of it into the video: AAC sound in MP4 (Opus where the browser has no AAC encoder), Opus in WebM, and a `sound.wav` next to PNG frame sequences. A *Sound* switch leaves it out. Changing a clip's speed changes the pitch of its sound, the same in the preview and the file.
+
+## Sounds (music and sound effects)
+
+The **Sounds** tab holds a library made entirely in the browser (synthesized, so nothing to download and free to use anywhere):
+
+- **Music** — 9 loopable beds: Lo-fi afternoon, Upbeat pop, Ambient haze, Boom bap, Cinematic pulse, House groove, Sunny pluck, Piano story, Dark trap (tempo shown). In a video edit they loop to the end; on a still design the length grows to the music.
+- **Sound effects** in 7 groups — *Transitions* (whoosh, soft whoosh, swish, swipe, whip, riser, down sweep, reverse swell, impact boom, tape stop), *Motion* (pop, bubble, boing, bounce, slide up / down, zip, wobble, soft thud), *Interface* (click, tick, typing, notification, success, error, message pop, return key), *Camera & film* (shutter, film projector, flash charge, instant photo, tape rewind), *Glitch* (glitch burst, static, stutter, data drop), *Hits & drums* (kick, snare, clap, cymbal crash, drum roll, record scratch, tom fill) and *Magic* (sparkle, chime, shimmer, ding, level up, fairy dust).
+- Search, preview (▶), click to add at the playhead — an effect lines its loudest moment up with the playhead — or drag one onto a sound track. *Yours* lists the sound files you've added; *Upload sound* and *Record* sit at the top.
+- **Sound for every transition** puts the effect that fits each transition (a whoosh for a push, a hit for a dip to black, a glitch for a glitch…) on every cut of a video edit; **every entrance** adds a pop, swish or typing sound to each layer that animates in. Running either again replaces the ones it added before. The transition picker also has *Add a sound*.
+- Library sounds aren't stored in projects or project files — they're remade from the same recipe when a design opens.
+
+## Finding templates
+
+Templates are sorted by what you're making — **Photos** (looks & styles, photo effects, film, portrait & ID), **Videos** (fast cuts, motion, moving layouts), **Text** (slides, kinetic type, typing & screens, text effects), **Collage & notes** (notes & paper, posters & profiles, posts & planners) and **Explainers** — then by kind inside each, with **Any / Still / Video** to narrow it. With *All* every category shows its first families (*See all* opens it); inside a category each kind gets its own row. The same sorting is on the home page; the Templates panel also links to Styles and Sounds. Search finds templates by name, family, kind or tag.
 
 ## Sizes and limits
 

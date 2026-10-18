@@ -2485,6 +2485,26 @@
   for (const t of TEMPLATES) if (t.family && GROUPS[t.family]) GROUPS[t.family].push(t.id);
   const ORDER = ['every-shade', ...Object.values(GROUPS).flat()];
   for (const [g, ids] of Object.entries(GROUPS)) for (const id of ids) { const t = TEMPLATES.find(x => x.id === id); if (t) t.group = g; }
+  // what you're making → kinds → families. Every family belongs to one kind; a new family goes in here too
+  const CATEGORIES = [
+    { id: 'photo', name: 'Photos', blurb: 'Looks, effects and film for your photos', subs: [
+      ['Looks & styles', ['Image styles']], ['Photo effects', ['Photo effects']], ['Film', ['Film looks', 'Film camera']], ['Portrait & ID', ['Studio portrait', 'Paper & ID']]] },
+    { id: 'video', name: 'Videos', blurb: 'Reels with cuts, motion and moving layouts', subs: [
+      ['Fast cuts', ['Speed flashes', 'Match cut', 'Newspaper reveal']], ['Motion', ['Motion blur', 'Stop motion', 'Camera view']], ['Moving layouts', ['Moving grids', 'Photo piles', 'Strips & panels']]] },
+    { id: 'text', name: 'Text', blurb: 'Slides, kinetic type and typing', subs: [
+      ['Text slides', ['Text slides']], ['Kinetic type', ['Kinetic headline', 'Word by word', 'Letter bounce', 'Rolling numbers', 'Type effects', 'Smooth cam text']],
+      ['Typing & screens', ['Typing', 'Typing screen', 'Screen close-up']], ['Text effects', ['Text effects']]] },
+    { id: 'collage', name: 'Collage & notes', blurb: 'Scrapbook posts, notes, planners and posters', subs: [
+      ['Notes & paper', ['Sticky notes', 'Grid-paper notes', 'Notebook tip', 'Wall calendar']], ['Posters & profiles', ['Ribbon poster', 'Polaroid POV', 'Meet the team', 'Life-sim garden']], ['Posts & planners', ['']]] },
+    { id: 'explainer', name: 'Explainers', blurb: 'Documentary-style story videos', subs: [['Vox explainer', ['Vox explainer']]] },
+  ];
+  const famCat = {};
+  for (const c of CATEGORIES) for (const [sub, fams] of c.subs) for (const f of fams) famCat[f] = [c.id, sub];
+  for (const t of TEMPLATES) {
+    const k = famCat[t.group || ''] || (console.warn('No category for family', t.group), ['collage', 'Posts & planners']);
+    t.cat = k[0]; t.sub = k[1];
+  }
+  window.STUDIO_TEMPLATE_CATS = CATEGORIES;
   const rank = t => ORDER.includes(t.id) ? ORDER.indexOf(t.id) : 1000;
   TEMPLATES.sort((a, b) => rank(a) - rank(b));
   window.STUDIO_TEMPLATES = TEMPLATES;

@@ -38,6 +38,7 @@
     btn('trash', 'Delete', () => remove()),
     h('span.vtl-sep'),
     btn('clip', 'Add video clips or photos to the end', () => S.pickClips({}), 'Clips'),
+    btn('image', 'Add a video or photo as a layer over the video, from the playhead', () => addLayerMedia(), 'Layer'),
     btn('music', 'Add music or a sound file at the playhead', () => musicInput.click(), 'Music'),
     recBtn,
     btn('type', 'Add a title at the playhead', () => addTitle(), 'Text'),
@@ -104,19 +105,25 @@
   }, { passive: false });
 
   /* ── what's on the timeline ── */
-  // timed layers (not clips) packed into as few lanes as fit
+  // the layers over the video: everything timed (in a video edit, every layer that isn't a clip)
   function overlayItems() {
-    const d = S.doc;
-    return d.elements.filter(e => !e.clip && e.time && !e.vox && !e.mcut && !e.cutin && !e.layoutSlot).map(e => ({ el: e, s: e.time.start || 0, e: e.time.end != null && e.time.end > (e.time.start || 0) ? e.time.end : D() }));
+    const d = S.doc, edit = S.isVideoEdit();
+    return d.elements.filter(e => !e.clip && (e.time || edit) && !e.vox && !e.mcut && !e.cutin && !e.layoutSlot)
+      .map(e => ({ el: e, want: e.lane, s: (e.time && e.time.start) || 0, e: e.time && e.time.end != null && e.time.end > (e.time.start || 0) ? e.time.end : D() }));
   }
+  // tracks: each item keeps its own lane (el.lane / a.lane, 0 = nearest the video track); items without one, or that would
+  // overlap another item there, take the next free lane up
   function pack(items) {
-    const ends = [];
-    for (const it of items.slice().sort((a, b) => a.s - b.s)) {
-      let k = ends.findIndex(x => x <= it.s + 1e-6);
-      if (k < 0) { k = ends.length; ends.push(0); }
-      ends[k] = it.e; it.lane = k;
-    }
-    return Math.max(1, ends.length);
+    const lanesUsed = [];
+    const fits = (k, it) => !(lanesUsed[k] || []).some(([s0, e0]) => it.s < e0 - 1e-6 && it.e > s0 + 1e-6);
+    const put = (it, k0) => { let k = Math.max(0, k0 | 0); while (!fits(k, it)) k++; (lanesUsed[k] = lanesUsed[k] || []).push([it.s, it.e]); it.lane = k; };
+    const bySt = (a, b) => a.s - b.s;
+    for (const it of items.filter(x => x.want != null).sort(bySt)) put(it, it.want);
+    for (const it of items.filter(x => x.want == null).sort(bySt)) put(it, 0);
+    // empty tracks in between close up
+    const used = [...new Set(items.map(it => it.lane))].sort((a, b) => a - b), to = new Map(used.map((l, i) => [l, i]));
+    for (const it of items) it.lane = to.get(it.lane);
+    return used.length;
   }
 
   /* ── drawing ── */
@@ -130,26 +137,40 @@
     inner.style.width = W + 'px';
     drawRuler(W);
     const clips = S.clips(), sel = new Set(S.sel), ov = overlayItems(), ovLanes = ov.length ? pack(ov) : 0;
-    const snd = (d.audio || []).map(a => ({ a, s: a.start || 0, e: A.trackEnd(a, dur) }));
+    const snd = (d.audio || []).map(a => ({ a, want: a.lane, s: a.start || 0, e: A.trackEnd(a, dur) }));
     const auLanes = snd.length ? pack(snd) : 0;
+    // tracks are kept closed up, so the numbers stored match the ones shown
+    for (const it of ov) if (it.want != null) it.el.lane = it.lane;
+    for (const it of snd) if (it.want != null) it.a.lane = it.lane;
     const rows = [];
-    // timed text and layers
-    for (let k = 0; k < ovLanes; k++) {
+    // layer tracks, the top one first, plus an empty one to drop or drag new layers onto
+    for (let k = ovLanes; k >= 0; k--) {
       const lane = h('div.vtl-track.ov');
-      for (const it of ov.filter(x => x.lane === k)) lane.append(overlayBar(it, sel.has(it.el.id)));
-      rows.push(h('div.vtl-row.ov', null, h('div.vtl-lab', null, k === 0 ? h('span', null, 'Text & layers') : null), lane));
+      const items = ov.filter(x => x.lane === k);
+      for (const it of items) lane.append(overlayBar(it, sel.has(it.el.id)));
+      const media = items.some(it => it.el.type === 'image');
+      rows.push(h('div.vtl-row.ov' + (media ? '.media' : '') + (k === ovLanes ? '.spare' : ''), { 'data-kind': 'ov', 'data-lane': k },
+        h('div.vtl-lab', null, h('span', null, k === ovLanes ? 'New layer' : `Layer ${k + 1}`),
+          k === ovLanes ? h('button.vtl-mini', { type: 'button', title: 'Add a video or photo layer at the playhead', 'aria-label': 'Add a layer', onclick: () => addLayerMedia(k) }, ic('plus')) : null),
+        lane));
     }
     // the main video track
     const main = h('div.vtl-track.main');
     if (!clips.length) main.append(h('button.vtl-empty', { type: 'button', onclick: () => S.pickClips({}) }, ic('plus'), d.elements.length ? 'Add clips — your videos and photos play one after another' : 'Add video clips or photos — or drop them here'));
     clips.forEach((el, i) => { main.append(clipBlock(el, i, sel.has(el.id))); if (i) main.append(transChip(el)); });
-    rows.push(h('div.vtl-row.main', null, h('div.vtl-lab', null, h('span', null, 'Video'), h('button.vtl-mini', { type: 'button', title: 'Add clips', 'aria-label': 'Add clips', onclick: () => S.pickClips({}) }, ic('plus'))), main));
+    rows.push(h('div.vtl-row.main', { 'data-kind': 'main' }, h('div.vtl-lab', null, h('span', null, 'Video'), h('button.vtl-mini', { type: 'button', title: 'Add clips', 'aria-label': 'Add clips', onclick: () => S.pickClips({}) }, ic('plus'))), main));
     // sound
-    for (let k = 0; k < Math.max(1, auLanes); k++) {
-      const lane = h('div.vtl-track.au');
-      for (const it of snd.filter(x => x.lane === k)) lane.append(soundBar(it));
-      if (!snd.length) lane.append(h('button.vtl-empty.au', { type: 'button', onclick: () => musicInput.click() }, ic('music'), 'Add music — or drop a sound file here'));
-      rows.push(h('div.vtl-row.au', null, h('div.vtl-lab', null, k === 0 ? h('span', null, 'Sound') : null), lane));
+    // sound tracks, plus an empty one under them
+    for (let k = 0; k <= auLanes; k++) {
+      const lane = h('div.vtl-track.au'), items = snd.filter(x => x.lane === k);
+      for (const it of items) lane.append(soundBar(it));
+      if (!snd.length) lane.append(h('button.vtl-empty.au', { type: 'button', onclick: () => (S.ui.setTab('sounds'), 0) }, ic('music'), 'Add music or sound effects — or drop a sound file here'));
+      const muted = items.length && items.every(it => it.a.mute);
+      rows.push(h('div.vtl-row.au' + (k === auLanes && snd.length ? '.spare' : ''), { 'data-kind': 'au', 'data-lane': k },
+        h('div.vtl-lab', null, h('span', null, k === auLanes && snd.length ? 'New sound' : `Sound ${k + 1}`),
+          items.length ? h('button.vtl-mini' + (muted ? '.on' : ''), { type: 'button', title: muted ? 'Unmute this track' : 'Mute this track', 'aria-label': muted ? 'Unmute track' : 'Mute track', onclick: () => { for (const it of items) it.a.mute = !muted; S.commit(); S.emit('change'); render(); } }, ic(muted ? 'mute' : 'volume')) : null),
+        lane));
+      if (!snd.length) break;
     }
     lanes.replaceChildren(...rows);
     hydrateIcons(lanes);
@@ -295,9 +316,11 @@
     return b;
   }
   function overlayBar(it, on) {
-    const el = it.el, w = Math.max(6, (it.e - it.s) * pps);
-    const b = h('div.vtl-ovb.t-' + el.type + (on ? '.on' : ''), { style: { left: it.s * pps + 'px', width: w + 'px' } },
-      h('span', null, S.elLabel(el)), h('div.vtl-h.l'), h('div.vtl-h.r'));
+    const el = it.el, w = Math.max(6, (it.e - it.s) * pps), media = el.type === 'image' && el.assetId;
+    const c = media ? h('canvas.vtl-strip') : null;
+    const b = h('div.vtl-ovb.t-' + el.type + (on ? '.on' : '') + (el.hidden ? '.muted' : ''), { style: { left: it.s * pps + 'px', width: w + 'px' } },
+      c, h('span', null, S.elLabel(el)), h('div.vtl-h.l'), h('div.vtl-h.r'));
+    if (c) paintStrip(c, el, w, 30);
     b.addEventListener('pointerdown', e => startDrag(e, { kind: 'ov', el, side: e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : null, b }));
     return b;
   }
@@ -325,7 +348,7 @@
     if (e.button !== 0) return;
     e.preventDefault(); e.stopPropagation();
     closePop();
-    const x0 = e.clientX;
+    const x0 = e.clientX, y0 = e.clientY;
     let moved = false;
     if (o.kind === 'snd') {
       selSound = o.a.id; if (S.sel.length) S.select([]);
@@ -337,13 +360,14 @@
       if (selSound) selSound = null;
       if (!S.sel.includes(o.el.id)) S.select([o.el.id]);
       o.v0 = JSON.parse(JSON.stringify({ video: o.el.video || null, clip: o.el.clip || null, time: o.el.time || null }));
+      o.lane0 = o.b && o.b.parentNode && o.b.parentNode.parentNode ? +o.b.parentNode.parentNode.dataset.lane : null;
     }
     drag = o;
     const target = root;
     target.setPointerCapture(e.pointerId);
     const mv = ev => {
       const dx = ev.clientX - x0;
-      if (!moved && Math.abs(dx) < 4) return;
+      if (!moved && Math.abs(dx) < 4 && Math.abs(ev.clientY - y0) < 6) return;
       moved = true;
       dragMove(o, dx / pps, ev);
     };
@@ -390,12 +414,21 @@
       if (!o.side) { const k = clamp(dt, -s0, D() - e0 + (e0 - s0) - 0.1); s = s0 + k; en = e0 + k; }
       else if (o.side === 'l') s = clamp(s0 + dt, 0, e0 - 0.1);
       else en = clamp(e0 + dt, s0 + 0.1, D());
-      S.changeEl(o.el, e => { e.time = Object.assign({}, e.time, { start: Math.round(s * 100) / 100, end: en >= D() - 0.005 ? null : Math.round(en * 100) / 100 }); }, true);
+      const vid = R.isVideoAsset(o.el.assetId), vd0 = o.v0.video || {};
+      // a video layer's left edge trims the clip too, so the picture stays where it was in time
+      if (vid && o.side === 'l') s = Math.max(s, s0 - (vd0.trim || 0) / (vd0.speed || 1));
+      if (vid && o.side === 'r' && vd0.loop === false) { const src = S.clipSrcLen(Object.assign({ clip: null }, o.el)) || R.assetVideo(o.el.assetId).v.duration || 9999; en = Math.min(en, s0 + ((vd0.end > 0 ? vd0.end : src) - (vd0.trim || 0)) / (vd0.speed || 1)); }
+      const lane = o.side ? null : laneAt(ev.clientY, 'ov');
+      S.changeEl(o.el, e => {
+        e.time = Object.assign({}, e.time, { start: Math.round(s * 100) / 100, end: en >= D() - 0.005 && !vid ? null : Math.round(en * 100) / 100 });
+        if (vid && o.side === 'l') e.video = Object.assign({}, e.video, { trim: Math.max(0, Math.round(((vd0.trim || 0) + (s - s0) * (vd0.speed || 1)) * 1000) / 1000) });
+        if (lane != null) e.lane = lane;
+      }, true);
       S.seek(o.side === 'r' ? en - 0.02 : s + 0.001);
     } else if (o.kind === 'snd') {
       const a0 = o.a0, len0 = A.trackLen(a0), end0 = a0.end > 0 ? a0.end : a0.dur || len0 + (a0.trim || 0);
       const p = {};
-      if (!o.side) p.start = Math.max(0, (a0.start || 0) + dt);
+      if (!o.side) { p.start = Math.max(0, (a0.start || 0) + dt); const lane = laneAt(ev.clientY, 'au'); if (lane != null) p.lane = lane; }
       else if (o.side === 'l') { const k = clamp(dt, -(a0.trim || 0), len0 - 0.1); p.trim = (a0.trim || 0) + k; p.start = Math.max(0, (a0.start || 0) + k); }
       else p.end = clamp(end0 + dt, (a0.trim || 0) + 0.1, a0.dur || end0 + dt);
       S.changeSound(a0.id, p, true);
@@ -408,9 +441,35 @@
       if (o.to != null && o.to !== S.clips().indexOf(o.el)) S.moveClip(o.el, o.to); else render();
       return;
     }
+    if (o.kind === 'ov' && o.el.lane !== (o.lane0 ?? o.el.lane)) restack(o.el);
     S.commit();
     S.emit('doc');
   }
+
+  // the track under the pointer (null when it's another kind of track)
+  function laneAt(clientY, kind) {
+    for (const r of lanes.querySelectorAll('.vtl-row')) {
+      const b = r.getBoundingClientRect();
+      if (clientY >= b.top && clientY < b.bottom) return r.dataset.kind === kind ? +r.dataset.lane : null;
+    }
+    return null;
+  }
+  // a higher track draws over a lower one: move the layer in the stack to match its track
+  function restack(el) {
+    const d = S.doc, L = el.lane || 0, items = overlayItems();
+    pack(items);
+    const laneOf = new Map(items.map(it => [it.el, it.lane]));
+    const from = d.elements.indexOf(el);
+    d.elements.splice(from, 1);
+    let at = -1;
+    d.elements.forEach((e, i) => { if (laneOf.has(e) && laneOf.get(e) <= L) at = i + 1; });
+    if (at < 0) { const i = d.elements.findIndex(e => laneOf.has(e) && laneOf.get(e) > L); at = i >= 0 ? i : from; }
+    d.elements.splice(at, 0, el);
+    S.rebuild();
+  }
+  // videos / photos as layers over the video, from the playhead
+  function addLayerMedia(lane) { S.pickImages({ asOverlay: true, at: now(), lane }); }
+  S.addLayerMedia = addLayerMedia;
 
   // click / drag on the ruler or an empty spot moves the playhead
   function seekFromX(clientX) {
@@ -431,15 +490,26 @@
   });
 
   // drop files: sound becomes a track at the drop point, videos and photos become clips there
-  root.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); e.stopPropagation(); root.classList.add('over'); } });
+  root.addEventListener('dragover', e => { const ty = [...e.dataTransfer.types]; if (ty.includes('Files') || ty.includes('application/x-studio-sound')) { e.preventDefault(); e.stopPropagation(); root.classList.add('over'); } });
   root.addEventListener('dragleave', () => root.classList.remove('over'));
   root.addEventListener('drop', e => {
+    const snd = e.dataTransfer.getData('application/x-studio-sound');
+    const t = clamp((e.clientX - inner.getBoundingClientRect().left - LAB) / pps, 0, D());
+    // a sound from the Sounds panel, dropped where it should play
+    if (snd) {
+      e.preventDefault(); e.stopPropagation(); root.classList.remove('over');
+      const p = JSON.parse(snd), lane = laneAt(e.clientY, 'au');
+      if (p.lib && S.addLibrarySound) S.addLibrarySound(window.StudioSfx.byId[p.id], t).then(() => { const a = S.doc.audio[S.doc.audio.length - 1]; if (a && lane != null) { a.lane = lane; S.commit(); render(); } });
+      else { const a = S.addSound(p.id, { at: t, lane }); if (a) render(); }
+      return;
+    }
     if (!e.dataTransfer.files.length) return;
     e.preventDefault(); e.stopPropagation(); root.classList.remove('over');
-    const t = clamp((e.clientX - inner.getBoundingClientRect().left - LAB) / pps, 0, D());
     const files = [...e.dataTransfer.files];
     const idx = S.clips().filter(c => c.time.start + (c.time.end - c.time.start) / 2 < t).length;
-    S.importFiles(files, { asClips: true, clipIndex: idx, soundAt: t });
+    const ovLane = laneAt(e.clientY, 'ov'), auLane = laneAt(e.clientY, 'au');
+    // onto a layer track: layers at the drop point; onto the video track (or anywhere else): clips
+    S.importFiles(files, ovLane != null ? { asOverlay: true, at: t, lane: ovLane, soundAt: t } : { asClips: true, clipIndex: idx, soundAt: t, soundLane: auLane });
   });
 
   /* ── actions ── */
@@ -468,7 +538,7 @@
   }
   function addTitle() {
     const t = now(), W = S.doc.width;
-    const el = S.mk('text', { text: 'Your title', fontSize: Math.round(Math.min(W, S.doc.height) * 0.08), fontWeight: 700, color: '#ffffff', align: 'center', shadow: { on: true, color: '#000000', opacity: 0.45, blur: 18, x: 0, y: 4 } });
+    const el = S.mk('text', { text: 'Your title', fontSize: Math.round(Math.min(W, S.doc.height) * 0.08), fontFamily: 'Inter', fontWeight: 700, fill: '#ffffff', align: 'center', shadow: { on: true, color: '#000000', opacity: 0.45, blur: 18, x: 0, y: 4 } });
     el.time = { start: Math.round(t * 100) / 100, end: Math.round(Math.min(D(), t + 3) * 100) / 100 };
     el.anim = { enter: 'rise', loop: 'none', speed: 1, amount: 1, delay: 0 };
     el.cx = S.doc.width / 2; el.cy = S.doc.height * 0.78;
@@ -508,6 +578,7 @@
         cur.type !== 'none' && R.TRANS_DIRS.includes(cur.type) ? h('div.seg.vtl-dirs', null, [['left', '←'], ['right', '→'], ['up', '↑'], ['down', '↓']].map(([k, l]) => h('button' + ((cur.dir || 'left') === k ? '.on' : ''), { type: 'button', title: 'Moves ' + k, onclick: () => { S.setTransition(el, { dir: k }); draw(); } }, l))) : null,
         h('div.vtl-pop-foot', null,
           h('button.link-btn', { type: 'button', onclick: () => { S.setAllTransitions(el.clip.trans ? Object.assign({}, el.clip.trans) : { type: 'none' }); toast('Same transition between every clip'); render(); } }, 'Apply to all clips'),
+          h('button.link-btn', { type: 'button', title: 'A sound effect that fits this transition', onclick: () => { const X = window.StudioSfx, s = X && X.byId[X.FOR_TRANSITION[(el.clip.trans && el.clip.trans.type) || 'cut'] || 'swish']; if (s) S.addLibrarySound(s, el.time.start + (el.clip._in || 0) / 2); closePop(); } }, 'Add a sound'),
           h('button.link-btn', { type: 'button', onclick: () => { const t = el.time.start; S.seek(Math.max(0, t - 0.6)); S.play(); setTimeout(() => { if (S.isPlaying() && now() > t + (el.clip._in || 0) + 0.5) S.pause(); }, 1600); } }, 'Preview')));
       const val = pop.querySelector('.vtl-pop-row b');
       if (val) val.textContent = (cur.dur || 0.5).toFixed(2) + 's';

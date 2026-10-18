@@ -2283,7 +2283,6 @@
   }
 
   /* templates */
-  let tplTag = 'All';
   function templateCard(t, onPick, width = 260, opts = {}) {
     const thumb = h('div.thumb.skeleton', { style: { aspectRatio: `${t.width} / ${t.height}` } });
     const main = h('button.tpl-main', { type: 'button', onclick: () => onPick(t), title: opts.title || `Use “${t.name}”` }, thumb, opts.meta === false ? null : h('div.meta', null, opts.label || t.name));
@@ -2502,7 +2501,7 @@
       const name = nameIn.value.trim() || 'My template';
       closeModal();
       S.myTemplates.save(name, target || null)
-        .then(() => toast(`Saved “${name}” to My templates`, { label: 'Show', run: () => { tplGroup = null; piecesOf = null; tplTag = 'All'; queries.templates = ''; setTab('templates'); panel.scrollTop = 0; } }))
+        .then(() => toast(`Saved “${name}” to My templates`, { label: 'Show', run: () => { tplGroup = null; piecesOf = null; Object.assign(tplState, { cat: 'all', sub: 'all' }); queries.templates = ''; setTab('templates'); panel.scrollTop = 0; } }))
         .catch(() => toast('Couldn’t save the template — the browser’s storage may be full'));
     };
     nameIn.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') save(); });
@@ -2561,36 +2560,80 @@
       h('div.tpl-grid', null, list.map(t => myTemplateCard(t, useTemplate, 260)), q ? null : saveTile));
   }
 
+  /* templates by kind: what you're making (STUDIO_TEMPLATE_CATS) → its kinds → families, plus still / video */
+  const TCATS = () => window.STUDIO_TEMPLATE_CATS || [];
+  const fmtOk = (t, f) => !f || f === 'any' || (f === 'video' ? !!t.video : !t.video);
+  const catMatch = (t, st) => (st.cat === 'all' || t.cat === st.cat) && (st.sub === 'all' || t.sub === st.sub) && fmtOk(t, st.fmt);
+  const tplSearch = (t, q) => !q || t.name.toLowerCase().includes(q) || (t.group || '').toLowerCase().includes(q) || (t.sub || '').toLowerCase().includes(q) || (t.tags || []).some(g => g.toLowerCase().includes(q));
+  function catBar(st, redraw, o = {}) {
+    const wrap = h('div.cat-bar');
+    const draw = () => {
+      const cats = TCATS(), BT = window.STUDIO_TEMPLATES || [];
+      const famCount = c => new Set(BT.filter(t => (c === 'all' || t.cat === c) && fmtOk(t, st.fmt)).map(t => t.group || t.id)).size;
+      const chip = (on, label, run, small) => h('button.chip' + (on ? '.on' : ''), { type: 'button', onclick: run }, label, small != null ? h('small.cat-n', null, small) : null);
+      const row1 = h('div.chips.scroll.cat-chips', null,
+        [['all', 'All'], ...cats.map(c => [c.id, c.name])].map(([k, l]) => chip(st.cat === k, l, () => { st.cat = k; st.sub = 'all'; draw(); redraw(); }, famCount(k))),
+        (o.links || []).map(([l, icon, run]) => h('button.chip.cat-link', { type: 'button', onclick: run, title: 'Open ' + l }, ic(icon), l)));
+      const cur = cats.find(c => c.id === st.cat);
+      const row2 = cur && cur.subs.length > 1 ? h('div.chips.scroll.sub-chips', null,
+        chip(st.sub === 'all', 'Everything', () => { st.sub = 'all'; draw(); redraw(); }),
+        cur.subs.map(([sb]) => chip(st.sub === sb, sb, () => { st.sub = sb; draw(); redraw(); }))) : null;
+      const fmt = h('div.seg.fmt-seg', null, [['any', 'Any'], ['still', 'Still'], ['video', 'Video']].map(([k, l]) => h('button' + ((st.fmt || 'any') === k ? '.on' : ''), { type: 'button', onclick: () => { st.fmt = k; draw(); redraw(); } }, l)));
+      wrap.replaceChildren(...[row1, h('div.cat-row', null, row2 ? h('div.grow', null, row2) : h('div.grow', null, cur ? h('span.hint', null, cur.blurb) : null), fmt)].filter(Boolean));
+      hydrateIcons(wrap);
+    };
+    draw();
+    return wrap;
+  }
+  // cards for a list of templates: one per family (searching shows every match), in sections by category / kind
+  function tplSections(list, st, q, famCard, oneCard, o = {}) {
+    const T = allTemplates();
+    const cardsOf = items => {
+      const seen = new Set(), cards = [];
+      for (const t of items) {
+        if (t.group && !q) {
+          if (seen.has(t.group)) continue;
+          seen.add(t.group);
+          cards.push(famCard(t, T.filter(x => x.group === t.group && fmtOk(x, st.fmt))));
+        } else cards.push(oneCard(t));
+      }
+      return cards;
+    };
+    if (q || (st.cat !== 'all' && st.sub !== 'all')) return [h(o.grid || 'div.tpl-grid', null, cardsOf(list))];
+    const cats = TCATS(), out = [];
+    const groups = st.cat === 'all' ? cats.map(c => [c.name, list.filter(t => t.cat === c.id), () => { st.cat = c.id; st.sub = 'all'; }, c.blurb])
+      : (cats.find(c => c.id === st.cat) || { subs: [] }).subs.map(([sb]) => [sb, list.filter(t => t.sub === sb), () => { st.sub = sb; }]);
+    for (const [title, items, pick, blurb] of groups) {
+      const cards = cardsOf(items);
+      if (!cards.length) continue;
+      const lim = o.limit && cards.length > o.limit ? o.limit : 0;
+      out.push(h('div.tpl-sec-head', null, h('h3', null, title, h('small', null, ` ${cards.length}`)), blurb && !o.noBlurb ? h('span.hint', null, blurb) : null,
+        h('button.link-btn', { type: 'button', onclick: () => { pick(); o.redraw(); } }, lim ? `See all ${cards.length}` : 'Open')),
+      h(o.grid || 'div.tpl-grid', null, lim ? cards.slice(0, lim) : cards));
+    }
+    return out;
+  }
+  const tplState = { cat: 'all', sub: 'all', fmt: 'any' };
   function templatesPanel() {
     const T = allTemplates();
     if (piecesOf) { const t = T.find(x => x.id === piecesOf); if (t) return piecesPanel(t); piecesOf = null; }
     if (tplGroup) { const m = T.filter(t => t.group === tplGroup); if (m.length) return familyPanel(tplGroup, m); tplGroup = null; }
     const BT = window.STUDIO_TEMPLATES || [];
-    const tags = ['All', 'Video', ...[...new Set(BT.flatMap(t => t.tags || []))].filter(x => x !== 'Video')];
-    const grid = h('div.tpl-grid'), mine = h('div');
+    const body = h('div'), mine = h('div');
     const draw = () => {
       const q = (queries.templates || '').trim().toLowerCase();
-      mine.replaceChildren(...[tplTag === 'All' ? myTemplatesBlock(q) : null].filter(Boolean));
+      mine.replaceChildren(...[tplState.cat === 'all' ? myTemplatesBlock(q) : null].filter(Boolean));
       hydrateIcons(mine);
-      const list = BT.filter(t => (tplTag === 'All' || (t.tags || []).includes(tplTag)) && (!q || t.name.toLowerCase().includes(q) || (t.group || '').toLowerCase().includes(q) || (t.tags || []).some(g => g.toLowerCase().includes(q))));
-      // one card per family; searching shows every match individually
-      const seen = new Set(), cards = [];
-      for (const t of list) {
-        if (t.group && !q) {
-          if (seen.has(t.group)) continue;
-          seen.add(t.group);
-          const members = T.filter(x => x.group === t.group);
-          cards.push(templateCard(t, () => { tplGroup = t.group; tplStyle = null; renderPanel(); panel.scrollTop = 0; }, 260, { family: true, count: countOf(members), label: t.group, title: `See all ${countOf(members)} styles of “${t.group}”` }));
-        } else cards.push(templateCard(t, useTemplate, 260, { pieces: true }));
-      }
-      grid.replaceChildren(...cards);
-      if (!list.length) grid.append(h('p.hint', null, 'No templates match.'));
-      hydrateIcons(grid);
+      const list = BT.filter(t => catMatch(t, tplState) && tplSearch(t, q));
+      const fam = (t, members) => templateCard(t, () => { tplGroup = t.group; tplStyle = null; renderPanel(); panel.scrollTop = 0; }, 260, { family: true, count: countOf(members), label: t.group, title: `See all ${countOf(members)} styles of “${t.group}”` });
+      body.replaceChildren(...tplSections(list, tplState, q, fam, t => templateCard(t, useTemplate, 260, { pieces: true }), { redraw: () => { bar.replaceWith(bar = catBar(tplState, draw, barOpts)); draw(); panel.scrollTop = 0; }, noBlurb: true, limit: tplState.cat === 'all' ? 4 : 0 }));
+      if (!list.length) body.append(h('p.hint', null, 'No templates match.'));
+      hydrateIcons(body);
     };
-    const chips = h('div.chips.scroll');
-    const drawChips = () => chips.replaceChildren(...tags.map(tg => h('button.chip' + (tg === tplTag ? '.on' : ''), { type: 'button', onclick: () => { tplTag = tg; drawChips(); draw(); } }, tg)));
-    drawChips(); draw();
-    return [panelHead('Templates'), searchBox('Search templates', draw), chips, mine, grid];
+    const barOpts = { links: [['Styles', 'sparkle', () => setTab('styles')], ['Sounds', 'music', () => setTab('sounds')]] };
+    let bar = catBar(tplState, draw, barOpts);
+    draw();
+    return [panelHead('Templates'), searchBox('Search templates', draw), bar, mine, body];
   }
 
   /* elements */
@@ -3234,7 +3277,7 @@
 
   const home = $('#home');
   const HOME_SIZES = [['Portrait post', 1080, 1350], ['Square post', 1080, 1080], ['Story / Reel', 1080, 1920], ['Landscape', 1920, 1080]];
-  const hs = { filter: 'all', sort: 'edited', q: '', tag: 'All', allTpl: false };
+  const hs = { filter: 'all', sort: 'edited', q: '', cat: 'all', sub: 'all', fmt: 'any', allTpl: false };
   function ago(t) {
     const s = (Date.now() - t) / 1000;
     if (s < 45) return 'just now';
@@ -3379,23 +3422,16 @@
     if (!homeTplGrid) return;
     const T = window.STUDIO_TEMPLATES || [];
     const q = hs.q.trim().toLowerCase();
-    const list = T.filter(t => (hs.tag === 'All' || (t.tags || []).includes(hs.tag)) && (!q || t.name.toLowerCase().includes(q) || (t.group || '').toLowerCase().includes(q) || (t.tags || []).some(g => g.toLowerCase().includes(q))));
-    const seen = new Set(), cards = [];
-    for (const t of list) {
-      if (t.group && !q) {
-        if (seen.has(t.group)) continue;
-        seen.add(t.group);
-        const members = T.filter(x => x.group === t.group);
-        cards.push(templateCard(t, () => familyModal(t.group, members), 220, { family: true, count: countOf(members), label: t.group, title: `See all ${countOf(members)} styles of “${t.group}”` }));
-      } else cards.push(templateCard(t, startTemplate, 220));
-    }
-    const limit = hs.allTpl || q ? cards.length : 12;
-    homeTplGrid.replaceChildren(...cards.slice(0, limit));
-    if (!cards.length) homeTplGrid.append(h('p.hint', null, 'No templates match.'));
+    const list = T.filter(t => catMatch(t, hs) && tplSearch(t, q));
+    const fam = (t, members) => templateCard(t, () => familyModal(t.group, members), 220, { family: true, count: countOf(members), label: t.group, title: `See all ${countOf(members)} styles of “${t.group}”` });
+    const redraw = () => { homeCatBar.replaceWith(homeCatBar = catBar(hs, drawHomeTemplates)); drawHomeTemplates(); };
+    homeTplGrid.replaceChildren(...tplSections(list, hs, q, fam, t => templateCard(t, startTemplate, 220), { grid: 'div.home-tpls', redraw, limit: hs.cat === 'all' && !hs.allTpl ? 5 : 0 }));
+    if (!list.length) homeTplGrid.append(h('p.hint', null, 'No templates match.'));
     const btn = $('#home-tpl-more');
-    if (btn) { btn.hidden = cards.length <= 12 || !!q; btn.textContent = hs.allTpl ? 'Show fewer' : `Show all ${cards.length}`; }
+    if (btn) { btn.hidden = hs.cat !== 'all' || !!q; btn.textContent = hs.allTpl ? 'Show fewer' : 'Show every family'; }
     hydrateIcons(homeTplGrid);
   }
+  let homeCatBar = null;
   async function drawProjects(slot, tabs) {
     const all = (await S.projects.list()).slice();
     const q = hs.q.trim().toLowerCase();
@@ -3437,11 +3473,9 @@
     videoCard.addEventListener('dragover', e => { e.preventDefault(); videoCard.classList.add('over'); });
     videoCard.addEventListener('dragleave', () => videoCard.classList.remove('over'));
     videoCard.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); videoCard.classList.remove('over'); startVideo([...e.dataTransfer.files]); });
-    const tags = ['All', 'Video', ...[...new Set(T.flatMap(t => t.tags || []))].filter(x => x !== 'Video')];
-    const chips = h('div.chips.scroll');
-    const drawChips = () => chips.replaceChildren(...tags.map(tg => h('button.chip' + (tg === hs.tag ? '.on' : ''), { type: 'button', onclick: () => { hs.tag = tg; drawChips(); drawHomeTemplates(); } }, tg)));
-    drawChips();
-    homeTplGrid = h('div.home-tpls');
+    homeCatBar = catBar(hs, drawHomeTemplates);
+    const chips = homeCatBar;
+    homeTplGrid = h('div.home-tpls-wrap');
     const sortSel = h('select.sel.home-sort', { 'aria-label': 'Sort designs', onchange: e => { hs.sort = e.target.value; drawProjects(projSlot, tabs); } },
       [['edited', 'Last edited'], ['created', 'Newest first'], ['name', 'Name']].map(([v, l]) => h('option', { value: v, selected: hs.sort === v }, l)));
     const cur = S.projectId;

@@ -598,6 +598,14 @@
   const kindOf = id => kinds[id] || (typeof assets[id] === 'string' && assets[id].startsWith('data:video') ? 'video' : typeof assets[id] === 'string' && assets[id].startsWith('data:audio') ? 'audio' : 'image');
   S.assetKind = kindOf;
   S.assetBlob = id => blobs[aliases[id] || id] || null;
+  // library sounds (sfx.js) are made on first use and never saved: the same recipe makes the same file
+  const making = new Map();
+  S.ensureSound = function (id) {
+    if (assets[id]) return Promise.resolve(true);
+    if (!/^sfx-/.test(id) || !window.StudioSfx) return Promise.resolve(false);
+    if (!making.has(id)) making.set(id, window.StudioSfx.render(id.slice(4)).then(b => { if (b && !assets[id]) { assets[id] = URL.createObjectURL(b); kinds[id] = 'audio'; } return !!assets[id]; }));
+    return making.get(id);
+  };
   S.addMedia = function (blob, kind) { const id = uid('a'); blobs[id] = blob; kinds[id] = kind; assets[id] = URL.createObjectURL(blob); return id; };
   // a second id for the same file
   S.aliasAsset = function (id) {
@@ -780,7 +788,7 @@
 
   // my templates: a design saved to start new ones from. Index under 'templates', data under 'template:<id>'
   // (the doc, the photos/videos it uses — bundled demo photos are left out — and any uploaded fonts)
-  const BUILT_IN = /^(demo|img|film|ed)-/;
+  const BUILT_IN = /^(demo|img|film|ed|sfx)-/;
   let tplList = null;
   async function myTemplates() {
     if (tplList) return tplList;
@@ -933,6 +941,7 @@
     if (d.layout && !doc.elements.some(e => e.layoutSlot)) for (const e of doc.elements) if (e.type === 'image') e.layoutSlot = true;
     R.animDoc = doc;
     if (newAssets) Object.assign(assets, newAssets);
+    for (const a of doc.audio || []) if (/^sfx-/.test(a.assetId || '')) S.ensureSound(a.assetId);
     for (const el of doc.elements) autosize(el, false);
     sel = [];
     rebuild();
@@ -2558,7 +2567,7 @@
     const imgs = files.filter(f => f.type.startsWith('image/') || (!opts.imagesOnly && isVideoFile(f)));
     // a new video edit starts from its clips; its music goes in after the new design exists
     const later = [];
-    const place = got => { for (const a of got) S.addSound(a.id, { name: a.name, duration: a.duration, at: opts.soundAt || 0 }); };
+    const place = got => { for (const a of got) S.addSound(a.id, { name: a.name, duration: a.duration, at: opts.soundAt || 0, lane: opts.soundLane }); };
     if (sounds.length) {
       const got = [];
       for (const f of sounds) {
@@ -2584,6 +2593,7 @@
       } catch (e) { emit('toast', (e && e.message && !/^Could not read image$/.test(e.message) ? e.message : 'Couldn’t open ' + f.name)); }
     }
     if (!added.length) return;
+    if (opts.asOverlay && S.addOverlays) { emit('uploads'); return S.addOverlays(added, opts); }
     if (opts.asClips && S.addClips) { emit('uploads'); const r = S.addClips(added, opts); if (later.length) { place(later); S.uploads.unshift(...later.map(a => a.id)); } return r; }
     emit('uploads');
     if (opts.uploadOnly) { scheduleSave(); if (opts.onAdded) opts.onAdded(added); return added; }

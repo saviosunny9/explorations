@@ -79,6 +79,9 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
 - **Oct 18** — real paper scans; big-media storage (photos at full resolution, videos of any size kept as files in
   IndexedDB, designs up to 10 minutes, `.studio.zip` project files); sound (video sound, music, voiceover, mixed into
   exports); the Video editor (several clips on a timeline: trim, split, reorder, 13 transitions, auto fix, titles).
+  Then: layer tracks on the timeline (video / photo / text layers over the video, several sound tracks), a synthesized
+  Sounds library (49 effects, 9 music beds, sound for every transition / entrance) and templates sorted by category
+  (Photos / Videos / Text / Collage & notes / Explainers → kinds, Any / Still / Video).
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 
@@ -102,6 +105,8 @@ coffee tastes OFF!", "TO MAKE USING MONEY" → "TO MAKE MONEY SIMPLE". Earlier s
   project zip round trip). AAC-in-MP4 export needs real Chrome; if a browser has no AAC encoder the MP4 gets Opus sound.
   Speed changes shift a clip's pitch; a reversed clip is silent in the preview (its reversed sound is in the export).
 - A design with sound plays it in the preview only while playing (scrubbing is silent).
+- The library sounds are synthesized (no samples), so they sound clean / electronic rather than recorded; music beds take
+  1–4 s to make the first time (previews show a pulsing button meanwhile).
 - The online copy is meant to read the background-removal model from parts published with it
   (`models/rmbg.part0–4.txt`, `models/ultraface.txt`), but those aren't published yet: huggingface.co was blocked
   from the cloud environment when the project moved. Until they are, background removal there depends on the
