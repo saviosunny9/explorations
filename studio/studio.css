@@ -1050,6 +1050,14 @@ select.sel option, select.sel optgroup { background: #111114; color: #fff; }
 
 .start-card.photo .start-art { background: linear-gradient(135deg, #26262b, #0e0e11) !important; color: var(--ink); }
 
+
+/* real paper swatches */
+.paper-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.paper-grid.big { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.paper-sw { position: relative; aspect-ratio: 1; border: 0; padding: 0; background: #f1ece2 center / cover no-repeat; background-blend-mode: multiply; box-shadow: inset 0 0 0 1px var(--line); border-radius: 2px; overflow: hidden; }
+.paper-sw span { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 4px; font-size: 9.5px; line-height: 1.2; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.6)); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.paper-sw:hover { box-shadow: 0 0 0 1px rgba(255,255,255,.5); }
+.paper-sw.on { box-shadow: 0 0 0 1.5px var(--ink); }
 /* ───────────────────────── phone layout (body.mobile) ─────────────────────────
    The canvas fills the screen; tools run along the bottom; each tool opens a small sheet. */
 .mtools { display: none; }

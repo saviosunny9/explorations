@@ -26,22 +26,22 @@
   const THEMES = {
     paper: {
       label: 'Paper', bg: '#f2ede1', sheet: '#fbf8f0', ink: '#151412', dim: '#5d5850', accent: '#e0312b', hi: '#fff200', band: '#e4dccb',
-      background: { color: '#f2ede1', texture: 45, crumple: 22, crumpleSeed: 5, relief: true },
-      overlay: { grain: 22, paper: 10, vignette: 22, light: 14, dust: 8 },
+      background: { color: '#f2ede1', texture: 70, paperId: 'natural', crumple: 16, crumpleSeed: 5, relief: true },
+      overlay: { grain: 16, vignette: 20, light: 14, dust: 6 },
     },
     newsprint: {
       label: 'Newsprint', bg: '#e6e1d3', sheet: '#f1ecdf', ink: '#1b1a17', dim: '#55524b', accent: '#c8102e', hi: '#ffe94d', band: '#d6d0bf',
-      background: { color: '#e6e1d3', texture: 60, pattern: { type: 'halftone', color: 'rgba(0,0,0,0.05)', size: 12 } },
-      overlay: { grain: 30, paper: 16, vignette: 26, dust: 12, grunge: 18 },
+      background: { color: '#e9e4d6', texture: 85, paperId: 'recycled', pattern: { type: 'halftone', color: 'rgba(0,0,0,0.04)', size: 12 } },
+      overlay: { grain: 22, vignette: 22, dust: 10, grunge: 6 },
     },
     archive: {
       label: 'Archive', bg: '#d9ccb0', sheet: '#efe6d0', ink: '#1c1810', dim: '#5a4f3c', accent: '#b3261e', hi: '#ffd23f', band: '#c9b994',
-      background: { color: '#d9ccb0', texture: 60, crumple: 35, crumpleSeed: 11, relief: true },
-      overlay: { grain: 28, paper: 14, vignette: 34, dust: 18, grunge: 45, light: 10 },
+      background: { color: '#ece0c6', texture: 100, paperId: 'aged', crumple: 14, crumpleSeed: 11, relief: true },
+      overlay: { grain: 20, vignette: 26, dust: 12, grunge: 8, light: 10 },
     },
     clean: {
       label: 'Clean', bg: '#f6f4ef', sheet: '#ffffff', ink: '#111111', dim: '#666666', accent: '#ff4f2e', hi: '#fff200', band: '#e9e6df',
-      background: { color: '#f6f4ef', texture: 15 },
+      background: { color: '#f6f4ef', texture: 45, paperId: 'cotton' },
       overlay: { grain: 10, vignette: 10 },
     },
   };

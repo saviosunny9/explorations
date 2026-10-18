@@ -10,6 +10,7 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `fonts.js` | 150 Google Fonts (serif, display, script, handwritten, mono) and font loading |
 | `stickers.js`, `stickers-game.js` | 170 recolourable SVG stickers, including glossy game-UI icons and crystals |
 | `nature.js` | Procedural garden painters (lawn hills, flower beds, bushes, hedges, trees, clouds, sky) and 9 garden backdrops |
+| `papers.js` | 12 real paper scans (ambientCG CC0, Wikimedia Commons public domain / CC0) used for every paper texture |
 | `render.js` | Canvas renderer for every element type, used by both the editor and export |
 | `styles.js` | 109 realtime image styles (dreamy motion, ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
 | `styles-ui.js` | The Styles panel, the Style section of the inspector and the action bar under the canvas |
@@ -23,7 +24,7 @@ Work is autosaved to the browser (IndexedDB). Use **Menu → Download project fi
 
 ## Use it on another computer
 
-1. **Get the app**: copy `studio/dist/collage-studio.html` (one file, about 2.4 MB) to the other laptop — USB stick, email, Drive, AirDrop, anything. Double-click it; it opens in Chrome, Edge, Brave or Arc (Safari and Firefox mostly work, but video export and background removal are best in Chrome/Edge). Keep it in the same folder so the browser keeps its saved designs together.
+1. **Get the app**: copy `studio/dist/collage-studio.html` (one file, about 8 MB) to the other laptop — USB stick, email, Drive, AirDrop, anything. Double-click it; it opens in Chrome, Edge, Brave or Arc (Safari and Firefox mostly work, but video export and background removal are best in Chrome/Edge). Keep it in the same folder so the browser keeps its saved designs together.
 2. **Move your designs**: designs are saved inside the browser, so they don't travel with the HTML file. On the home page use a design's **⋯ → Download project file** (a `.studio.json` with its photos, videos and uploaded fonts inside), copy that file across, then on the other laptop click **Open file** on the home page. It lands in *Your designs* there.
 3. **Offline**: the editor, templates, your photos and videos, and image / video export all work with no internet. Only two things need a connection: Google Fonts (without it, text uses the computer's own fonts until you're online) and background removal (a one-off ~40 MB model download).
 
@@ -91,6 +92,20 @@ Brick mosaic, Risograph print, Halftone poster, Cyanotype, Fluted glass, CRT scr
 
 The editor's look: near-black chrome with hairline borders, white as the only accent, Geist for words, Geist Mono for
 numbers and `/ SECTION` labels, Geist Pixel for display type (all free Google Fonts).
+
+## Real paper
+
+Every paper texture in the app — the background's *Paper texture* finish, paper on shapes and bordered photo frames, the
+Vox explainer looks and the templates that use paper — is a scan or photo of real paper (no more generated tile). Pick one
+in **Canvas → Real paper** or under **Finish → Paper texture**: *Natural* (the default), *Cotton*, *Vellum*, *Creased*,
+*Recycled*, *Kraft*, *Laid*, and aged sheets *Aged*, *Parchment*, *Folded letter*, *Water-stained*, *Burnt edges*. The scan
+is laid over your background colour (multiply), stretched once across the canvas so it never repeats, and turned to suit
+landscape canvases; *Amount* sets how strong it reads. Texture boil re-crops and flips it every frame. The Vox looks use
+Natural (Paper), Recycled (Newsprint), Aged (Archive) and Cotton (Clean).
+
+Sources (free to bundle): ambientCG Paper001, Paper002, Paper003, Paper004, Paper006 (CC0, ambientcg.com); Wikimedia
+Commons “Old paper1/2/6/7.jpg”, “Old Paper texture.jpg” (public domain) and “Pergament.2.jpg” (CC0). Prepared with
+`tools/papers_prep.py` (normalised so the sheet is white and its fibres, folds and stains remain).
 
 ## Home page and your designs
 

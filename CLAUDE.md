@@ -35,6 +35,7 @@ requests unless asked.
 | File | Role |
 | --- | --- |
 | `index.html` | Shell: top bar, left rail, panel, stage, inspector, dock, home overlay, script order. |
+| `papers.js` | `window.StudioPapers`: 12 real paper scans as multiply maps (`{ id, name, kind: 'clean' \| 'aged', credit, src }`, `DEFAULT` 'natural'), made by `tools/papers_prep.py` from ambientCG (CC0) and Wikimedia Commons (PD / CC0). |
 | `render.js` | `window.StudioRender` (R). Pure canvas-2D renderer used by the editor, thumbnails and export. Every element type, filters, frames, text layout, animation, camera, video sync. |
 | `app.js` | `window.Studio` (S). Editor core: document state, Konva stage, selection, drag/resize, snapping, crop, path / spot editing, history, autosave + projects (IndexedDB), import, keyboard. |
 | `styles.js` | `window.StudioStyles` (ST): 109 realtime image styles in 11 families (`ST.CATS`), each `{ id, name, cat, tags, kind: 'cells' \| 'filter', anim, animIf, params, fn }`; `ST.apply(src, sfx, { t, mask, lim })` returns a restyled canvas. |
@@ -103,6 +104,12 @@ are the bundled photos from `flashes.js`, `film-` from `filmphotos.js`, `ed-` fr
   filter keys to `FILTER_KEYS`, then show them in `adjustSection` / `filmSection` (ui.js) and, for
   presets, `R.FILTER_PRESETS` + a shelf in `R.FILTER_GROUPS`. Draw-time photo finishes (vignette, grain,
   light leak, dust) live in `overlays()` (`R.photoFinish`) and get a time only for time-varying layers.
+- Paper texture (`background.texture`, `overlay.paper`, shape `texture`, `frame.texture`, amounts 0–100) draws a real scan
+  from papers.js: `fillTexture(ctx, 'paper', amount, w, h, scale, frame, paperId)` → `drawPaper` (multiply, cover-fitted once,
+  turned 90° when the orientation differs, boil = new crop + flip per frame); ids in `background.paperId`, `overlay.paperId`
+  (falls back to the background's), `el.paperId`, `frame.paperId`; default 'natural'. The old procedural `paper()` tile is
+  only a fallback while a scan decodes; `R.preload` waits for the scans. UI: `paperPick(t, path, amountPath)` swatches
+  (Finish → Paper texture, shape Texture, bordered frames) and the *Real paper* shelf in the Canvas panel.
 - Film effects over the whole canvas (`doc.overlay`: grain + grainSize, dust, burn, flicker, leak) are
   painted in `drawOverlay(ctx, doc, t)`; `overlay.weave` (gate weave) is applied in `camAt` like a
   camera move. `R.hasFilmMotion(doc)` (weave / flicker) makes a design count as a video.

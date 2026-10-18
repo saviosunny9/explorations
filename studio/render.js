@@ -463,8 +463,40 @@
     }
     return (paperTex = c);
   }
-  function fillTexture(ctx, kind, amount, w, h, scale = 1, frame = null) {
+  // real paper (papers.js): one scan laid over the whole surface — no tiling seams — turned to suit its shape.
+  // The procedural tile above is only the fallback while a scan decodes.
+  const paperImgs = {};
+  function paperLoad(id) {
+    const P = window.StudioPapers;
+    const p = P && (P.byId(id) || P.byId(P.DEFAULT));
+    if (!p) return null;
+    let e = paperImgs[p.id];
+    if (!e) {
+      const im = new Image();
+      e = paperImgs[p.id] = { im, promise: new Promise(res => { im.onload = () => { requestRedraw(); res(); }; im.onerror = () => res(); }) };
+      im.src = p.src;
+    }
+    return e;
+  }
+  function paperImage(id) { const e = paperLoad(id); return e && e.im.complete && e.im.naturalWidth ? e.im : null; }
+  R.paperImage = paperImage;
+  function drawPaper(ctx, im, amount, w, h, frame) {
+    const iw = im.naturalWidth, ih = im.naturalHeight, turn = (w > h) !== (iw > ih) && Math.max(w / h, h / w) > 1.15;
+    let s = Math.max(w / (turn ? ih : iw), h / (turn ? iw : ih));
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha *= clamp(amount / 100, 0, 1);
+    ctx.translate(w / 2, h / 2);
+    // texture boil: a fresh crop and flip of the same sheet every stepped frame
+    if (frame != null) { const r = rng(frame * 2654435761 + 17); s *= 1.14; ctx.translate((r() - 0.5) * w * 0.12, (r() - 0.5) * h * 0.12); ctx.scale(r() < 0.5 ? -1 : 1, r() < 0.5 ? -1 : 1); }
+    if (turn) ctx.rotate(Math.PI / 2);
+    ctx.drawImage(im, -iw * s / 2, -ih * s / 2, iw * s, ih * s);
+    ctx.restore();
+  }
+  function fillTexture(ctx, kind, amount, w, h, scale = 1, frame = null, paperId = null) {
     if (!amount) return;
+    if (kind === 'paper') { const im = paperImage(paperId); if (im) { drawPaper(ctx, im, amount, w, h, frame); return; } }
     const tex = kind === 'paper' ? paper() : grain();
     const pat = ctx.createPattern(tex, 'repeat');
     // moving grain: a fresh offset into the noise tile every frame, so it dances like real film
@@ -3031,7 +3063,7 @@
     }
     if (g.outer) {
       ctx.fillStyle = f.color || '#fff'; ctx.fill(g.outer);
-      if (f.texture) { ctx.save(); ctx.clip(g.outer); fillTexture(ctx, 'paper', f.texture, el.width, el.height); ctx.restore(); }
+      if (f.texture) { ctx.save(); ctx.clip(g.outer); fillTexture(ctx, 'paper', f.texture, el.width, el.height, 1, null, f.paperId); ctx.restore(); }
     }
     let img = assetImage(el.assetId);
     if (img && env.editor && isVideoAsset(el.assetId)) liveSync(img, el.video, 'time' in env ? env.time : R.playTime, (el.time && el.time.start) || 0);
@@ -3244,7 +3276,7 @@
     if ((el.pattern && el.pattern.type && el.pattern.type !== 'none') || el.texture || el.crumple) {
       ctx.save(); ctx.clip(path, rule);
       drawPattern(ctx, w, h, el.pattern);
-      if (el.texture) fillTexture(ctx, 'paper', el.texture, w, h);
+      if (el.texture) fillTexture(ctx, 'paper', el.texture, w, h, 1, null, el.paperId);
       if (el.crumple) drawCrumple(ctx, w, h, el.crumple, el.seed || 3);
       ctx.restore();
     }
@@ -4758,7 +4790,7 @@
     }
     drawPattern(ctx, w, h, bg.pattern);
     const tB = 'time' in opts ? opts.time : R.playTime;
-    if (bg.texture) fillTexture(ctx, 'paper', bg.texture, w, h, 1, boilAt(doc, tB));
+    if (bg.texture) fillTexture(ctx, 'paper', bg.texture, w, h, 1, boilAt(doc, tB), bg.paperId);
     // with relief on, the folds are drawn once above the layers instead (see renderDoc), so the print sits in the paper
     if (bg.crumple && !bg.relief) drawCrumple(ctx, w, h, bg.crumple, bg.crumpleSeed || 1, boilJit(doc, tB, 2));
   }
@@ -4774,7 +4806,7 @@
     if (o.grain) fillTexture(ctx, 'grain', o.grain, w, h, grainScale(o.grainSize), t != null ? Math.floor(t * 24) : null);
     if (o.dust) dustScratches(ctx, w, h, o.dust, t != null ? Math.floor(t * 12) : null, 1);
     if (o.tint && o.tintAmount) { ctx.save(); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha *= o.tintAmount / 100; ctx.fillStyle = o.tint; ctx.fillRect(0, 0, w, h); ctx.restore(); }
-    if (o.paper) fillTexture(ctx, 'paper', o.paper, w, h, 1, boilAt(doc, t));
+    if (o.paper) fillTexture(ctx, 'paper', o.paper, w, h, 1, boilAt(doc, t), o.paperId || (doc.background && doc.background.paperId));
     if (o.grunge) {
       const g = grungeTexture(w, h, (o.grungeSeed || 3)), j = boilJit(doc, t, 5), m = Math.max(w, h) * 0.012;
       ctx.save(); ctx.globalAlpha *= clamp(o.grunge / 100, 0, 1);
@@ -5226,6 +5258,8 @@
   R.preload = async function (doc) {
     const jobs = [];
     for (const [f, w, i] of fontsOf(doc)) jobs.push(Fonts.ensure(f, w, i));
+    // the paper scans this design uses (decoding them is quick, so all of them)
+    for (const p of (window.StudioPapers ? window.StudioPapers.LIST : [])) { const e = paperLoad(p.id); if (e) jobs.push(e.promise); }
     const ids = new Set();
     if (doc.background && doc.background.assetId) ids.add(doc.background.assetId);
     for (const el of doc.elements || []) {

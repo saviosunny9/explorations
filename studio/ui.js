@@ -489,6 +489,20 @@
     return sec(title, rows, true, { key: key || title, collapsible: false, actions: addBtn });
   }
   const label = t => h('div.sub-label', null, t);
+  // real paper scans (papers.js) as small swatches; picking one sets the id at path (and a starting amount if none)
+  function paperPick(t, path, amountPath) {
+    const P = window.StudioPapers;
+    if (!P) return null;
+    const cur = () => val(t, path) || P.DEFAULT;
+    const grid = h('div.paper-grid', null, P.LIST.map(p => {
+      const b = h('button.paper-sw', { type: 'button', title: p.name, 'aria-label': p.name, style: { backgroundImage: `url(${p.src})` },
+        onclick: () => { S.change(t, path, p.id, true); if (amountPath && !(val(t, amountPath) > 0)) S.change(t, amountPath, 80, true); S.commit(); upd(); } }, h('span', null, p.name));
+      b._id = p.id; return b;
+    }));
+    const upd = () => { const c = cur(); for (const b of grid.children) b.classList.toggle('on', b._id === c); };
+    bindings.push(upd); upd();
+    return full(grid);
+  }
   function swatchRow(items) {
     // items: [title, getter, setter]
     return h('div.swatches', null, items.map(([title, get, set]) => {
@@ -1062,6 +1076,7 @@
           fs === 'filed' ? row('Roughness', num(T, 'frame.rough', { min: 0, max: 300, scale: 100, slider: true, unit: '%', def: 1 })) : null,
           fs === 'filed' ? full(h('button.btn', { type: 'button', onclick: () => S.change(T, 'frame.seed', Math.floor(Math.random() * 1e5)) }, ic('shuffle'), 'New edge')) : null,
           bordered ? row('Paper', num(T, 'frame.texture', { min: 0, max: 100, slider: true })) : null,
+          bordered && el.frame.texture > 0 ? paperPick(T, 'frame.paperId') : null,
         ]) : null,
       ], fs !== 'none' || !el.assetId),
     ];
@@ -1127,7 +1142,8 @@
         row('Pattern', selectCtl(T, 'pattern.type', Object.entries(R.PATTERNS), { set: v => { S.change(T, 'pattern.type', v); renderInspector(); } })),
         el.pattern && el.pattern.type !== 'none' ? row('Colour', colorCtl(T, 'pattern.color')) : null,
         el.pattern && el.pattern.type !== 'none' ? row('Size', num(T, 'pattern.size', { min: 4, max: 300, slider: true })) : null,
-        row('Paper grain', num(T, 'texture', { min: 0, max: 100, slider: true })),
+        row('Paper', num(T, 'texture', { min: 0, max: 100, slider: true })),
+        el.texture > 0 ? paperPick(T, 'paperId') : null,
         row('Crumpled', num(T, 'crumple', { min: 0, max: 100, slider: true, def: 0 })),
       ], !!(el.texture || el.crumple || (el.pattern && el.pattern.type !== 'none'))),
     ];
@@ -2089,7 +2105,7 @@
             ]),
           ],
         },
-        fin('Paper texture', 'background.texture'),
+        fin('Paper texture', 'background.texture', 100, { def: 70, body: () => [paperPick(T, 'background.paperId')] }),
         fin('Crumpled paper', 'background.crumple', 100, { def: 60, body: () => [
           toggle(T, 'background.relief', 'Creases over the layers too'),
           h('p.hint', null, 'Folds and shading run over text and photos as well, so they look printed on the paper.'),
@@ -2862,6 +2878,12 @@
       h('button.size-btn', { type: 'button', onclick: () => openSizeModal() }, h('span', null, sizeName(S.doc.width, S.doc.height)), h('small', null, `${S.doc.width} × ${S.doc.height}`), ic('resize')),
       h('div.shelf', null, h('div.shelf-head', null, h('h3', null, 'Colour')), sw),
       h('div.shelf', null, h('div.shelf-head', null, h('h3', null, 'Gradient')), grads),
+      window.StudioPapers ? h('div.shelf', null, h('div.shelf-head', null, h('h3', null, 'Real paper')),
+        h('p.hint.shelf-note', null, 'Scans of real paper laid over your background colour.'),
+        h('div.paper-grid.big', null, window.StudioPapers.LIST.map(p => h('button.paper-sw', {
+          type: 'button', title: p.name, style: { backgroundImage: `url(${p.src})`, backgroundColor: S.doc.background.color || '#fff' },
+          onclick: () => { S.change('doc', 'background.paperId', p.id, true); if (!(S.doc.background.texture > 0)) S.change('doc', 'background.texture', 80, true); S.commit(); renderInspector(); renderPanel(); },
+        }, h('span', null, p.name))))) : null,
       ...order.filter(g => groups.has(g)).map(g => shelf(g, groups.get(g).map(item), { grid: 'tpl-grid.bg-grid', limit: 4 })),
       S.doc.background.assetId
         ? h('div.btn-row.bg-photo-row', null,
