@@ -1199,6 +1199,108 @@ body.mobile .inspector .sec.empty:not(.m-hide) .sec-body::before { content: 'Not
 /* the screen close-up look, shown over the artboard while playing */
 #overlay-layer > .screen-view { position: absolute; pointer-events: none; }
 
+/* ── video timeline (timeline.js) ── */
+.stage-area.vtl-open #stage, .stage-area.vtl-open #overlay-layer { bottom: var(--inset, 0px); }
+.stage-area.vtl-open .dock { bottom: calc(var(--vtl-h) + 14px); }
+.stage-area.vtl-open .timeline { display: none; }
+.vtl {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--vtl-h, 236px); z-index: 9; display: flex; flex-direction: column;
+  background: var(--chrome, #0b0b0e); border-top: 1px solid var(--line-strong); user-select: none; -webkit-user-select: none;
+}
+.vtl.over { box-shadow: inset 0 0 0 2px var(--accent); }
+.vtl-grip { position: absolute; left: 0; right: 0; top: -4px; height: 8px; cursor: ns-resize; z-index: 3; }
+.vtl-bar { display: flex; align-items: center; gap: 2px; padding: 5px 8px; border-bottom: 1px solid var(--line); flex: none; }
+.vtl-play { width: 30px; height: 30px; border: 0; background: var(--ink); color: var(--accent-ink, #000); display: grid; place-items: center; flex: none; }
+.vtl-play i { width: 14px; height: 14px; }
+.vtl-time { font: 500 11.5px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 104px; padding: 0 8px; }
+.vtl-sep { width: 1px; height: 20px; background: var(--line); margin: 0 5px; flex: none; }
+.vtl-grow { flex: 1; }
+.vtl-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 0; background: transparent; color: var(--ink-2); font-size: 12.5px; white-space: nowrap; flex: none; }
+.vtl-btn i { width: 16px; height: 16px; }
+.vtl-btn:hover { background: rgba(255, 255, 255, .07); color: var(--ink); }
+.vtl-btn.rec { color: #ff5a5a; }
+.vtl-btn.rec i { animation: vtl-blink 1s steps(2) infinite; }
+@keyframes vtl-blink { 50% { opacity: .25; } }
+.vtl-zoom { width: 96px; accent-color: var(--ink); }
+.vtl-scroll { flex: 1; overflow: auto; position: relative; }
+.vtl-inner { position: relative; min-height: 100%; }
+.vtl-rulerrow { display: flex; height: 22px; position: sticky; top: 0; z-index: 4; background: var(--chrome, #0b0b0e); border-bottom: 1px solid var(--line); cursor: text; }
+.vtl-ruler { display: block; }
+.vtl-lab { width: 76px; flex: none; position: sticky; left: 0; z-index: 3; background: var(--chrome, #0b0b0e); border-right: 1px solid var(--line);
+  font: 500 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); display: flex; align-items: center; justify-content: space-between; padding: 0 6px 0 8px; }
+.vtl-row { display: flex; border-bottom: 1px solid var(--line); }
+.vtl-row.ov { height: 26px; }
+.vtl-row.main { height: 58px; }
+.vtl-row.au { height: 44px; }
+.vtl-track { position: relative; flex: 1; }
+.vtl-mini { width: 20px; height: 20px; border: 0; background: transparent; color: var(--ink-2); display: grid; place-items: center; padding: 0; }
+.vtl-mini i { width: 13px; height: 13px; }
+.vtl-mini:hover { color: var(--ink); background: rgba(255, 255, 255, .08); }
+.vtl-empty { position: absolute; left: 6px; top: 6px; bottom: 6px; right: 6px; border: 1px dashed var(--line-strong); background: transparent; color: var(--ink-3);
+  display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 12px; max-width: 520px; }
+.vtl-empty i { width: 15px; height: 15px; }
+.vtl-empty:hover { color: var(--ink); border-color: var(--ink-3); }
+.vtl-clip, .vtl-sound, .vtl-ovb {
+  position: absolute; top: 5px; bottom: 5px; overflow: hidden; cursor: grab; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, .22);
+}
+.vtl-ovb { top: 3px; bottom: 3px; background: #3c3a56; color: #fff; font-size: 11px; display: flex; align-items: center; padding: 0 8px; white-space: nowrap; border-color: rgba(255, 255, 255, .18); }
+.vtl-ovb.t-text { background: #4b3f6e; }
+.vtl-ovb.t-sticker, .vtl-ovb.t-shape { background: #5a4a2c; }
+.vtl-ovb.t-image { background: #2c4a5a; }
+.vtl-ovb span { overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.vtl-clip { background: #1b1b20; }
+.vtl-clip.lift { opacity: .8; z-index: 5; cursor: grabbing; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+.vtl-clip .vtl-strip, .vtl-sound .vtl-wave { position: absolute; left: 0; top: 0; pointer-events: none; }
+.vtl-clip-info { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 6px; align-items: center; padding: 2px 6px; font-size: 10.5px; color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .7)); white-space: nowrap; overflow: hidden; pointer-events: none; }
+.vtl-clip-info span { overflow: hidden; text-overflow: ellipsis; }
+.vtl-clip-info small { color: rgba(255, 255, 255, .7); font: 500 10px/1 var(--mono); }
+.vtl-clip-info i { width: 11px; height: 11px; }
+.vtl-clip.on, .vtl-sound.on, .vtl-ovb.on { border: 2px solid var(--sel); z-index: 2; }
+.vtl-h { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; z-index: 2; }
+.vtl-h.l { left: 0; } .vtl-h.r { right: 0; }
+.vtl-clip.on .vtl-h, .vtl-sound.on .vtl-h, .vtl-ovb.on .vtl-h { background: var(--sel); width: 6px; }
+.vtl-sound { top: 4px; bottom: 4px; background: #183b34; }
+.vtl-sound.voice { background: #3b2b18; }
+.vtl-sound.muted { opacity: .45; }
+.vtl-sound .vtl-clip-info { background: none; top: 0; bottom: auto; }
+.vtl-fade { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.vtl-fade.in { left: 0; background: linear-gradient(to top right, rgba(0, 0, 0, .55) 50%, transparent 50%); }
+.vtl-fade.out { right: 0; background: linear-gradient(to top left, rgba(0, 0, 0, .55) 50%, transparent 50%); }
+.vtl-trans { position: absolute; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px; z-index: 3; border: 1px solid var(--line-strong);
+  background: #26262c; color: var(--ink-2); display: grid; place-items: center; padding: 0; font: 600 10px/1 var(--mono); opacity: .55; }
+.vtl-trans i { width: 12px; height: 12px; }
+.vtl-trans.on { background: var(--ink); color: #000; opacity: 1; }
+.vtl-trans:hover, .vtl-track:hover .vtl-trans { opacity: 1; }
+.vtl-head { position: absolute; top: 0; bottom: 0; left: 0; width: 0; z-index: 6; pointer-events: none; }
+.vtl-head::before { content: ''; position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; background: #ff4d4d; }
+.vtl-head span { position: absolute; top: 0; left: -6px; width: 12px; height: 12px; background: #ff4d4d; clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%); }
+.vtl-pop { position: absolute; z-index: 10; width: 280px; background: var(--surface-2); border: 1px solid var(--line-strong); padding: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .5); }
+.vtl-pop-title { font: 500 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin-bottom: 8px; }
+.vtl-trans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.vtl-trans-grid button { height: 30px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); font-size: 11.5px; }
+.vtl-trans-grid button.on { background: var(--ink); color: #000; border-color: var(--ink); }
+.vtl-trans-grid button:hover { color: var(--ink); border-color: var(--line-strong); }
+.vtl-pop-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.vtl-pop-row input { flex: 1; accent-color: var(--ink); }
+.vtl-pop-row b { font: 500 11px/1 var(--mono); min-width: 38px; text-align: right; }
+.vtl-dirs { margin-top: 8px; }
+.vtl-pop-foot { display: flex; justify-content: space-between; margin-top: 10px; }
+.sound-row { display: flex; align-items: center; gap: 6px; }
+.sound-row .ctl { flex: 1; }
+.sound-row .icon-btn.on { color: #ff6b6b; }
+.snd-list { display: grid; gap: 4px; margin-bottom: 8px; }
+.snd-item { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); font-size: 12px; text-align: left; }
+.snd-item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snd-item small { font: 500 10px/1 var(--mono); color: var(--ink-3); }
+.snd-item i { width: 14px; height: 14px; }
+.snd-item:hover { color: var(--ink); border-color: var(--line-strong); }
+@media (max-width: 1500px) { .vtl-btn span { display: none; } }
+body.mobile .vtl-zoom, body.mobile .vtl-btn[title^="Fit"] { display: none; }
+.vtl-time { white-space: nowrap; }
+body.mobile .vtl-bar { overflow-x: auto; scrollbar-width: none; }
+body.mobile .vtl-time { min-width: 0; }
+
 </style>
 </head>
 <body>
@@ -1259,8 +1361,8 @@ body.mobile .inspector .sec.empty:not(.m-hide) .sec-body::before { content: 'Not
   <div id="popover-root"></div>
   <div id="modal-root"></div>
   <div class="toast" id="toast"></div>
-  <input type="file" id="file-input" accept="image/*,video/*" multiple hidden />
-  <input type="file" id="project-input" accept=".json,application/json" hidden />
+  <input type="file" id="file-input" accept="image/*,video/*,audio/*" multiple hidden />
+  <input type="file" id="project-input" accept=".json,.zip,application/json,application/zip" hidden />
 <script>
 !function(t,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):(t="undefined"!=typeof globalThis?globalThis:t||self).Konva=e()}(this,(function(){"use strict";
 /*
@@ -8056,6 +8158,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     requestAnimationFrame(() => { redrawQueued = false; redrawHook(); });
   }
   R.setAssets = a => { assets = a; };
+  // what each asset is when its URL doesn't say (blob: URLs of videos and sound files)
+  let assetKinds = {};
+  R.setAssetKinds = k => { assetKinds = k; };
   R.onRedraw = fn => { redrawHook = fn; };
   R.requestRedraw = requestRedraw;
   // safety net: any face finishing (e.g. one first used by the DOM) invalidates text metrics
@@ -8090,8 +8195,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   /* ── video assets: a muted <video> per asset, drawn like a photo ── */
   const vidCache = new Map();
-  function isVideoAsset(id) { const a = id && assets[id]; return typeof a === 'string' && a.startsWith('data:video'); }
+  function isVideoAsset(id) { const a = id && assets[id]; return typeof a === 'string' && (assetKinds[id] === 'video' || a.startsWith('data:video')); }
   R.isVideoAsset = isVideoAsset;
+  R.isAudioAsset = id => { const a = id && assets[id]; return typeof a === 'string' && (assetKinds[id] === 'audio' || a.startsWith('data:audio')); };
   function dataToBlobUrl(src) {
     const i = src.indexOf(','), mime = src.slice(5, src.indexOf(';'));
     const bin = atob(src.slice(i + 1)), u = new Uint8Array(bin.length);
@@ -8112,7 +8218,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       v.addEventListener('error', () => { e.failed = true; res(); }, { once: true });
     });
     v.addEventListener('seeked', () => requestRedraw());
-    try { v.src = dataToBlobUrl(src); } catch (err) { e.failed = true; }
+    try { v.src = src.startsWith('data:') ? dataToBlobUrl(src) : src; } catch (err) { e.failed = true; }
     vidCache.set(id, e);
     return e;
   }
@@ -8126,22 +8232,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05)), len = Math.max(0.05, end - ts);
     if (t == null) return Math.min(dur - 0.02, ts + (vd.poster || 0));
     const lt = Math.max(0, t - (start || 0)) * (vd.speed || 1);
-    return Math.min(end - 0.02, ts + (vd.loop === false ? Math.min(lt, len - 0.02) : lt % len));
+    const k = vd.loop === false ? Math.min(lt, len - 0.02) : lt % len;
+    // played backwards: from the end of the trimmed part to its start
+    if (vd.reverse) return Math.max(ts, end - 0.02 - k);
+    return Math.min(end - 0.02, ts + k);
   };
   // every place a video is shown: image layers and the canvas background
   function videoUsers(doc) {
     const out = [];
     const bg = doc.background || {};
-    if (isVideoAsset(bg.assetId)) out.push({ id: bg.assetId, vd: bg.video, start: 0 });
-    for (const el of doc.elements || []) if (el.type === 'image' && !el.hidden && isVideoAsset(el.assetId)) out.push({ id: el.assetId, vd: el.video, start: (el.time && el.time.start) || 0 });
+    if (isVideoAsset(bg.assetId)) out.push({ id: bg.assetId, vd: bg.video, start: 0, el: null });
+    for (const el of doc.elements || []) if (el.type === 'image' && !el.hidden && isVideoAsset(el.assetId)) out.push({ id: el.assetId, vd: el.video, start: (el.time && el.time.start) || 0, el });
     return out;
   }
+  R.videoUsers = videoUsers;
+  // a layer that's cut out at this moment needs no frame (clips after each other each have their own window)
+  const userOn = (u, t) => !u.el || t == null || R.visibleAt(u.el, t);
   R.hasVideo = doc => videoUsers(doc).length > 0;
   R.playing = false;
   // editor preview: let the video run and only correct it when it drifts
   function liveSync(v, vd, t, start) {
     const target = R.videoTarget(vd, t, v, start);
-    if (t == null || !R.playing) {
+    // a video can't play backwards: a reversed clip is stepped by seeking
+    if (t == null || !R.playing || (vd && vd.reverse)) {
       if (!v.paused) v.pause();
       if (Math.abs(v.currentTime - target) > 0.04 && !v.seeking) v.currentTime = target;
       return;
@@ -8152,7 +8265,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     else if (Math.abs(v.currentTime - target) > 0.3 && !v.seeking) v.currentTime = target;
   }
   R.liveSyncVideos = function (doc, t) {
-    for (const u of videoUsers(doc)) { const e = assetVideo(u.id); if (e && e.ok) liveSync(e.v, u.vd, t, u.start); }
+    const seen = new Set();
+    for (const u of videoUsers(doc)) {
+      const e = assetVideo(u.id);
+      if (!e || !e.ok) continue;
+      if (userOn(u, t)) { seen.add(u.id); liveSync(e.v, u.vd, t, u.start); continue; }
+      if (seen.has(u.id)) continue;
+      // off screen: stop it, and park a clip that's about to come in on its first frame
+      if (!e.v.paused) e.v.pause();
+      const s0 = u.el.time && u.el.time.start;
+      if (t != null && s0 > t && s0 - t < 1.5 && !e.v.seeking) { const want = R.videoTarget(u.vd, s0, e.v, u.start); if (Math.abs(e.v.currentTime - want) > 0.04) e.v.currentTime = want; }
+    }
   };
   R.pauseVideos = function () { for (const e of vidCache.values()) if (!e.v.paused) e.v.pause(); };
   /* ── smooth slow motion ──
@@ -8359,6 +8482,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   R.syncVideos = async function (doc, t, force) {
     const jobs = [];
     for (const u of videoUsers(doc)) {
+      if (!userOn(u, t)) continue;
       const e = assetVideo(u.id);
       if (!e) continue;
       if (!e.ok) await e.promise;
@@ -8368,7 +8492,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // a seek still in flight (from the editor) would leave its old frame on screen
       if (v.seeking) await new Promise(res => { const fin = () => { v.removeEventListener('seeked', fin); res(); }; v.addEventListener('seeked', fin); setTimeout(fin, 1500); });
       // slowed down with smooth frames: build the in-between frame (one video, two seeks, so not in parallel)
-      if (t != null && u.vd && (u.vd.speed || 1) < 0.999) { await smoothFrame(u, e, t); continue; }
+      if (t != null && u.vd && (u.vd.speed || 1) < 0.999 && !u.vd.reverse) { await smoothFrame(u, e, t); continue; }
       const target = R.videoTarget(u.vd, t, v, u.start);
       if (!force && Math.abs(v.currentTime - target) < 0.0005) continue;
       jobs.push(new Promise(res => {
@@ -10051,7 +10175,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const hit = isVid ? ((vidFilterCache.get(id) || {}).key === key ? vidFilterCache.get(id).out : null) : filterCache.get(key);
     if (hit) return hit;
     // video frames are graded smaller: 1280 px for export, 720 px while previewing so playback keeps up
-    const ds = isVid ? Math.min(1, (R.playing ? 720 : 1280) / Math.max(iwOf(img), ihOf(img))) : 1;
+    // very large photos are graded at up to 4096 px (more than any canvas size needs, and quick enough to adjust)
+    const ds = Math.min(1, (isVid ? (R.playing ? 720 : 1280) : 4096) / Math.max(iwOf(img), ihOf(img)));
     const c = canvas(Math.max(1, Math.round(iwOf(img) * ds)), Math.max(1, Math.round(ihOf(img) * ds))), x = c.getContext('2d', { willReadFrequently: true });
     x.drawImage(img, 0, 0, c.width, c.height);
     let d;
@@ -11917,7 +12042,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const tm = el.time;
     if (!tm) return true;
     // the still view shows every cut at once, except a Vox explainer, which shows its first scene
-    if (t == null) return !(el.vox && tm.start > 0);
+    if (t == null) return !((el.vox || el.clip) && tm.start > 0);
     const s0 = tm.start || 0, e0 = tm.end;
     if (t < s0 - 1e-6) return false;
     if (e0 != null && e0 > s0 && t >= e0) return false;
@@ -12197,7 +12322,85 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   R.isTracked = el => !!(el.track && el.track.pts && el.track.pts.length);
 
+  /* ── transitions between clips of a video edit ──
+     A clip's transition overlaps the end of the clip before it (S.layoutClips sets clip._in on the incoming clip and
+     clip._out on the outgoing one); both sides are drawn with their half of the effect. */
+  R.TRANSITIONS = { none: 'Cut', fade: 'Dissolve', black: 'Dip to black', white: 'Flash', slide: 'Slide', push: 'Push', whip: 'Whip pan', wipe: 'Wipe', iris: 'Circle', zoom: 'Zoom', blur: 'Blur', spin: 'Spin', glitch: 'Glitch' };
+  R.TRANS_DIRS = ['slide', 'push', 'whip', 'wipe'];
+  function clipFx(el, t) {
+    const c = el.clip;
+    if (!c || t == null || !el.time) return null;
+    const s0 = el.time.start || 0, e0 = el.time.end;
+    if (c._in > 0 && c.trans && t < s0 + c._in) return { p: clamp((t - s0) / c._in, 0, 1), type: c.trans.type, dir: c.trans.dir, inn: true };
+    if (c._out && c._out.dur > 0 && e0 != null && t > e0 - c._out.dur) return { p: clamp((t - (e0 - c._out.dur)) / c._out.dur, 0, 1), type: c._out.type, dir: c._out.dir, inn: false };
+    return null;
+  }
+  const hash1 = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
   function drawElement(ctx, el, env = {}) {
+    const t = 'time' in env ? env.time : R.playTime;
+    const fx = el.clip ? clipFx(el, t) : null;
+    if (!fx || !fx.type || fx.type === 'none' || !R.visibleAt(el, t)) return drawElementCore(ctx, el, env);
+    const doc = env.doc || R.animDoc || {}, W = doc.width || el.width, H = doc.height || el.height, w = el.width, h = el.height;
+    const p = fx.p, e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2, inn = fx.inn;
+    // the way the picture travels: 'left' = the new clip comes in from the right
+    const d = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[fx.dir || 'left'] || [1, 0];
+    let e2 = el, tint = null;
+    ctx.save();
+    switch (fx.type) {
+      case 'fade': if (inn) ctx.globalAlpha *= e; break;
+      case 'black': case 'white': {
+        // dip: the old clip goes to the colour by halfway, the new one comes up out of it
+        const col = fx.type === 'black' ? '#000000' : '#ffffff';
+        if (inn) { if (p < 0.5) { ctx.restore(); return; } tint = [col, fx.type === 'white' ? Math.pow(2 * (1 - p), 1.6) : 2 * (1 - p)]; } else tint = [col, Math.min(1, 2 * p)];
+        break;
+      }
+      case 'slide': if (inn) ctx.translate((1 - e) * W * d[0], (1 - e) * H * d[1]); break;
+      case 'push': case 'whip': {
+        if (inn) ctx.translate((1 - e) * W * d[0], (1 - e) * H * d[1]); else ctx.translate(-e * W * d[0], -e * H * d[1]);
+        if (fx.type === 'whip') {
+          const sp = Math.sin(Math.PI * p) * Math.hypot(W * d[0], H * d[1]) * 0.22;
+          if (sp > 1.5) e2 = Object.assign({}, el, { lblur: Object.assign({}, el.lblur || {}, { motion: ((el.lblur && el.lblur.motion) || 0) + sp, angle: d[1] ? 90 : 0 }) });
+        }
+        break;
+      }
+      case 'wipe': if (inn) {
+        ctx.beginPath();
+        if (d[0] > 0) ctx.rect(w * (1 - e), -h, w * e + w, h * 3); else if (d[0] < 0) ctx.rect(-w, -h, w * (1 + e), h * 3);
+        else if (d[1] > 0) ctx.rect(-w, h * (1 - e), w * 3, h * e + h); else ctx.rect(-w, -h, w * 3, h * (1 + e));
+        ctx.clip();
+      } break;
+      case 'iris': if (inn) { ctx.beginPath(); ctx.arc(w / 2, h / 2, Math.max(0.5, e * Math.hypot(w, h) / 2), 0, Math.PI * 2); ctx.clip(); } break;
+      case 'zoom': {
+        const k = inn ? 1.3 - 0.3 * e : 1 + 0.3 * e;
+        ctx.translate(w / 2, h / 2); ctx.scale(k, k); ctx.translate(-w / 2, -h / 2);
+        if (inn) ctx.globalAlpha *= Math.min(1, e * 1.4);
+        break;
+      }
+      case 'blur': {
+        const b = (inn ? 1 - e : e) * Math.min(W, H) * 0.03;
+        if (inn) ctx.globalAlpha *= e;
+        if (b > 0.3) e2 = Object.assign({}, el, { lblur: Object.assign({}, el.lblur || {}, { gauss: ((el.lblur && el.lblur.gauss) || 0) + Math.round(b * 2) / 2 }) });
+        break;
+      }
+      case 'spin': {
+        const k = inn ? 0.5 + 0.5 * e : 1 + 0.4 * e, r = inn ? (1 - e) * -120 : e * 120;
+        ctx.translate(w / 2, h / 2); ctx.rotate(r * Math.PI / 180); ctx.scale(k, k); ctx.translate(-w / 2, -h / 2);
+        if (inn) ctx.globalAlpha *= e;
+        break;
+      }
+      case 'glitch': {
+        // flickers between the two with sideways jumps that settle
+        const f = Math.floor(t * 24), amt = inn ? 1 - p : p;
+        if (inn && hash1(f) > p * 1.15) { ctx.restore(); return; }
+        ctx.translate((hash1(f + 7) - 0.5) * W * 0.12 * amt, (hash1(f + 3) - 0.5) * H * 0.02 * amt);
+        break;
+      }
+    }
+    drawElementCore(ctx, e2, env);
+    if (tint && tint[1] > 0.002) { ctx.globalAlpha = Math.min(1, tint[1]) * (el.opacity ?? 1); ctx.fillStyle = tint[0]; ctx.fillRect(0, 0, w, h); }
+    ctx.restore();
+  }
+  function drawElementCore(ctx, el, env = {}) {
     const t = 'time' in env ? env.time : R.playTime;
     if (!R.visibleAt(el, t)) return;
     // clips cut in between typed words: only on screen during their own slot (hidden while editing the still)
@@ -20184,6 +20387,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   if (window.StudioFlashes && window.StudioFlashes.IMG) for (const [k, v] of Object.entries(window.StudioFlashes.IMG)) assets['img-' + k] = v.src;
   if (window.StudioFilm && window.StudioFilm.IMG) for (const [k, v] of Object.entries(window.StudioFilm.IMG)) assets['film-' + k] = v.src;
   if (window.StudioPortraits && window.StudioPortraits.IMG) for (const [k, v] of Object.entries(window.StudioPortraits.IMG)) assets['ed-' + k] = v.src;
+  // big media (videos, sound, full-size photos) stay as files: assets[id] is a blob: URL, kinds[id] says what it is,
+  // and the bytes go to IndexedDB once ('media:<id>') instead of with every autosave. An alias is a second id for the
+  // same file (a split clip), so each use gets its own <video>
+  const kinds = {}, blobs = {}, aliases = {}, stored = new Set();
+  R.setAssetKinds(kinds);
   let sel = [];
   let playing = false;
   let pathEdit = null;
@@ -20454,10 +20662,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     applyView();
   };
   S.zoomBy = f => S.zoomAt(S.view.scale * f);
-  new ResizeObserver(() => {
-    stage.size({ width: area.clientWidth, height: area.clientHeight });
+  // the video timeline takes the bottom of the stage area (S.setStageInset)
+  S.stageInset = 0;
+  function sizeStage() {
+    stage.size({ width: area.clientWidth, height: Math.max(80, area.clientHeight - S.stageInset) });
     if (S.view.fit) S.fit(); else applyView();
-  }).observe(area);
+  }
+  S.setStageInset = px => { if (px === S.stageInset) return; S.stageInset = px; area.style.setProperty('--inset', px + 'px'); sizeStage(); };
+  new ResizeObserver(sizeStage).observe(area);
 
   area.addEventListener('wheel', e => {
     e.preventDefault();
@@ -20492,7 +20704,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         try { R.drawElement(ctx, e, { editor: true }); } catch (err) { console.error(err); }
         ctx.restore();
       },
-      hitFunc: (c, shape) => { c.beginPath(); c.rect(0, 0, shape.width(), shape.height()); c.closePath(); c.fillStrokeShape(shape); },
+      // a layer that's cut out at this moment (another clip's turn) doesn't catch clicks
+      hitFunc: (c, shape) => { const e = elMap.get(id); if (e && e.time && !R.visibleAt(e, R.playTime)) return; c.beginPath(); c.rect(0, 0, shape.width(), shape.height()); c.closePath(); c.fillStrokeShape(shape); },
     });
     n.on('mouseenter', () => { if (!dragging && !sel.includes(id)) showHover(n); area.style.cursor = elMap.get(id)?.locked ? 'default' : 'move'; });
     n.on('mouseleave', () => { hoverRect.visible(false); uiLayer.batchDraw(); area.style.cursor = ''; });
@@ -20581,6 +20794,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   S.syncTypeLength = syncTypeLength;
   S.commit = function () {
+    if (S.layoutClips) S.layoutClips();
     syncTypeLength();
     const s = snapshot();
     if (hist.stack[hist.idx] === s) return;
@@ -20622,24 +20836,105 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     async get(k) { const d = await this.open(); return new Promise((res, rej) => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
     async set(k, v) { const d = await this.open(); return new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); },
     async del(k) { const d = await this.open(); return new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').delete(k); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); },
+    async keys() { const d = await this.open(); return new Promise((res, rej) => { const q = d.transaction('kv').objectStore('kv').getAllKeys(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
   };
   let saveTimer = null;
-  function usedAssets() {
+  // every asset a design points at
+  function refIds(d) {
     const ids = new Set();
-    if (doc.background.assetId) ids.add(doc.background.assetId);
-    if (doc.overlay && doc.overlay.userTex) ids.add(doc.overlay.userTex);
-    for (const el of doc.elements) {
+    if (d.background.assetId) ids.add(d.background.assetId);
+    if (d.overlay && d.overlay.userTex) ids.add(d.overlay.userTex);
+    for (const el of d.elements) {
       if (el.assetId) ids.add(el.assetId);
       if (el.studio && el.studio.cutId) ids.add(el.studio.cutId);
       if (el.bgRemoved && el.bgRemoved.assetId) ids.add(el.bgRemoved.assetId);
       if (el.type === 'flashes') for (const a of el.images || []) ids.add(a);
       if (el.seq && el.seq.ids) for (const a of el.seq.ids) ids.add(a);
     }
-    for (const id of S.uploads) ids.add(id);
-    const out = {};
-    for (const id of ids) if (assets[id]) out[id] = assets[id];
-    return out;
+    for (const a of d.audio || []) if (a.assetId) ids.add(a.assetId);
+    for (const sc of (d.vox && d.vox.scenes) || []) for (const k of ['assetId', 'assetId2', 'cutId']) if (sc[k]) ids.add(sc[k]);
+    return ids;
   }
+  // the media a design needs saved with it (bundled photos are always there), aliases followed to their file
+  function mediaIds(d, extra) {
+    const out = new Set();
+    for (const id of [...refIds(d), ...(extra || [])]) {
+      if (!assets[id] || BUILT_IN.test(id)) continue;
+      out.add(id);
+      if (aliases[id]) out.add(aliases[id]);
+    }
+    return [...out];
+  }
+  const kindOf = id => kinds[id] || (typeof assets[id] === 'string' && assets[id].startsWith('data:video') ? 'video' : typeof assets[id] === 'string' && assets[id].startsWith('data:audio') ? 'audio' : 'image');
+  S.assetKind = kindOf;
+  S.assetBlob = id => blobs[aliases[id] || id] || null;
+  S.addMedia = function (blob, kind) { const id = uid('a'); blobs[id] = blob; kinds[id] = kind; assets[id] = URL.createObjectURL(blob); return id; };
+  // a second id for the same file
+  S.aliasAsset = function (id) {
+    if (!assets[id]) return id;
+    const root = aliases[id] || id, nid = uid('a');
+    assets[nid] = assets[root]; kinds[nid] = kindOf(root); aliases[nid] = root;
+    return nid;
+  };
+  let storeWarned = false;
+  async function storeMedia(ids) {
+    // files first, so an alias never points at something unsaved
+    for (const id of ids.slice().sort((a, b) => (aliases[a] ? 1 : 0) - (aliases[b] ? 1 : 0))) {
+      if (stored.has(id) || !assets[id]) continue;
+      const rec = aliases[id] ? { kind: kindOf(id), alias: aliases[id] } : blobs[id] ? { kind: kinds[id], blob: blobs[id] } : { kind: kindOf(id), url: assets[id] };
+      try { await DB.set('media:' + id, rec); stored.add(id); } catch (e) {
+        if (!storeWarned) { storeWarned = true; emit('toast', 'The browser’s storage is full — download the project file to keep your media'); }
+      }
+    }
+  }
+  // bring saved media back into the asset store
+  async function loadMedia(ids) {
+    const later = [];
+    for (const id of ids || []) {
+      if (assets[id]) continue;
+      const m = await DB.get('media:' + id).catch(() => null);
+      if (!m) continue;
+      if (m.alias) { later.push([id, m]); continue; }
+      if (m.blob) { blobs[id] = m.blob; assets[id] = URL.createObjectURL(m.blob); } else assets[id] = m.url;
+      if (m.kind) kinds[id] = m.kind;
+      stored.add(id);
+    }
+    for (const [id, m] of later) {
+      if (!assets[m.alias]) await loadMedia([m.alias]);
+      if (!assets[m.alias]) continue;
+      assets[id] = assets[m.alias]; kinds[id] = m.kind || kindOf(m.alias); aliases[id] = m.alias; stored.add(id);
+    }
+  }
+  // assets that arrived inline (older projects and files) as data URLs
+  function takeAssets(obj) {
+    for (const [id, src] of Object.entries(obj || {})) if (!assets[id]) assets[id] = src;
+  }
+  S.loadMedia = loadMedia;
+  // media nothing points at any more (deleted designs and templates) is cleared out once per visit
+  async function collectMedia() {
+    const keys = await DB.keys().catch(() => null);
+    if (!keys) return;
+    const media = keys.filter(k => typeof k === 'string' && k.startsWith('media:'));
+    if (!media.length) return;
+    const keep = new Set([...mediaIds(doc, S.uploads)]);
+    for (const k of keys) {
+      if (typeof k !== 'string' || !(k.startsWith('project:') || k.startsWith('template:'))) continue;
+      const data = await DB.get(k).catch(() => null);
+      for (const id of (data && data.media) || []) keep.add(id);
+    }
+    for (const k of media) {
+      const id = k.slice(6);
+      if (keep.has(id)) continue;
+      const m = await DB.get(k).catch(() => null);
+      if (m && m.alias) continue;
+      await DB.del(k).catch(() => {});
+      stored.delete(id);
+    }
+    // aliases whose file is gone
+    for (const k of media) { const m = await DB.get(k).catch(() => null); if (m && m.alias && !keep.has(k.slice(6)) && !(await DB.get('media:' + m.alias).catch(() => null))) await DB.del(k).catch(() => {}); }
+  }
+  setTimeout(() => { (window.requestIdleCallback || (f => f()))(() => collectMedia()); }, 20000);
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   S.uploads = [];
   // every design is its own project in this browser: the full data lives under
   // 'project:<id>' and a light index (name, size, thumbnail, status) under 'projects'
@@ -20673,7 +20968,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const id = S.projectId;
     if (!id) return;
     const now = Date.now();
-    await DB.set('project:' + id, { doc, assets: usedAssets(), uploads: S.uploads, name: S.docName, savedAt: now }).catch(() => {});
+    const media = mediaIds(doc, S.uploads);
+    await storeMedia(media);
+    await DB.set('project:' + id, { doc, media, uploads: S.uploads, name: S.docName, savedAt: now }).catch(() => {});
     const list = await projects();
     let it = list.find(p => p.id === id);
     if (!it) { it = { id, status: 'draft', created: now }; list.unshift(it); }
@@ -20693,7 +20990,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   S.saveNow = saveNow;
   S.projects = {
     list: projects,
-    get: id => DB.get('project:' + id).catch(() => null),
+    // the saved design with its media back in the asset store
+    async get(id) {
+      const data = await DB.get('project:' + id).catch(() => null);
+      if (data) { takeAssets(data.assets); await loadMedia(data.media); }
+      return data;
+    },
     last: () => DB.get('lastProject').catch(() => null),
     async update(id, patch) {
       const list = await projects(), it = list.find(p => p.id === id);
@@ -20756,21 +21058,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     tplList = Array.isArray(list) ? list : [];
     return tplList;
   }
-  function docAssets(d) {
-    const ids = new Set();
-    if (d.background.assetId) ids.add(d.background.assetId);
-    if (d.overlay && d.overlay.userTex) ids.add(d.overlay.userTex);
-    for (const el of d.elements) {
-      if (el.assetId) ids.add(el.assetId);
-      if (el.studio && el.studio.cutId) ids.add(el.studio.cutId);
-      if (el.bgRemoved && el.bgRemoved.assetId) ids.add(el.bgRemoved.assetId);
-      if (el.type === 'flashes') for (const a of el.images || []) ids.add(a);
-      if (el.seq && el.seq.ids) for (const a of el.seq.ids) ids.add(a);
-    }
-    const out = {};
-    for (const id of ids) if (assets[id] && !BUILT_IN.test(id)) out[id] = assets[id];
-    return out;
-  }
   async function putTemplate(id, name, data, list, created) {
     const now = Date.now();
     await DB.set('template:' + id, data);
@@ -20786,21 +21073,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   S.myTemplates = {
     list: myTemplates,
-    get: id => DB.get('template:' + id).catch(() => null),
+    async get(id) {
+      const data = await DB.get('template:' + id).catch(() => null);
+      if (data) { takeAssets(data.assets); await loadMedia(data.media); }
+      return data;
+    },
     // save the canvas as it is now; with replaceId, overwrite that template instead of adding a new one
     async save(name, replaceId) {
       if (textEdit) finishTextEdit();
       const list = await myTemplates();
       const id = replaceId && list.some(t => t.id === replaceId) ? replaceId : uid('t');
       const d = clone(doc);
-      const data = { name, doc: d, assets: docAssets(d), video: S.hasAnimation(), fonts: window.StudioFonts.packFamilies(usedFamilies()), savedAt: Date.now() };
+      const media = mediaIds(d);
+      await storeMedia(media);
+      const data = { name, doc: d, media, video: S.hasAnimation(), fonts: window.StudioFonts.packFamilies(usedFamilies()), savedAt: Date.now() };
       return putTemplate(id, name, data, list);
     },
     // a template file from another computer
     async add(data, name) {
       const list = await myTemplates();
-      if (data.assets) Object.assign(assets, data.assets);
-      return putTemplate(uid('t'), name || data.name || 'My template', { name: name || data.name, doc: data.doc, assets: data.assets || {}, video: !!data.video, fonts: data.fonts || [], savedAt: Date.now() }, list);
+      takeAssets(data.assets);
+      const media = mediaIds(data.doc);
+      await storeMedia(media);
+      return putTemplate(uid('t'), name || data.name || 'My template', { name: name || data.name, doc: data.doc, media, video: !!data.video, fonts: data.fonts || [], savedAt: Date.now() }, list);
     },
     async rename(id, name) {
       const list = await myTemplates(), it = list.find(t => t.id === id);
@@ -20837,7 +21132,65 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (const el of doc.elements) for (const k of ['fontFamily', 'titleFont', 'bodyFont', 'ringFont', 'centerFont']) if (el[k]) fam.add(el[k]);
     return [...fam].filter(f => window.StudioFonts.BY_NAME[f] && window.StudioFonts.BY_NAME[f].custom);
   }
-  S.projectData = () => ({ app: 'collage-studio', version: 1, name: S.docName, doc, assets: usedAssets(), uploads: S.uploads, fonts: window.StudioFonts.packFamilies(usedFamilies()) });
+  S.projectData = () => ({ app: 'collage-studio', version: 1, name: S.docName, doc, media: mediaIds(doc, S.uploads), uploads: S.uploads, fonts: window.StudioFonts.packFamilies(usedFamilies()) });
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      if ([...document.scripts].some(x => x.src === src)) return res();
+      const x = document.createElement('script');
+      x.src = src; x.onload = res; x.onerror = () => rej(new Error('Could not load ' + src));
+      document.head.appendChild(x);
+    });
+  }
+  S.loadJSZip = async function () {
+    if (!window.JSZip) await loadScript('vendor/jszip.min.js').catch(() => loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'));
+    return window.JSZip;
+  };
+  const fileExt = (type, kind) => ({ 'video/quicktime': 'mov', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'image/jpeg': 'jpg', 'audio/wav': 'wav', 'audio/x-wav': 'wav' })[type] ||
+    ((type || '').split('/')[1] || (kind === 'video' ? 'mp4' : kind === 'audio' ? 'mp3' : 'bin')).replace(/[^a-z0-9]/gi, '').slice(0, 5);
+  // a design or template as one file: JSON while its media is small, a zip (project.json + media/…) once it holds whole files
+  S.packFile = async function (data) {
+    const ids = data.media || [];
+    await loadMedia(ids);
+    const out = Object.assign({}, data, { assets: Object.assign({}, data.assets || {}) });
+    delete out.media;
+    const files = [];
+    for (const id of ids) {
+      if (!assets[id]) continue;
+      if (aliases[id]) files.push({ id, alias: aliases[id] });
+      else if (blobs[id]) files.push({ id, kind: kinds[id], type: blobs[id].type || '', path: 'media/' + id + '.' + fileExt(blobs[id].type, kinds[id]) });
+      else out.assets[id] = assets[id];
+    }
+    if (!files.some(f => f.path)) {
+      for (const f of files) if (out.assets[f.alias]) out.assets[f.id] = out.assets[f.alias];
+      return { blob: new Blob([JSON.stringify(out)], { type: 'application/json' }), zip: false };
+    }
+    out.files = files;
+    const Z = await S.loadJSZip(), zip = new Z();
+    zip.file('project.json', JSON.stringify(out));
+    for (const f of files) if (f.path) zip.file(f.path, blobs[f.id], { binary: true });
+    // photos and videos are already compressed: store them as they are
+    return { blob: await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true, mimeType: 'application/zip' }), zip: true };
+  };
+  // a .studio.json or .studio.zip file → its data, with the media in the asset store
+  S.readFile = async function (file) {
+    const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+    if (!(head[0] === 0x50 && head[1] === 0x4b)) { const d = JSON.parse(await file.text()); takeAssets(d.assets); return d; }
+    const Z = await S.loadJSZip(), zip = await Z.loadAsync(file);
+    const entry = zip.file('project.json') || zip.file(/(^|\/)project\.json$/)[0];
+    if (!entry) throw new Error('Not a project');
+    const data = JSON.parse(await entry.async('string'));
+    takeAssets(data.assets);
+    for (const f of data.files || []) {
+      if (f.alias || assets[f.id]) continue;
+      const z = zip.file(f.path);
+      if (!z) continue;
+      const b = new Blob([await z.async('blob')], { type: f.type || '' });
+      blobs[f.id] = b; kinds[f.id] = f.kind || 'image'; assets[f.id] = URL.createObjectURL(b);
+    }
+    for (const f of data.files || []) if (f.alias && assets[f.alias] && !assets[f.id]) { assets[f.id] = assets[f.alias]; kinds[f.id] = kindOf(f.alias); aliases[f.id] = f.alias; }
+    data.media = (data.files || []).map(f => f.id);
+    return data;
+  };
 
   /* ───────────────────────── load / new ───────────────────────── */
 
@@ -22024,7 +22377,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   let playStart = 0, raf = 0;
   S.isPlaying = () => playing;
-  S.hasAnimation = () => doc.elements.some(R.hasAnim) || R.hasCamera(doc) || R.hasVideo(doc) || R.hasFilmMotion(doc);
+  S.hasAnimation = () => doc.elements.some(R.hasAnim) || R.hasCamera(doc) || R.hasVideo(doc) || R.hasFilmMotion(doc) || !!(doc.audio && doc.audio.length);
   function applyCamera(t) {
     const cam = t != null ? R.camAt(doc, t) : null;
     const a = cam ? { x: doc.width / 2, y: doc.height / 2, offsetX: cam.fx, offsetY: cam.fy, scaleX: cam.z, scaleY: cam.z, rotation: cam.r }
@@ -22062,6 +22415,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!playing) return;
       const t = ((now - playStart) / 1000) % doc.anim.duration, ts = R.stepTime(doc, t);
       R.playTime = ts;
+      R.liveSyncVideos(doc, ts);
+      if (S.audioTick) S.audioTick(ts);
       applyCamera(ts);
       layer.batchDraw();
       drawScreenView(t);
@@ -22247,7 +22602,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   S.duplicate = function (offset = 24) {
     const els = S.selEls();
     if (!els.length) return;
-    const copies = els.map(e => { const c = clone(e); c.id = uid(); c.x += offset; c.y += offset; c.locked = false; return c; });
+    // a clip of a video edit is copied in place: it plays right after the original
+    const copies = els.map(e => { const c = clone(e); c.id = uid(); if (c.clip) { if (R.isVideoAsset(c.assetId) && S.aliasAsset) c.assetId = S.aliasAsset(c.assetId); } else { c.x += offset; c.y += offset; } c.locked = false; return c; });
     const maxIdx = Math.max(...els.map(e => doc.elements.indexOf(e)));
     doc.elements.splice(maxIdx + 1, 0, ...copies);
     rebuild();
@@ -22357,7 +22713,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // copy / paste properties: the whole look of one layer (font, colours, effects, frame, filters…) onto others
   let styleClip = null;
   const NOT_STYLE = new Set(['track', 'id', 'type', 'x', 'y', 'width', 'height', 'rotation', 'name', 'locked', 'hidden', 'text', 'assetId', 'crop', 'video', 'seq',
-    'points', 'images', 'stickerId', 'shape', 'kind', 'key', 'erase', 'time', 'studio', 'bgRemoved', 'placeholder', 'path', 'autoWidth', 'typing', 'flipX', 'flipY', 'cx', 'cy']);
+    'points', 'images', 'stickerId', 'shape', 'kind', 'key', 'erase', 'time', 'studio', 'bgRemoved', 'placeholder', 'path', 'autoWidth', 'typing', 'flipX', 'flipY', 'cx', 'cy', 'clip']);
   // between different kinds of layer only these carry over
   const SHARED_STYLE = ['opacity', 'blend', 'shadow', 'anim', 'lblur', 'tfx'];
   S.copyStyle = function () {
@@ -22394,96 +22750,123 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // photo slots in the order they appear in the video, then reading order
   S.photoSlots = function (els) {
     const when = e => ((e.time && e.time.start) || 0) + ((e.anim && e.anim.enter && e.anim.enter !== 'none' && e.anim.delay) || 0);
-    return (els || doc.elements).filter(e => e.type === 'image' && !e.locked && !e.hidden && e.name !== 'Film border')
+    return (els || doc.elements).filter(e => e.type === 'image' && !e.locked && !e.hidden && e.name !== 'Film border' && !e.clip)
       .sort((a, b) => when(a) - when(b) || a.y - b.y || a.x - b.x);
   };
   S.fillSlots = function (els) { const slots = S.photoSlots(els); if (slots.length) S.pickImages({ fillIds: slots.map(e => e.id) }); };
   S.pickImages = function (opts = {}) { pickOpts = opts; fileInput.value = ''; fileInput.click(); };
   fileInput.addEventListener('change', () => { if (fileInput.files.length) S.importFiles([...fileInput.files], pickOpts); });
 
+  // photos keep their original file at full resolution; only what a canvas can't hold (over 16384 px or ~250 MP)
+  // and formats a browser can't redraw reliably (SVG, TIFF…) are redrawn
+  const PHOTO_MAX = 16384;
   function readImage(file) {
     return new Promise((res, rej) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
-        const MAX = 2400;
         let w = img.naturalWidth, h = img.naturalHeight;
-        const s = Math.min(1, MAX / Math.max(w, h));
-        w = Math.round(w * s); h = Math.round(h * s);
+        const s = Math.min(1, PHOTO_MAX / Math.max(w, h), Math.sqrt(250e6 / Math.max(1, w * h)));
+        URL.revokeObjectURL(url);
+        if (s === 1 && /^image\/(jpeg|png|webp|gif|avif|bmp)$/.test(file.type)) { res({ blob: file, w, h }); return; }
+        w = Math.max(1, Math.round(w * s)); h = Math.max(1, Math.round(h * s));
         const c = document.createElement('canvas');
         c.width = w; c.height = h;
-        const x = c.getContext('2d');
-        x.drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(url);
-        const alpha = /png|webp|gif|svg/.test(file.type);
-        res({ src: c.toDataURL(alpha ? 'image/png' : 'image/jpeg', 0.92), w, h });
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        const alpha = /png|webp|gif|svg|tiff/.test(file.type);
+        c.toBlob(b => (b ? res({ blob: b, w, h }) : rej(new Error('Could not read image'))), alpha ? 'image/png' : 'image/jpeg', 0.95);
       };
       img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not read image')); };
       img.src = url;
     });
   }
-  // videos are kept whole (muted, like on Instagram) so they can sit under the design
-  const VIDEO_MAX_MB = 120;
+  // videos are kept whole, as the file itself (no size limit beyond what the browser can play), sound included
   function readVideo(file) {
     return new Promise((res, rej) => {
-      if (file.size > VIDEO_MAX_MB * 1048576) { rej(new Error(`Videos up to ${VIDEO_MAX_MB} MB work best — trim this one first`)); return; }
-      const url = URL.createObjectURL(file);
+      // some systems report no type for .mov; browsers read it as mp4
+      const blob = !file.type || /quicktime|octet-stream/.test(file.type) ? new Blob([file], { type: 'video/mp4' }) : file;
+      const url = URL.createObjectURL(blob);
       const v = document.createElement('video');
       v.muted = true; v.preload = 'metadata';
       v.onloadedmetadata = () => {
         const w = v.videoWidth, h = v.videoHeight, duration = v.duration;
         URL.revokeObjectURL(url);
         if (!w || !h) { rej(new Error('This browser can’t play that video')); return; }
-        const fr = new FileReader();
-        fr.onload = () => {
-          let src = String(fr.result);
-          // some systems report no type for .mov; browsers read it as mp4
-          if (src.startsWith('data:;') || src.startsWith('data:application/octet-stream')) src = 'data:video/mp4;' + src.slice(src.indexOf('base64'));
-          if (src.startsWith('data:video/quicktime')) src = 'data:video/mp4;' + src.slice(src.indexOf('base64'));
-          res({ src, w, h, duration, video: true });
-        };
-        fr.onerror = () => rej(new Error('Could not read video'));
-        fr.readAsDataURL(file);
+        res({ blob, w, h, duration, video: true });
       };
       v.onerror = () => { URL.revokeObjectURL(url); rej(new Error('This browser can’t play that video')); };
       v.src = url;
     });
   }
-  const isVideoFile = f => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm)$/i.test(f.name);
-  // a design should run as long as its video, within the 30 s export limit
+  // music and voice: any file the browser can play
+  function readAudio(file) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('audio');
+      a.preload = 'metadata';
+      a.onloadedmetadata = () => { URL.revokeObjectURL(url); res({ blob: file, duration: a.duration, audio: true }); };
+      a.onerror = () => { URL.revokeObjectURL(url); rej(new Error('This browser can’t play ' + file.name)); };
+      a.src = url;
+    });
+  }
+  const isVideoFile = f => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|mkv)$/i.test(f.name);
+  const isAudioFile = f => f.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|weba)$/i.test(f.name);
+  S.isAudioFile = isAudioFile;
+  // the longest design: 10 minutes (exports are built in memory)
+  S.MAX_LEN = 600;
+  // a design should run as long as its video
   function fitDurationToVideo(dur) {
     if (!dur || !isFinite(dur)) return;
-    const want = Math.min(30, Math.round(dur * 10) / 10);
+    const want = Math.min(S.MAX_LEN, Math.round(dur * 10) / 10);
     if (want > doc.anim.duration + 0.05) { doc.anim.duration = want; emit('toast', `Design length set to ${want}s to match the video`); emit('values'); }
   }
+  S.fitDurationToVideo = fitDurationToVideo;
   S.addAsset = function (src) { const id = uid('a'); assets[id] = src; return id; };
   S.importFiles = async function (files, opts = {}) {
+    // music and voice files become sound tracks
+    const sounds = opts.imagesOnly ? [] : files.filter(f => isAudioFile(f) && !isVideoFile(f));
     const imgs = files.filter(f => f.type.startsWith('image/') || (!opts.imagesOnly && isVideoFile(f)));
+    // a new video edit starts from its clips; its music goes in after the new design exists
+    const later = [];
+    const place = got => { for (const a of got) S.addSound(a.id, { name: a.name, duration: a.duration, at: opts.soundAt || 0 }); };
+    if (sounds.length) {
+      const got = [];
+      for (const f of sounds) {
+        try { const a = await readAudio(f); const id = S.addMedia(a.blob, 'audio'); S.uploads.unshift(id); got.push({ id, duration: a.duration, name: f.name.replace(/\.[^.]+$/, ''), audio: true }); } catch (e) { emit('toast', e.message || 'Couldn’t open ' + f.name); }
+      }
+      if (got.length) {
+        emit('uploads');
+        if (opts.uploadOnly) { scheduleSave(); if (opts.onAdded) opts.onAdded(got); }
+        else if (S.addSound) { if (opts.newProject && imgs.length) later.push(...got); else place(got); }
+      }
+    }
     if (!imgs.length) return;
     const added = [];
     for (const f of imgs) {
       try {
         const vid = isVideoFile(f);
         if (vid) emit('toast', 'Loading video…');
-        const { src, w, h, duration } = vid ? await readVideo(f) : await readImage(f);
-        const id = S.addAsset(src);
+        const { blob, w, h, duration } = vid ? await readVideo(f) : await readImage(f);
+        const id = S.addMedia(blob, vid ? 'video' : 'image');
         if (vid) await R.assetVideo(id).promise;
         S.uploads.unshift(id);
-        added.push({ id, w, h, video: vid, duration });
+        added.push({ id, w, h, video: vid, duration, name: f.name.replace(/\.[^.]+$/, '') });
       } catch (e) { emit('toast', (e && e.message && !/^Could not read image$/.test(e.message) ? e.message : 'Couldn’t open ' + f.name)); }
     }
     if (!added.length) return;
+    if (opts.asClips && S.addClips) { emit('uploads'); const r = S.addClips(added, opts); if (later.length) { place(later); S.uploads.unshift(...later.map(a => a.id)); } return r; }
     emit('uploads');
     if (opts.uploadOnly) { scheduleSave(); if (opts.onAdded) opts.onAdded(added); return added; }
     if (opts.startFromPhoto) {
       const a = added[0];
-      const long = 1440, s = long / Math.max(a.w, a.h);
+      const long = 1920, s = long / Math.max(a.w, a.h);
       const W = Math.round(a.w * s), H = Math.round(a.h * s);
       const d = blankDoc(W, H, '#ffffff');
       d.background.assetId = a.id; d.background.none = false;
-      if (a.video) d.anim = { duration: Math.min(30, Math.round(a.duration * 10) / 10) || 5, fps: 30 };
+      if (a.video) d.anim = { duration: Math.min(S.MAX_LEN, Math.round(a.duration * 10) / 10) || 5, fps: 30 };
       S.loadDoc(d, null, { name: a.video ? 'Video edit' : 'Photo edit', project: opts.newProject ? 'new' : undefined });
       if (opts.newProject) { S.uploads.splice(0, 0, ...added.map(x => x.id)); scheduleSave(); }
+      if (later.length) { place(later); S.uploads.unshift(...later.map(x => x.id)); }
       if (opts.onStart) opts.onStart();
       return added;
     }
@@ -22684,6 +23067,550 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   S.syncNode = syncNode;
   S.attachTransformer = attachTransformer;
   S.nodeRect = id => { const n = nodes.get(id); return n ? n.getClientRect({ relativeTo: art }) : null; };
+})();
+
+</script>
+<script>
+/* Savio's editor — sound.
+   Video layers play their own sound, and music / voice tracks (doc.audio) play under the design: in the editor through
+   Web Audio, in step with the timeline; on export everything is mixed offline into one stereo track and encoded
+   (AAC in MP4 where the browser can, Opus otherwise) next to the picture.
+
+   doc.audio = [{ id, assetId, name, start, trim, end, dur, volume, fadeIn, fadeOut, loop, mute }]
+     start = where it begins in the design (s) · trim / end = the part of the file used (end 0 = to the end of the file)
+     dur = the file's length · volume 0–2 · fades in seconds
+   el.video / background.video carry { volume, mute, fadeIn, fadeOut } for a video's own sound. */
+(function () {
+  'use strict';
+  const S = window.Studio, R = window.StudioRender;
+  const A = window.StudioAudio = {};
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const uid = () => 'au' + Math.random().toString(36).slice(2, 9);
+
+  // a music track's length on the timeline (one pass through the part of the file it uses)
+  A.trackLen = a => Math.max(0.05, ((a.end > 0 ? a.end : a.dur || 0) - (a.trim || 0)));
+  A.trackEnd = (a, D) => (a.loop ? D : Math.min(D, (a.start || 0) + A.trackLen(a)));
+
+  // every sound in a design and where it sits on the timeline (design seconds)
+  function sources(doc) {
+    const D = (doc.anim && doc.anim.duration) || 5, out = [];
+    const vid = (key, id, vd, start, end, el) => {
+      vd = vd || {};
+      if (vd.mute || (vd.volume ?? 1) <= 0 || end <= start) return;
+      out.push({ key, id, kind: 'video', start, end, trim: vd.trim || 0, srcEnd: vd.end > 0 ? vd.end : 0, speed: vd.speed || 1, loop: vd.loop !== false, reverse: !!vd.reverse, volume: vd.volume ?? 1, fadeIn: vd.fadeIn || 0, fadeOut: vd.fadeOut || 0, el });
+    };
+    const bg = doc.background || {};
+    if (!bg.none && R.isVideoAsset(bg.assetId)) vid('bg', bg.assetId, bg.video, 0, D, null);
+    for (const el of doc.elements || []) {
+      if (el.type !== 'image' || el.hidden || !R.isVideoAsset(el.assetId)) continue;
+      const tm = el.time || {}, s0 = tm.start || 0, e0 = tm.end != null && tm.end > s0 ? tm.end : D;
+      vid(el.id, el.assetId, el.video, s0, Math.min(D, e0), el);
+    }
+    for (const a of doc.audio || []) {
+      if (a.mute || !a.assetId || (a.volume ?? 1) <= 0) continue;
+      const s0 = a.start || 0, e0 = A.trackEnd(a, D);
+      if (e0 <= s0) continue;
+      out.push({ key: a.id, id: a.assetId, kind: 'music', start: s0, end: e0, trim: a.trim || 0, srcEnd: a.end > 0 ? a.end : 0, speed: 1, loop: !!a.loop, reverse: false, volume: a.volume ?? 1, fadeIn: a.fadeIn || 0, fadeOut: a.fadeOut || 0 });
+    }
+    return out;
+  }
+  A.sources = sources;
+  A.hasSound = doc => sources(doc).length > 0;
+  // loudness of a source at design time t (volume × fades)
+  function gainAt(s, t) {
+    if (t < s.start || t >= s.end) return 0;
+    let g = s.volume;
+    if (s.fadeIn > 0) g *= clamp((t - s.start) / s.fadeIn, 0, 1);
+    if (s.fadeOut > 0) g *= clamp((s.end - t) / s.fadeOut, 0, 1);
+    return g;
+  }
+  // the moment of the file that belongs at design time t
+  function srcTime(s, t, fileDur) {
+    const end = Math.min(fileDur || Infinity, s.srcEnd > 0 ? s.srcEnd : fileDur || Infinity), len = Math.max(0.05, end - s.trim);
+    const lt = Math.max(0, t - s.start) * s.speed;
+    return s.trim + (s.loop ? lt % len : Math.min(lt, len - 0.01));
+  }
+
+  /* ── preview ── */
+  let ctx = null, master = null;
+  const routes = new Map(); // media element → gain node (null = routed without Web Audio)
+  function audioCtx() {
+    if (ctx) return ctx;
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.connect(ctx.destination); } catch (e) { ctx = null; }
+    return ctx;
+  }
+  A.resume = () => { const c = audioCtx(); if (c && c.state === 'suspended') c.resume().catch(() => {}); };
+  function route(m) {
+    if (routes.has(m)) return routes.get(m);
+    let g = null;
+    const c = audioCtx();
+    if (c) { try { const n = c.createMediaElementSource(m); g = c.createGain(); g.gain.value = 0; n.connect(g); g.connect(master); } catch (e) { g = null; } }
+    routes.set(m, g);
+    return g;
+  }
+  function setGain(m, v) {
+    const g = route(m);
+    if (g) { m.muted = false; g.gain.setTargetAtTime(v, ctx.currentTime, 0.015); } else { m.muted = v <= 0; m.volume = clamp(v, 0, 1); }
+  }
+  const musicEls = new Map(); // track id → { m, src }
+  function musicEl(s) {
+    const src = S.assets[s.id];
+    let e = musicEls.get(s.key);
+    if (e && e.src === src) return e.m;
+    if (e) { e.m.pause(); }
+    const m = new Audio();
+    m.preload = 'auto'; m.src = src;
+    musicEls.set(s.key, { m, src });
+    return m;
+  }
+  // called on every frame while playing
+  A.tick = function (t) {
+    const doc = S.doc, live = new Map();
+    for (const s of sources(doc)) {
+      if (s.kind === 'video') {
+        const e = R.assetVideo(s.id);
+        if (!e || !e.ok) continue;
+        e.v.preservesPitch = false; // the export changes pitch with speed too
+        live.set(e.v, Math.max(live.get(e.v) || 0, s.reverse ? 0 : gainAt(s, t)));
+        continue;
+      }
+      const m = musicEl(s), on = t >= s.start && t < s.end;
+      live.set(m, Math.max(live.get(m) || 0, on ? gainAt(s, t) : 0));
+      if (!on) { if (!m.paused) m.pause(); continue; }
+      const want = srcTime(s, t, m.duration);
+      if (m.paused) { if (isFinite(want)) m.currentTime = want; m.play().catch(() => {}); } else if (Math.abs(m.currentTime - want) > 0.25) m.currentTime = want;
+    }
+    for (const [m, g] of live) setGain(m, g);
+    for (const m of routes.keys()) if (!live.has(m)) { setGain(m, 0); if (m.tagName === 'AUDIO' && !m.paused) m.pause(); }
+    for (const { m } of musicEls.values()) if (!live.has(m) && !m.paused) m.pause();
+  };
+  A.stop = function () {
+    for (const m of routes.keys()) setGain(m, 0);
+    for (const { m } of musicEls.values()) if (!m.paused) m.pause();
+  };
+  S.audioTick = A.tick;
+  S.on('playstate', on => { if (on) A.resume(); else A.stop(); });
+
+  /* ── decoding (export, waveforms) ── */
+  const decoded = new Map(); // asset URL → Promise<AudioBuffer | null>
+  A.decode = function (id) {
+    const url = S.assets[id];
+    if (!url) return Promise.resolve(null);
+    if (decoded.has(url)) return decoded.get(url);
+    const p = (async () => {
+      try {
+        const blob = S.assetBlob(id) || await (await fetch(url)).blob();
+        // decodeAudioData needs the whole file in memory; past ~1.8 GB browsers give up
+        if (blob.size > 1.8e9) return null;
+        const oc = new OfflineAudioContext(2, 1, 48000);
+        return await oc.decodeAudioData(await blob.arrayBuffer());
+      } catch (e) { return null; } // no sound track, or a codec the browser can't decode
+    })();
+    decoded.set(url, p);
+    return p;
+  };
+  // peak levels for drawing a waveform: n values 0–1 across the part [t0, t1] of the file
+  A.peaks = async function (id, t0, t1, n) {
+    const b = await A.decode(id);
+    if (!b) return null;
+    const rate = b.sampleRate, ch = [...Array(b.numberOfChannels)].map((_, i) => b.getChannelData(i));
+    const i0 = Math.max(0, Math.floor(t0 * rate)), i1 = Math.min(b.length, Math.ceil((t1 > 0 ? t1 : b.duration) * rate));
+    const out = new Float32Array(n), step = Math.max(1, (i1 - i0) / n), stride = Math.max(1, Math.floor(step / 64));
+    for (let k = 0; k < n; k++) {
+      let mx = 0;
+      const a = i0 + Math.floor(k * step), z = Math.min(i1, i0 + Math.floor((k + 1) * step));
+      for (const d of ch) for (let i = a; i < z; i += stride) { const v = Math.abs(d[i]); if (v > mx) mx = v; }
+      out[k] = Math.min(1, mx);
+    }
+    return out;
+  };
+  function reversed(b) {
+    const oc = new OfflineAudioContext(b.numberOfChannels, b.length, b.sampleRate), r = oc.createBuffer(b.numberOfChannels, b.length, b.sampleRate);
+    for (let c = 0; c < b.numberOfChannels; c++) { const d = b.getChannelData(c), o = r.getChannelData(c); for (let i = 0, n = d.length; i < n; i++) o[i] = d[n - 1 - i]; }
+    return r;
+  }
+
+  /* ── export ── */
+  // the whole design's sound as one stereo buffer (null when nothing makes a sound)
+  A.mix = async function (doc, duration, rate = 48000) {
+    const srcs = sources(doc).filter(s => s.start < duration);
+    if (!srcs.length) return null;
+    const oc = new OfflineAudioContext(2, Math.max(1, Math.ceil(duration * rate)), rate);
+    let any = false;
+    for (const s of srcs) {
+      const buf = await A.decode(s.id);
+      if (!buf) continue;
+      const fileEnd = Math.min(buf.duration, s.srcEnd > 0 ? s.srcEnd : buf.duration);
+      let a0 = clamp(s.trim, 0, buf.duration), a1 = fileEnd;
+      const b = s.reverse ? reversed(buf) : buf;
+      if (s.reverse) [a0, a1] = [buf.duration - fileEnd, buf.duration - s.trim];
+      const end = Math.min(duration, s.end);
+      if (end <= s.start || a1 - a0 < 0.01) continue;
+      const src = oc.createBufferSource();
+      src.buffer = b;
+      src.playbackRate.value = clamp(s.speed, 0.05, 4);
+      if (s.loop) { src.loop = true; src.loopStart = a0; src.loopEnd = a1; }
+      const g = oc.createGain(), p = g.gain, v = s.volume, span = end - s.start;
+      const fi = Math.min(s.fadeIn, span / 2), fo = Math.min(s.fadeOut, span / 2);
+      p.setValueAtTime(fi > 0 ? 0 : v, s.start);
+      if (fi > 0) p.linearRampToValueAtTime(v, s.start + fi);
+      if (fo > 0) { p.setValueAtTime(v, end - fo); p.linearRampToValueAtTime(0, end); }
+      src.connect(g); g.connect(oc.destination);
+      if (s.loop) src.start(s.start, a0); else src.start(s.start, a0, a1 - a0);
+      src.stop(end);
+      any = true;
+    }
+    if (!any) return null;
+    const out = await oc.startRendering();
+    // keep peaks out of the red: a soft limiter on anything above full scale
+    for (let c = 0; c < out.numberOfChannels; c++) { const d = out.getChannelData(c); for (let i = 0; i < d.length; i++) { const x = d[i]; if (x > 0.95 || x < -0.95) d[i] = Math.sign(x) * (0.95 + 0.05 * Math.tanh((Math.abs(x) - 0.95) / 0.05)); } }
+    return out;
+  };
+  // encode a mixed buffer for a container: { codec: 'aac' | 'opus', sampleRate, numberOfChannels, chunks: [{ chunk, meta }] }
+  A.encode = async function (buffer, kind) {
+    if (!buffer || !('AudioEncoder' in window)) return null;
+    const ch = buffer.numberOfChannels, rate = buffer.sampleRate;
+    const cands = kind === 'mp4' ? [['aac', 'mp4a.40.2'], ['opus', 'opus']] : [['opus', 'opus']];
+    let pick = null;
+    for (const [name, codec] of cands) {
+      const cfg = { codec, sampleRate: rate, numberOfChannels: ch, bitrate: 192000 };
+      try { const r = await AudioEncoder.isConfigSupported(cfg); if (r.supported) { pick = { name, cfg: r.config || cfg }; break; } } catch (e) { /* next */ }
+    }
+    if (!pick) return null;
+    const chunks = [];
+    let err = null;
+    const enc = new AudioEncoder({ output: (chunk, meta) => chunks.push({ chunk, meta }), error: e => { err = e; } });
+    enc.configure(pick.cfg);
+    const N = buffer.length, block = 4800, planes = [...Array(ch)].map((_, i) => buffer.getChannelData(i));
+    for (let i = 0; i < N && !err; i += block) {
+      const n = Math.min(block, N - i), data = new Float32Array(n * ch);
+      for (let c = 0; c < ch; c++) data.set(planes[c].subarray(i, i + n), c * n);
+      const ad = new AudioData({ format: 'f32-planar', sampleRate: rate, numberOfFrames: n, numberOfChannels: ch, timestamp: Math.round(i / rate * 1e6), data });
+      enc.encode(ad); ad.close();
+      if (enc.encodeQueueSize > 16) await sleep(1);
+    }
+    try { await enc.flush(); } catch (e) { err = err || e; }
+    if (enc.state !== 'closed') enc.close();
+    if (err || !chunks.length) return null;
+    return { codec: pick.name, sampleRate: rate, numberOfChannels: ch, chunks };
+  };
+  // a mixed buffer as a 16-bit WAV file (goes next to PNG frame sequences)
+  A.wav = function (b) {
+    const ch = b.numberOfChannels, n = b.length, rate = b.sampleRate, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, rate, true);
+    out.setUint32(28, rate * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); str(36, 'data'); out.setUint32(40, n * ch * 2, true);
+    const planes = [...Array(ch)].map((_, i) => b.getChannelData(i));
+    for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) out.setInt16(o, clamp(planes[c][i], -1, 1) * 32767, true);
+    return new Blob([out.buffer], { type: 'audio/wav' });
+  };
+  // mix + encode for video export; null when the design is silent (or sound can't be made here)
+  S.exportAudio = async function (doc, duration, kind) {
+    const mix = await A.mix(doc, duration).catch(() => null);
+    if (!mix) return null;
+    return A.encode(mix, kind).catch(() => null);
+  };
+
+  /* ── music tracks ── */
+  // add a sound file as a track starting at `at` (default: the start); a still design grows to the music's length
+  S.addSound = function (assetId, o = {}) {
+    const doc = S.doc;
+    doc.audio = doc.audio || [];
+    const dur = o.duration || 0;
+    const tr = { id: uid(), assetId, name: o.name || 'Music', start: Math.max(0, o.at || 0), trim: 0, end: 0, dur, volume: 1, fadeIn: 0, fadeOut: dur > 4 ? 1 : 0, loop: false, mute: false, voice: !!o.voice };
+    doc.audio.push(tr);
+    const hasClips = doc.elements.some(e => e.clip);
+    if (!hasClips && dur && tr.start + dur > doc.anim.duration + 0.05 && !o.keepLength) {
+      const want = Math.min(S.MAX_LEN, Math.round((tr.start + dur) * 10) / 10);
+      S.change('doc', 'anim.duration', want);
+      S.emit('toast', `Design length set to ${want}s to match the music`);
+    }
+    S.commit();
+    S.emit('doc');
+    return tr;
+  };
+  S.soundById = id => (S.doc.audio || []).find(a => a.id === id) || null;
+  S.changeSound = function (id, patch, live) {
+    const a = S.soundById(id);
+    if (!a) return;
+    Object.assign(a, patch);
+    if (!live) S.commit();
+    S.emit('change');
+  };
+  S.removeSound = function (id) {
+    const doc = S.doc;
+    doc.audio = (doc.audio || []).filter(a => a.id !== id);
+    S.commit(); S.emit('doc');
+  };
+  // cut a track in two at design time t
+  S.splitSound = function (id, t) {
+    const a = S.soundById(id);
+    if (!a || a.loop) return null;
+    const k = t - (a.start || 0), len = A.trackLen(a);
+    if (k <= 0.05 || k >= len - 0.05) return null;
+    const b = Object.assign({}, a, { id: uid(), start: t, trim: (a.trim || 0) + k, fadeIn: 0 });
+    a.end = (a.trim || 0) + k; a.fadeOut = 0;
+    S.doc.audio.splice(S.doc.audio.indexOf(a) + 1, 0, b);
+    S.commit(); S.emit('doc');
+    return b;
+  };
+
+  /* ── voiceover ── */
+  let rec = null;
+  A.recording = () => !!rec;
+  // records the microphone while the design plays from `at`; the take becomes a track at that spot
+  A.record = async function (at) {
+    if (rec) return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+    const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined), parts = [];
+    mr.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+    const t0 = performance.now();
+    rec = { mr, stream, at: at || 0, t0, done: new Promise(res => { mr.onstop = res; }) };
+    mr.start(250);
+    S.emit('recording', true);
+    rec.parts = parts;
+  };
+  A.stopRecording = async function () {
+    if (!rec) return null;
+    const r = rec; rec = null;
+    r.mr.stop();
+    await r.done;
+    for (const tk of r.stream.getTracks()) tk.stop();
+    S.emit('recording', false);
+    const blob = new Blob(r.parts, { type: (r.mr.mimeType || 'audio/webm').split(';')[0] });
+    if (!blob.size) return null;
+    const secs = (performance.now() - r.t0) / 1000;
+    const id = S.addMedia(blob, 'audio');
+    S.uploads.unshift(id);
+    S.emit('uploads');
+    return S.addSound(id, { name: 'Voiceover', duration: secs, at: r.at, voice: true, keepLength: S.doc.elements.some(e => e.clip) });
+  };
+})();
+
+</script>
+<script>
+/* Savio's editor — video edits: clips one after another.
+   Any image layer with `clip` is part of the main video track. The clips play in their layer order (bottom → top),
+   each for its own length, so trimming, speeding up, splitting, deleting or reordering a clip moves everything after it
+   (ripple). A clip's `trans` is the transition into it from the clip before; it overlaps the two by its length.
+
+   el.clip = { len (photo hold, s), src (the video file's length, s), trans: { type, dur, dir } | null,
+               _in, _out (worked out here for the renderer) } */
+(function () {
+  'use strict';
+  const S = window.Studio, R = window.StudioRender;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const round = v => Math.round(v * 1000) / 1000;
+
+  const clipsOf = doc => doc.elements.filter(e => e.clip && e.type === 'image');
+  S.clips = () => clipsOf(S.doc);
+  S.isVideoEdit = () => S.doc.elements.some(e => e.clip);
+  // the video file's own length
+  function srcLen(el) {
+    if (el.clip && el.clip.src > 0) return el.clip.src;
+    const e = R.assetVideo(el.assetId);
+    const d = e && e.v && isFinite(e.v.duration) ? e.v.duration : 0;
+    if (d && el.clip) el.clip.src = d;
+    return d;
+  }
+  S.clipSrcLen = srcLen;
+  // how long a clip plays: the trimmed part of its video at its speed, or a photo's hold time
+  function clipLen(el) {
+    if (R.isVideoAsset(el.assetId)) {
+      const vd = el.video || {}, src = srcLen(el) || 5;
+      const end = vd.end > 0 ? Math.min(vd.end, src) : src;
+      return Math.max(0.1, (end - (vd.trim || 0)) / (vd.speed || 1));
+    }
+    return Math.max(0.1, (el.clip && el.clip.len) || 3);
+  }
+  S.clipLen = clipLen;
+
+  // lay the clips end to end (called on every commit); the design is as long as its clips
+  S.layoutClips = function () {
+    const doc = S.doc, list = clipsOf(doc);
+    if (!list.length) return false;
+    let t = 0, prevLen = 0, prev = null;
+    const seen = new Set();
+    list.forEach((el, i) => {
+      // every clip gets its own <video>, even when it's a piece of the same file
+      if (R.isVideoAsset(el.assetId)) { if (seen.has(el.assetId) && S.aliasAsset) { el.assetId = S.aliasAsset(el.assetId); S.syncNode && S.syncNode(el); } seen.add(el.assetId); }
+      el.video = el.video ? Object.assign(el.video, { loop: false }) : el.video;
+      const len = clipLen(el), tr = el.clip.trans;
+      const ov = i && tr && tr.type && tr.type !== 'none' ? round(Math.min(tr.dur || 0.5, len / 2, prevLen / 2)) : 0;
+      const start = round(Math.max(0, t - ov));
+      el.time = { start, end: round(start + len) };
+      el.clip._in = ov;
+      el.clip._out = null;
+      if (prev) prev.clip._out = ov ? { type: tr.type, dur: ov, dir: tr.dir } : null;
+      t = start + len; prevLen = len; prev = el;
+    });
+    const D = Math.min(S.MAX_LEN, round(t));
+    if (Math.abs(doc.anim.duration - D) > 0.001) doc.anim.duration = Math.max(0.2, D);
+    return true;
+  };
+  // the clip on screen at design time t (the newer one during a transition)
+  S.clipAt = function (t) {
+    let hit = null;
+    for (const el of clipsOf(S.doc)) if (t >= el.time.start - 1e-6 && t < el.time.end) hit = el;
+    return hit;
+  };
+
+  // full-frame placement: fill (cropped to the canvas) or fit (the whole picture, bars around it)
+  function place(el, mode, m) {
+    const W = S.doc.width, H = S.doc.height;
+    if (mode === 'fit' && m && m.w && m.h) {
+      const s = Math.min(W / m.w, H / m.h);
+      el.width = m.w * s; el.height = m.h * s; el.x = (W - el.width) / 2; el.y = (H - el.height) / 2;
+    } else { el.x = 0; el.y = 0; el.width = W; el.height = H; }
+    el.rotation = 0;
+    el.crop = { zoom: 1, x: 0.5, y: 0.5 };
+    el.clip.fit = mode === 'fit' ? 'fit' : 'fill';
+  }
+  S.placeClip = function (el, mode) {
+    const img = R.assetImage(el.assetId), m = R.mediaSize(img);
+    S.changeEl(el, e => place(e, mode, m));
+    S.commit();
+  };
+
+  // add photos / videos (as returned by importFiles) to the main track, at position `clipIndex` (default: the end)
+  S.addClips = function (added, opts = {}) {
+    const doc = S.doc;
+    if (opts.newProject) {
+      // a new video edit takes the shape of its first clip, 1920 px on the long side
+      const a = added.find(x => x.video) || added[0], k = 1920 / Math.max(a.w, a.h);
+      const W = Math.round(a.w * k / 2) * 2, H = Math.round(a.h * k / 2) * 2;
+      const ids = S.uploads.slice(0, added.length);
+      S.newDoc(W, H, '#000000', {}, { project: 'new', name: 'Video edit' });
+      S.uploads.splice(0, 0, ...ids);
+      if (opts.onStart) opts.onStart();
+    }
+    const d = S.doc;
+    let index = opts.clipIndex != null ? clamp(opts.clipIndex, 0, clipsOf(d).length) : clipsOf(d).length;
+    const ids = [];
+    for (const a of added) {
+      const list = clipsOf(d), prev = list[index - 1];
+      const elIndex = prev ? d.elements.indexOf(prev) + 1 : list[0] ? d.elements.indexOf(list[0]) : 0;
+      const el = S.mk('image', { assetId: a.id, name: a.name || '', clip: { len: a.video ? 0 : (opts.photoLen || 3), src: a.video ? a.duration || 0 : 0, trans: opts.trans ? Object.assign({}, opts.trans) : null } });
+      place(el, opts.fit || 'fill', { w: a.w, h: a.h });
+      if (a.video) el.video = { trim: 0, speed: 1, loop: false, volume: 1 };
+      const n = S.addElement(el, { index: elIndex, select: false, commit: false, center: false });
+      ids.push(n.id);
+      index++;
+    }
+    S.commit();
+    S.select([ids[0]]);
+    S.emit('doc');
+    const first = S.elById(ids[0]);
+    if (first && first.time) S.seek(first.time.start + 0.01);
+    if (!opts.newProject) S.emit('toast', `${added.length} clip${added.length > 1 ? 's' : ''} added to the video`);
+    return added;
+  };
+  S.pickClips = function (opts = {}) { S.pickImages(Object.assign({ asClips: true }, opts)); };
+
+  // cut a clip in two at design time t
+  S.splitClip = function (el, t) {
+    if (!el || !el.clip || !el.time) return null;
+    const k = t - el.time.start, len = clipLen(el);
+    if (k < 0.1 || k > len - 0.1) return null;
+    const b = S.clone(el);
+    b.id = null;
+    b.clip.trans = null; b.clip._in = 0;
+    if (b.anim && b.anim.enter && b.anim.enter !== 'none') b.anim = Object.assign({}, b.anim, { enter: 'none' });
+    S.changeEl(el, e => {
+      if (R.isVideoAsset(e.assetId)) {
+        const vd = e.video, sp = vd.speed || 1, src = srcLen(e) || 0, end = vd.end > 0 ? vd.end : src;
+        if (vd.reverse) { const cut = round(end - k * sp); vd.trim = cut; b.video.end = cut; }
+        else { const cut = round((vd.trim || 0) + k * sp); vd.end = cut; b.video.trim = cut; }
+        b.assetId = S.aliasAsset(e.assetId);
+      } else { e.clip.len = round(k); b.clip.len = round(len - k); }
+      e.clip._out = null;
+    });
+    const n = S.addElement(b, { index: S.doc.elements.indexOf(el) + 1, select: false, commit: false, center: false });
+    S.commit();
+    S.select([n.id]);
+    S.emit('doc');
+    return n;
+  };
+  // move a clip to another place in the sequence
+  S.moveClip = function (el, to) {
+    const d = S.doc, list = clipsOf(d), from = list.indexOf(el);
+    if (from < 0) return;
+    to = clamp(to, 0, list.length - 1);
+    if (to === from) return;
+    d.elements.splice(d.elements.indexOf(el), 1);
+    const rest = clipsOf(d), ref = rest[to];
+    const at = ref ? d.elements.indexOf(ref) : d.elements.indexOf(rest[rest.length - 1]) + 1;
+    d.elements.splice(at, 0, el);
+    S.rebuild();
+    S.commit();
+    S.select([el.id]);
+    S.emit('doc');
+  };
+  S.setTransition = function (el, patch) {
+    if (!el || !el.clip) return;
+    S.changeEl(el, e => {
+      const cur = e.clip.trans || { type: 'fade', dur: 0.5, dir: 'left' };
+      e.clip.trans = Object.assign({}, cur, patch);
+      if (e.clip.trans.type === 'none') e.clip.trans = null;
+    });
+    S.commit();
+  };
+  // the same transition between every clip
+  S.setAllTransitions = function (patch) {
+    clipsOf(S.doc).forEach((el, i) => { if (i) S.changeEl(el, e => { e.clip.trans = patch && patch.type !== 'none' ? Object.assign({ type: 'fade', dur: 0.5, dir: 'left' }, e.clip.trans || {}, patch) : null; }); });
+    S.commit();
+  };
+  // turn the layers of a design into a clip / back into a free layer
+  S.makeClip = function (el, on) {
+    if (!el || el.type !== 'image' || !el.assetId) return;
+    if (on) {
+      const d = S.doc, list = clipsOf(d);
+      S.changeEl(el, e => { e.clip = { len: 3, src: 0, trans: null }; if (e.video) e.video.loop = false; delete e.time; place(e, 'fill', R.mediaSize(R.assetImage(e.assetId))); });
+      // joins the end of the main track
+      const last = list[list.length - 1];
+      d.elements.splice(d.elements.indexOf(el), 1);
+      d.elements.splice(last ? d.elements.indexOf(last) + 1 : 0, 0, el);
+      S.rebuild();
+    } else S.changeEl(el, e => { delete e.clip; delete e.time; });
+    S.commit(); S.emit('doc');
+  };
+
+  // a quick colour and exposure fix from one frame: levels, white balance and a touch of saturation
+  S.autoFix = function (el) {
+    const img = R.assetImage(el.assetId), m = R.mediaSize(img);
+    if (!img || !m || !m.w) return false;
+    const k = 96 / Math.max(m.w, m.h), w = Math.max(2, Math.round(m.w * k)), h = Math.max(2, Math.round(m.h * k));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(img, 0, 0, w, h);
+    let d;
+    try { d = x.getImageData(0, 0, w, h).data; } catch (e) { return false; }
+    const lum = [];
+    let r = 0, g = 0, b = 0, n = 0, sat = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const L = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      lum.push(L); r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+      sat += Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
+    }
+    lum.sort((a2, b2) => a2 - b2);
+    const lo = lum[Math.floor(n * 0.01)], hi = lum[Math.floor(n * 0.99)], mid = lum[Math.floor(n * 0.5)];
+    r /= n; g /= n; b /= n; sat /= n;
+    const f = {
+      exposure: Math.round(clamp((118 - mid) / 2.2, -40, 40)),
+      contrast: Math.round(clamp((200 - (hi - lo)) / 4, -10, 30)),
+      shadows: Math.round(clamp((40 - lo) * 0.8, 0, 35)),
+      highlights: Math.round(clamp((hi - 235) * -1.2, -35, 0)),
+      warmth: Math.round(clamp((b - r) * 0.5, -30, 30)),
+      tint: Math.round(clamp((g - (r + b) / 2) * -0.6, -25, 25)),
+      vibrance: Math.round(clamp((60 - sat) * 0.5, 0, 25)),
+    };
+    S.changeEl(el, e => { e.filters = Object.assign({}, e.filters || {}, f); });
+    S.commit();
+    return f;
+  };
 })();
 
 </script>
@@ -23219,14 +24146,60 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return out;
   };
 
-  S.exportVideo = async function ({ width, height, fps = 30, duration = 5, bitrate, format = 'mp4', transparent = false, onProgress = () => {}, signal }) {
+  /* ── long exports ──
+     A file built in one ArrayBuffer tops out around 2 GB, so big exports are collected in pieces instead: the muxer writes
+     forwards and only goes back a little (to fill in sizes), so recent pieces stay editable and older ones are handed to
+     Blobs, which the browser can keep on disk. */
+  function pieceTarget(Lib) {
+    const head = [], live = [], frozen = [];
+    let liveBytes = 0;
+    const HEAD = 1 << 20, KEEP = 64 << 20;
+    const write = (data, pos) => {
+      data = data.slice();
+      const end = pos + data.length;
+      // a write over bytes already written (a size filled in later): patch the pieces it covers
+      for (const p of head.concat(live)) {
+        const pe = p.pos + p.data.length;
+        if (pe <= pos || p.pos >= end) continue;
+        const a = Math.max(pos, p.pos), b = Math.min(end, pe);
+        p.data.set(data.subarray(a - pos, b - pos), a - p.pos);
+        if (a === pos && b === end) return;
+      }
+      const tail = live.length ? live[live.length - 1] : head[head.length - 1];
+      const at = tail ? tail.pos + tail.data.length : 0;
+      if (end <= at) return;
+      const fresh = pos < at ? data.subarray(at - pos) : data, fpos = Math.max(pos, at);
+      if (fpos < HEAD) head.push({ pos: fpos, data: fresh });
+      else { live.push({ pos: fpos, data: fresh }); liveBytes += fresh.length; }
+      // older pieces become a Blob once plenty has been written after them
+      if (liveBytes > KEEP * 2) {
+        let n = 0, take = 0;
+        while (n < live.length && liveBytes - take > KEEP) take += live[n++].data.length;
+        frozen.push(new Blob(live.splice(0, n).map(p => p.data)));
+        liveBytes -= take;
+      }
+    };
+    const target = new Lib.StreamTarget({ onData: write, chunked: true, chunkSize: 8 << 20 });
+    target.toBlob = type => new Blob([...head.map(p => p.data), ...frozen, ...live.map(p => p.data)], { type });
+    return target;
+  }
+  // audio chunks go into the file in time order, just ahead of the video frames they play with
+  function audioFeeder(muxer, snd) {
+    let i = 0;
+    const upTo = us => { if (!snd) return; while (i < snd.chunks.length && snd.chunks[i].chunk.timestamp <= us) { const c = snd.chunks[i++]; muxer.addAudioChunk(c.chunk, c.meta); } };
+    return { upTo, rest: () => upTo(Infinity) };
+  }
+  const muxAudio = (snd, kind) => (snd ? { codec: kind === 'mp4' ? snd.codec : 'A_OPUS', numberOfChannels: snd.numberOfChannels, sampleRate: snd.sampleRate } : undefined);
+
+  S.exportVideo = async function ({ width, height, fps = 30, duration = 5, bitrate, format = 'mp4', transparent = false, sound = true, onProgress = () => {}, signal }) {
     const doc = S.doc;
     width = even(width); height = even(height);
     bitrate = bitrate || Math.round(width * height * fps * 0.1);
     await R.preload(doc);
-    if (format === 'png') return exportFrames({ width, height, fps, duration, transparent, onProgress, signal });
+    const audible = sound && window.StudioAudio && window.StudioAudio.hasSound(doc);
+    if (format === 'png') return exportFrames({ width, height, fps, duration, transparent, sound: audible, onProgress, signal });
     if (transparent) {
-      const t = await exportAlphaWebm({ width, height, fps, duration, bitrate, onProgress, signal });
+      const t = await exportAlphaWebm({ width, height, fps, duration, bitrate, sound: audible, onProgress, signal });
       if (t) return t;
     }
     const cands = await encoderCandidates(width, height, fps, bitrate, format);
@@ -23235,7 +24208,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let lastErr = null;
     for (let ci = 0; ci < cands.length; ci++) {
       try {
-        return await encodeWith(cands[ci], { doc, width, height, fps, duration, onProgress, signal });
+        return await encodeWith(cands[ci], { doc, width, height, fps, duration, bitrate, sound: audible, onProgress, signal });
       } catch (err) {
         if (!err || !err.fromEncoder || (signal && signal.aborted)) throw err;
         console.warn('Video encoder failed, trying the next one', cands[ci].cfg, err);
@@ -23245,16 +24218,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     throw lastErr;
   };
-  async function encodeWith(enc, { doc, width, height, fps, duration, onProgress, signal }) {
+  async function encodeWith(enc, { doc, width, height, fps, duration, bitrate, sound, onProgress, signal }) {
     // the single-file build already carries the muxers; otherwise fetch the one we need
     if (!(enc.kind === 'mp4' ? window.Mp4Muxer : window.WebMMuxer)) await loadScript(LIBS[enc.kind]).catch(() => loadScript(CDN[enc.kind]));
     const Lib = enc.kind === 'mp4' ? window.Mp4Muxer : window.WebMMuxer;
+    if (sound) onProgress(0, 'sound');
+    const snd = sound ? await S.exportAudio(doc, duration, enc.kind) : null;
+    // past ~400 MB the file is collected in pieces (see pieceTarget)
+    const big = (bitrate || 8e6) * duration / 8 > 400e6;
+    const target = big ? pieceTarget(Lib) : new Lib.ArrayBufferTarget();
+    const audio = muxAudio(snd, enc.kind);
     const muxer = enc.kind === 'mp4'
-      ? new Lib.Muxer({ target: new Lib.ArrayBufferTarget(), video: { codec: 'avc', width, height }, fastStart: 'in-memory' })
-      : new Lib.Muxer({ target: new Lib.ArrayBufferTarget(), video: { codec: enc.cfg.codec.startsWith('vp8') ? 'V_VP8' : 'V_VP9', width, height, frameRate: fps } });
+      ? new Lib.Muxer({ target, video: { codec: 'avc', width, height }, audio, fastStart: big ? false : 'in-memory', firstTimestampBehavior: 'offset' })
+      : new Lib.Muxer({ target, video: { codec: enc.cfg.codec.startsWith('vp8') ? 'V_VP8' : 'V_VP9', width, height, frameRate: fps }, audio, firstTimestampBehavior: 'offset' });
+    const feed = audioFeeder(muxer, snd);
     let failure = null;
     const encErr = e => { const x = e instanceof Error ? e : new Error(String(e)); x.fromEncoder = true; return x; };
-    const encoder = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: e => { failure = encErr(e); } });
+    const encoder = new VideoEncoder({ output: (chunk, meta) => { feed.upTo(chunk.timestamp); muxer.addVideoChunk(chunk, meta); }, error: e => { failure = encErr(e); } });
     try { encoder.configure(enc.cfg); } catch (e) { throw encErr(e); }
     const c = document.createElement('canvas');
     c.width = width; c.height = height;
@@ -23283,12 +24263,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         await Promise.race([encoder.flush(), sleep(60000).then(() => { throw new Error('The video encoder stopped responding'); })]);
       } catch (e) { throw failure || encErr(e); }
       if (failure) throw failure;
+      feed.rest();
       muxer.finalize();
     } finally {
       if (encoder.state !== 'closed') encoder.close();
     }
     const type = enc.kind === 'mp4' ? 'video/mp4' : 'video/webm';
-    return { blob: new Blob([muxer.target.buffer], { type }), ext: enc.kind, width, height, codec: enc.cfg.codec, software: enc.cfg.hardwareAcceleration === 'prefer-software' };
+    const blob = big ? target.toBlob(type) : new Blob([muxer.target.buffer], { type });
+    return { blob, ext: enc.kind, width, height, codec: enc.cfg.codec, software: enc.cfg.hardwareAcceleration === 'prefer-software', sound: snd ? snd.codec : sound ? 'failed' : null };
   }
 
   /* ── see-through video ──
@@ -23310,7 +24292,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (let i = 0, j = 0; i < p.length; i += 4, j++) { yuv[j] = p[i + 3]; p[i + 3] = 255; }
     colour.getContext('2d').putImageData(d, 0, 0);
   }
-  async function exportAlphaWebm({ width, height, fps, duration, bitrate, onProgress, signal }) {
+  async function exportAlphaWebm({ width, height, fps, duration, bitrate, sound, onProgress, signal }) {
     if (!('VideoEncoder' in window)) return null;
     let cfg = null;
     for (const codec of ['vp09.00.51.08', 'vp09.00.50.08', 'vp09.00.41.08', 'vp8']) {
@@ -23320,13 +24302,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!cfg) return null;
     if (!window.WebMMuxer) await loadScript(LIBS.webm);
     const Lib = window.WebMMuxer;
-    const muxer = new Lib.Muxer({ target: new Lib.ArrayBufferTarget(), video: { codec: cfg.codec.startsWith('vp8') ? 'V_VP8' : 'V_VP9', width, height, frameRate: fps, alpha: true } });
+    const snd = sound ? await S.exportAudio(S.doc, duration, 'webm') : null;
+    const muxer = new Lib.Muxer({ target: new Lib.ArrayBufferTarget(), video: { codec: cfg.codec.startsWith('vp8') ? 'V_VP8' : 'V_VP9', width, height, frameRate: fps, alpha: true }, audio: muxAudio(snd, 'webm'), firstTimestampBehavior: 'offset' });
+    const feed = audioFeeder(muxer, snd);
     // the two encoders finish frames at their own pace; pair them up by timestamp and write in order
     const colourOut = new Map(), alphaOut = new Map(), order = [];
     let failure = null, next = 0;
     const flushPairs = () => {
       while (next < order.length && colourOut.has(order[next]) && alphaOut.has(order[next])) {
         const ts = order[next], c = colourOut.get(ts), a = alphaOut.get(ts);
+        feed.upTo(ts);
         muxer.addVideoChunkRaw(c.data, c.type, ts, Object.assign({}, c.meta || {}, { additions: blockMore(a) }));
         colourOut.delete(ts); alphaOut.delete(ts); next++;
       }
@@ -23362,17 +24347,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       await Promise.all([encC.flush(), encA.flush()]);
       if (failure) throw failure;
       flushPairs();
+      feed.rest();
       muxer.finalize();
     } finally {
       for (const e of [encC, encA]) if (e.state !== 'closed') e.close();
     }
-    return { blob: new Blob([muxer.target.buffer], { type: 'video/webm' }), ext: 'webm', width, height, alpha: true };
+    return { blob: new Blob([muxer.target.buffer], { type: 'video/webm' }), ext: 'webm', width, height, alpha: true, sound: snd ? snd.codec : sound ? 'failed' : null };
   }
 
   // every frame as a numbered PNG in a zip — the format video editors import as a see-through clip
-  async function exportFrames({ width, height, fps, duration, transparent, onProgress, signal }) {
+  async function exportFrames({ width, height, fps, duration, transparent, sound, onProgress, signal }) {
     if (!window.JSZip) await loadScript('vendor/jszip.min.js').catch(() => loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'));
     const zip = new window.JSZip(), dir = zip.folder('frames');
+    // the sound goes next to the frames as a WAV file
+    const mix = sound ? await window.StudioAudio.mix(S.doc, duration).catch(() => null) : null;
+    if (mix) zip.file('sound.wav', window.StudioAudio.wav(mix));
     const c = document.createElement('canvas'); c.width = width; c.height = height;
     const frames = Math.max(1, Math.round(duration * fps)), doc = S.doc, hasVid = R.hasVideo(doc), pad = String(frames).length;
     R.playing = false; R.pauseVideos();
@@ -23386,7 +24375,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     onProgress(0.95, 'finish');
     const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-    return { blob, ext: 'zip', width, height, alpha: transparent, frames };
+    return { blob, ext: 'zip', width, height, alpha: transparent, frames, sound: mix ? 'wav' : null };
   }
 
   // fallback: draw frames on a timer and record the canvas stream
@@ -24011,6 +25000,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     paste: 'M9 4h6v3H9zM15 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2',
     chevDown: 'M6 9l6 6 6-6', chevRight: 'M9 6l6 6-6 6', chevLeft: 'M15 6l-6 6 6 6',
     cursor: 'M5 3l14 7-6.5 1.8L10.5 19z', hand: 'M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4.5a1.5 1.5 0 0 1 3 0V12M14 11.5V6.5a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6.5 7-2.8 0-4.3-1.4-5.8-3.8L3.3 13.6a1.5 1.5 0 0 1 2.4-1.7L8 14.5',
+    music: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM9 9l11-2',
+    mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3M8 21h8',
+    scissors: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
+    volume: 'M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13', mute: 'M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6',
+    timeline: 'M3 5h18M3 19h18M5 9h6v6H5zM13 9h6v6h-6z', reverse: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+    speed: 'M12 21a9 9 0 1 1 9-9M12 12l4-4', clip: 'M4 6h16v12H4zM9 9.5v5l4.5-2.5z', fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
     path: 'M3 17c3-7 6-9 9-5s6 3 9-5', sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   };
   const FILLED_DOTS = new Set(['more']);
@@ -24274,6 +25269,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   S.on('values', refreshValues);
 
   function decimals(step) { const s = String(step); return s.includes('.') ? s.split('.')[1].length : 0; }
+  // length sliders cover a minute (or the design's length); longer values up to S.MAX_LEN can be typed
+  const lenMax = () => Math.max(60, Math.ceil((S.doc.anim && S.doc.anim.duration) || 0));
   function num(t, path, o = {}) {
     const scale = o.scale || 1, step = o.step || 1;
     const get = () => { const v = o.get ? o.get() : val(t, path); return (v == null ? (o.def ?? 0) : v) * scale; };
@@ -24876,7 +25873,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // slowing down stretches the clip: lengthen the design so all of it plays (up to a minute)
       const len = clipLen ? clipLen() : 0;
       if (len && v < 1) {
-        const want = Math.min(60, Math.round(len / v * 10) / 10);
+        const want = Math.min(S.MAX_LEN, Math.round(len / v * 10) / 10);
         if (want > S.doc.anim.duration + 0.05) { S.change('doc', 'anim.duration', want); updateTimeline(); toast(`Design length set to ${want}s so the whole slowed clip plays`); }
       }
       renderInspector();
@@ -24897,12 +25894,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       dur ? row('End at', num(T, 'video.end', { min: 0.2, max: Math.round(dur * 10) / 10, step: 0.1, slider: true, unit: 's', get: () => { const v = S.selEls()[0].video || {}; return v.end > 0 ? v.end : Math.round(dur * 10) / 10; } })) : null,
       full(h('div.btn-row', null,
         h('button.btn.grow', { type: 'button', title: 'Drag to choose which part of the video shows; scroll to zoom', onclick: () => S.startCrop(el.id) }, ic('crop'), 'Crop & position'),
-        h('button.btn.grow', { type: 'button', onclick: () => { const v = S.selEls()[0].video || {}; const len = ((v.end > 0 ? v.end : dur) - (v.trim || 0)) / (v.speed || 1); S.change('doc', 'anim.duration', Math.min(60, Math.max(1, Math.round(len * 10) / 10))); updateTimeline(); toast(`Design length set to ${S.doc.anim.duration}s`); } }, ic('film'), 'Fit length to clip'))),
+        el.clip ? null : h('button.btn.grow', { type: 'button', onclick: () => { const v = S.selEls()[0].video || {}; const len = ((v.end > 0 ? v.end : dur) - (v.trim || 0)) / (v.speed || 1); S.change('doc', 'anim.duration', Math.min(S.MAX_LEN, Math.max(1, Math.round(len * 10) / 10))); updateTimeline(); toast(`Design length set to ${S.doc.anim.duration}s`); } }, ic('film'), 'Fit length to clip'))),
       ...speedControls(T, 'video', () => { const v = S.selEls()[0].video || {}; return dur ? (v.end > 0 ? v.end : dur) - (v.trim || 0) : 0; }),
-      toggle(T, 'video.loop', 'Loop when it ends', { get: () => (S.selEls()[0].video || {}).loop !== false }),
-      h('p.hint', null, `${dur ? dur.toFixed(1) + 's clip · ' : ''}plays muted and exports without sound. Press play to preview it with your design.`),
+      el.clip ? null : toggle(T, 'video.loop', 'Loop when it ends', { get: () => (S.selEls()[0].video || {}).loop !== false }),
+      toggle(T, 'video.reverse', 'Play backwards', { get: () => !!(S.selEls()[0].video || {}).reverse }),
+      ...soundControls(T, 'video'),
+      h('p.hint', null, `${dur ? dur.toFixed(1) + 's clip · ' : ''}its sound plays with the design and goes into the exported video. Press play to preview.`),
     ], true, { collapsible: false });
   }
+  // a video's own sound: on / off, volume (up to 200%) and fades
+  function soundControls(t, base) {
+    const get = () => (S.getPath(t === 'doc' ? S.doc : S.selEls()[0] || {}, base) || {});
+    const muted = !!get().mute;
+    return [
+      row('Sound', h('div.sound-row', null,
+        h('button.icon-btn' + (muted ? '.on' : ''), { type: 'button', title: muted ? 'Turn the sound on' : 'Mute this video', 'aria-label': muted ? 'Unmute' : 'Mute', onclick: () => { S.change(t, base + '.mute', !muted); S.commit(); renderInspector(); } }, ic(muted ? 'mute' : 'volume')),
+        muted ? h('span.hint', null, 'Muted') : num(t, base + '.volume', { min: 0, max: 200, scale: 100, unit: '%', slider: true, def: 1 }))),
+      muted ? null : more('vid-fades-' + base, [
+        row('Fade in', num(t, base + '.fadeIn', { min: 0, max: 10, step: 0.1, slider: true, unit: 's', def: 0 })),
+        row('Fade out', num(t, base + '.fadeOut', { min: 0, max: 10, step: 0.1, slider: true, unit: 's', def: 0 })),
+      ], 'Sound fades'),
+    ];
+  }
+  S.ui_soundControls = soundControls;
   // stop motion: photos picked here become the frames, in the order they were chosen (file name order)
   function pickFrames(el, replace) {
     S.pickImages({ uploadOnly: true, imagesOnly: true, onAdded: added => {
@@ -24929,7 +25943,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function fitLengthToFrames(el, force) {
     const sq = el.seq, n = sq.ids.length;
     const pass = (sq.mode === 'bounce' ? 2 * n - 2 : n) / clamp(sq.fps || 6, 1, 30);
-    const want = Math.min(30, Math.max(2, Math.round((pass < 2 ? pass * 2 : pass) * 10) / 10));
+    const want = Math.min(S.MAX_LEN, Math.max(2, Math.round((pass < 2 ? pass * 2 : pass) * 10) / 10));
     if (force || S.doc.anim.duration < want) { S.change('doc', 'anim.duration', want); updateTimeline(); }
   }
   function stopMotionSection(el) {
@@ -25711,12 +26725,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           ]),
         ],
       },
-      {
+      // a clip's timing comes from its place on the video timeline
+      el.clip ? null : {
         label: 'Show / hide timing', icon: 'film', on: R.hasTiming(el),
         add: () => { S.change(T, 'time', { start: 1, end: null }); updateTimeline(); }, remove: () => { S.change(T, 'time', null); updateTimeline(); },
         body: () => [
-          row('Appears at', num(T, 'time.start', { min: 0, max: 60, step: 0.05, slider: true, def: 0, unit: 's' })),
-          row('Leaves at', num(T, 'time.end', { min: 0, max: 60, step: 0.05, slider: true, def: 0, unit: 's', set: (v, l) => S.change(T, 'time.end', v > 0 ? v : null, l) })),
+          row('Appears at', num(T, 'time.start', { min: 0, max: lenMax(), soft: true, step: 0.05, slider: true, def: 0, unit: 's' })),
+          row('Leaves at', num(T, 'time.end', { min: 0, max: lenMax(), soft: true, step: 0.05, slider: true, def: 0, unit: 's', set: (v, l) => S.change(T, 'time.end', v > 0 ? v : null, l) })),
           tm.cycle && tm.cycle.count > 1 ? h('p.hint', null, `Takes turns with ${tm.cycle.count - 1} other layer${tm.cycle.count > 2 ? 's' : ''}, ${Math.round((tm.cycle.slot || 0.15) * 100) / 100}s each — this is how match cuts flicker.`) : null,
           tm.cycle && tm.cycle.count > 1 ? row('Each shot', num(T, 'time.cycle.slot', { min: 0.04, max: 2, step: 0.01, slider: true, unit: 's' })) : null,
           h('p.hint', null, 'Leave “Leaves at” at 0 to keep it until the end. Great for cuts: show one layer, then swap it for another.'),
@@ -25869,7 +26884,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         row('Handheld', num(T, 'camera.shake', { min: 0, max: 3, step: 0.05, slider: true, def: 0 })),
         row('Motion blur', num(T, 'camera.blur', { min: 0, max: 100, scale: 100, slider: true, unit: '%', def: 0 })),
         c.move === 'jolt' ? row('Wander', num(T, 'camera.wander', { min: 0, max: 100, scale: 100, slider: true, unit: '%', def: 1 })) : null,
-        row('Video length', num(T, 'anim.duration', { min: 1, max: 60, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change(T, 'anim.duration', v, live); updateTimeline(); } })),
+        row('Video length', num(T, 'anim.duration', { min: 1, max: lenMax(), soft: true, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change(T, 'anim.duration', Math.min(S.MAX_LEN, v), live); updateTimeline(); } })),
       ], 'Tilt, shake & blur'),
       full(h('div.btn-row', null,
         h('button.btn.grow', { type: 'button', onclick: () => { S.seek(0); S.play(); } }, ic('play'), 'Preview'),
@@ -26019,6 +27034,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         full(h('button.btn.primary', { type: 'button', disabled: S.isRemovingBackground(), title: 'Copies the main subject onto its own layer so you can tuck text behind it', onclick: () => S.cutoutBackgroundSubject() }, ic('wand'), S.isRemovingBackground() ? 'Working…' : 'Cut out subject to a layer')),
         full(filterThumbs(null, 'doc')),
         ...(R.isVideoAsset(bg.assetId) ? speedControls(T, 'background.video', () => { const ve = R.assetVideo(bg.assetId); return ve && ve.v && isFinite(ve.v.duration) ? ve.v.duration : 0; }) : []),
+        ...(R.isVideoAsset(bg.assetId) ? soundControls(T, 'background.video') : []),
         more('bgphoto-more', [
           row('Opacity', num(T, 'background.imageOpacity', { min: 0, max: 100, scale: 100, slider: true, unit: '%' })),
           row('Zoom', num(T, 'background.crop.zoom', { min: 1, max: 5, step: 0.01, slider: true })),
@@ -26451,8 +27467,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const data = await S.myTemplates.get(t.mine);
     if (!data) return;
     const name = (t.name || 'template').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'template';
-    const blob = new Blob([JSON.stringify({ app: 'collage-studio', kind: 'template', version: 1, name: t.name, doc: data.doc, assets: data.assets, fonts: data.fonts || [], video: !!data.video })], { type: 'application/json' });
-    download(blob, name + '.template.studio.json').then(r => { if (r === 'saved' || r === 'started') toast('Template file saved'); });
+    const { blob, zip } = await S.packFile({ app: 'collage-studio', kind: 'template', version: 1, name: t.name, doc: data.doc, assets: data.assets, media: data.media, fonts: data.fonts || [], video: !!data.video });
+    download(blob, name + (zip ? '.template.studio.zip' : '.template.studio.json')).then(r => { if (r === 'saved' || r === 'started') toast('Template file saved'); });
   }
   async function deleteTemplate(t) {
     const r = await S.myTemplates.remove(t.mine);
@@ -26734,7 +27750,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('over'));
     dz.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('over'); S.importFiles([...e.dataTransfer.files], { uploadOnly: true }); });
-    const ups = S.uploads.filter(id => S.assets[id]).map(id => ({
+    const ups = S.uploads.filter(id => S.assets[id] && !R.isAudioAsset(id)).map(id => ({
       name: 'Upload',
       node: () => {
         const b = h('button.upl', { type: 'button', title: 'Add to canvas', onclick: () => S.addImageFromAsset(id) }, assetThumb(id),
@@ -27093,23 +28109,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     setTimeout(() => URL.revokeObjectURL(url), 60000);
     return 'started';
   }
-  function saveProject() {
-    const blob = new Blob([JSON.stringify(S.projectData())], { type: 'application/json' });
-    download(blob, slug() + '.studio.json').then(r => { if (r === 'saved' || r === 'started') toast('Project file saved'); });
+  // a project file: .studio.json, or .studio.zip once it carries whole videos / sound / full-size photos
+  async function saveProject() {
+    toast('Packing the project file…');
+    const { blob, zip } = await S.packFile(S.projectData());
+    download(blob, slug() + (zip ? '.studio.zip' : '.studio.json')).then(r => { if (r === 'saved' || r === 'started') toast('Project file saved'); });
   }
   $('#project-input').addEventListener('change', async e => {
     const f = e.target.files[0];
     if (!f) return;
     try {
-      const data = JSON.parse(await f.text());
+      const data = await S.readFile(f);
       if (!data.doc) throw new Error('bad');
       if (data.fonts && data.fonts.length) { await F.unpackFamilies(data.fonts); R.fontsVersion++; }
       if (data.kind === 'template') {
-        await S.myTemplates.add(data, data.name || f.name.replace(/(\.template)?\.studio\.json$|\.json$/, ''));
+        await S.myTemplates.add(data, data.name || f.name.replace(/(\.template)?\.studio\.(json|zip)$|\.json$|\.zip$/, ''));
         toast(`Added “${data.name || 'template'}” to My templates`);
         return;
       }
-      S.loadDoc(data.doc, data.assets || {}, { name: data.name || f.name.replace(/\.studio\.json$|\.json$/, ''), project: 'new' });
+      S.loadDoc(data.doc, data.assets || {}, { name: data.name || f.name.replace(/\.studio\.(json|zip)$|\.json$|\.zip$/, ''), project: 'new' });
       S.uploads.splice(0, S.uploads.length, ...(data.uploads || []));
       S.saveNow();
       if (isHome()) leaveHome();
@@ -27251,8 +28269,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const data = await S.projects.get(p.id);
     if (!data) return;
     const name = (p.name || 'design').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'design';
-    const blob = new Blob([JSON.stringify({ app: 'collage-studio', version: 1, name: p.name, doc: data.doc, assets: data.assets, uploads: data.uploads })], { type: 'application/json' });
-    download(blob, name + '.studio.json');
+    const { blob, zip } = await S.packFile({ app: 'collage-studio', version: 1, name: p.name, doc: data.doc, assets: data.assets, media: data.media, uploads: data.uploads });
+    download(blob, name + (zip ? '.studio.zip' : '.studio.json'));
   }
   function projectCard(p) {
     const thumb = h('div.proj-thumb');
@@ -27349,6 +28367,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     photoCard.addEventListener('dragover', e => { e.preventDefault(); photoCard.classList.add('over'); });
     photoCard.addEventListener('dragleave', () => photoCard.classList.remove('over'));
     photoCard.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); photoCard.classList.remove('over'); startPhoto([...e.dataTransfer.files]); });
+    // a video edit: several clips one after another on the timeline
+    const startVideo = files => { const o = { asClips: true, newProject: true, onStart: () => { if (isHome()) leaveHome(); } }; if (files) S.importFiles(files, o); else S.pickImages(o); };
+    const videoCard = h('button.start-card.photo', { type: 'button', onclick: () => startVideo() },
+      h('div.start-art', null, ic('timeline')), h('b', null, 'Video editor'), h('small', null, 'Several clips, music, transitions'));
+    videoCard.addEventListener('dragover', e => { e.preventDefault(); videoCard.classList.add('over'); });
+    videoCard.addEventListener('dragleave', () => videoCard.classList.remove('over'));
+    videoCard.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); videoCard.classList.remove('over'); startVideo([...e.dataTransfer.files]); });
     const tags = ['All', 'Video', ...[...new Set(T.flatMap(t => t.tags || []))].filter(x => x !== 'Video')];
     const chips = h('div.chips.scroll');
     const drawChips = () => chips.replaceChildren(...tags.map(tg => h('button.chip' + (tg === hs.tag ? '.on' : ''), { type: 'button', onclick: () => { hs.tag = tg; drawChips(); drawHomeTemplates(); } }, tg)));
@@ -27365,12 +28390,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         h('label.home-search', null, ic('search'), search),
         h('div.home-actions', null,
           cur ? h('button.btn', { type: 'button', onclick: leaveHome, title: 'Back to the design you were editing' }, ic('chevLeft'), h('span', null, 'Back to editor')) : null,
-          h('button.btn', { type: 'button', title: 'Open a .studio.json project file', onclick: () => { $('#project-input').value = ''; $('#project-input').click(); } }, ic('folder'), h('span', null, 'Open file')),
+          h('button.btn', { type: 'button', title: 'Open a .studio.json or .studio.zip project file', onclick: () => { $('#project-input').value = ''; $('#project-input').click(); } }, ic('folder'), h('span', null, 'Open file')),
           h('button.btn.primary', { type: 'button', onclick: customSizeModal }, ic('plus'), h('span', null, 'New design')))),
       h('main.home-main', null,
         h('section.home-sec', null,
           h('h1.home-title', { html: 'What are we <em>making</em> today?' }),
-          h('div.start-row', null, HOME_SIZES.map(sizeCard), photoCard,
+          h('div.start-row', null, HOME_SIZES.map(sizeCard), photoCard, videoCard,
             h('button.start-card', { type: 'button', onclick: customSizeModal }, h('div.start-art', null, ic('resize')), h('b', null, 'Custom size'), h('small', null, 'Any width × height')))),
         h('section.home-sec', null,
           h('div.home-head', null, h('h2', null, 'Your designs'), tabs, h('div.grow'), sortSel),
@@ -27414,7 +28439,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // a canvas with no background exports see-through by default
     const clearBg = R.isClearBg(S.doc);
     let fmt = 'png', res = 1080, transparent = clearBg, quality = 0.92;
-    let vfmt = clearBg ? 'webm' : 'mp4', vres = 1080, fps = S.doc.anim.fps || 30, vq = 'high', valpha = clearBg;
+    let vfmt = clearBg ? 'webm' : 'mp4', vres = 1080, fps = S.doc.anim.fps || 30, vq = 'high', valpha = clearBg, vsound = true;
+    const audible = !!(window.StudioAudio && window.StudioAudio.hasSound(S.doc));
     let ctrl = null;
     S.pause();
     const preview = h('div.export-preview', null, h('div.hint', null, 'Rendering preview…'));
@@ -27456,8 +28482,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           row('Size', h('div.seg', null, RES.slice(1).map(([l, v]) => segBtn(vres, v, l.split(' ')[0], x => { vres = x; })))),
           row('Frame rate', h('div.seg', null, [24, 30, 60].map(f => segBtn(fps, f, f + ' fps', x => { fps = x; })))),
           vfmt === 'png' ? null : row('Quality', h('div.seg', null, segBtn(vq, 'standard', 'Standard', v => { vq = v; }), segBtn(vq, 'high', 'High', v => { vq = v; }), segBtn(vq, 'max', 'Max', v => { vq = v; }))),
-          row('Length', num('doc', 'anim.duration', { min: 1, max: 60, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change('doc', 'anim.duration', v, live); if (!live) draw(); } })),
-          h('div.hint', null, `${sz.w} × ${sz.h} px · ${fps} fps · ${S.doc.anim.duration}s` + (vfmt === 'png' ? ` · ${Math.round(S.doc.anim.duration * fps)} frames` : ' · loops seamlessly') + (valpha ? ' · see-through' : '')),
+          row('Length', num('doc', 'anim.duration', { min: 1, max: lenMax(), soft: true, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change('doc', 'anim.duration', Math.min(S.MAX_LEN, v), live); if (!live) draw(); } })),
+          audible ? h('div.toggle-row', null, h('label', null, vfmt === 'png' ? 'Sound (as sound.wav in the zip)' : 'Sound'), h('button.switch' + (vsound ? '.on' : ''), { onclick: () => { vsound = !vsound; draw(); } })) : null,
+          h('div.hint', null, `${sz.w} × ${sz.h} px · ${fps} fps · ${S.doc.anim.duration}s` + (vfmt === 'png' ? ` · ${Math.round(S.doc.anim.duration * fps)} frames` : S.isVideoEdit && S.isVideoEdit() ? '' : ' · loops seamlessly') + (valpha ? ' · see-through' : '') + (audible && vsound ? ' · with sound' : '')),
           h('div.progress', { hidden: true }, h('div')),
           h('div.hint.vstatus'),
           h('div.btn-row', { style: { marginTop: '14px' } },
@@ -27506,22 +28533,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const t0 = performance.now();
       try {
         const out = await S.exportVideo({
-          width: sz.w, height: sz.h, fps, duration: S.doc.anim.duration, format: vfmt, transparent: valpha,
+          width: sz.w, height: sz.h, fps, duration: S.doc.anim.duration, format: vfmt, transparent: valpha, sound: vsound,
           bitrate: Math.min(80e6, Math.round(sz.w * sz.h * fps * bpp)), signal: ctrl.signal,
           onProgress: (f, stage) => {
             fill.style.width = Math.round(f * 100) + '%';
             const el = (performance.now() - t0) / 1000;
-            status.textContent = stage === 'retry' ? 'The fast encoder gave up at this size — trying another one…' : stage === 'finish' ? 'Finishing the file…' : `Rendering frames… ${Math.round(f * 100)}%` + (f > 0.05 ? ` · about ${Math.max(1, Math.round(el / f - el))}s left` : '');
+            status.textContent = stage === 'sound' ? 'Mixing the sound…' : stage === 'retry' ? 'The fast encoder gave up at this size — trying another one…' : stage === 'finish' ? 'Finishing the file…' : `Rendering frames… ${Math.round(f * 100)}%` + (f > 0.05 ? ` · about ${Math.max(1, Math.round(el / f - el))}s left` : '');
           },
         });
         const name = `${slug()}.${out.ext}`;
         const url = URL.createObjectURL(out.blob);
-        preview.replaceChildren(h('div.export-result' + (out.alpha ? '.see-through' : ''), null, out.ext === 'zip' ? h('div.hint', null, `${out.frames} PNG frames`) : h('video', { src: url, controls: true, autoplay: true, loop: true, muted: true, playsInline: true }),
+        preview.replaceChildren(h('div.export-result' + (out.alpha ? '.see-through' : ''), null, out.ext === 'zip' ? h('div.hint', null, `${out.frames} PNG frames`) : h('video', { src: url, controls: true, autoplay: true, loop: true, muted: !out.sound || out.sound === 'failed', playsInline: true }),
           h('div.hint', null, `${name} · ${out.width} × ${out.height} · ${(out.blob.size / 1e6).toFixed(1)} MB. If nothing downloaded, use Save again` + (out.ext === 'zip' ? '.' : ', or right-click the video and choose “Save video as”.')),
           h('button.btn', { onclick: () => download(out.blob, name) }, ic('download'), 'Save again')));
         hydrateIcons(preview);
         download(out.blob, name);
-        status.textContent = valpha && !out.alpha ? 'This browser can’t make see-through video here, so the background was left in — try PNG frames.' : out.ext !== (vfmt === 'png' ? 'zip' : vfmt) ? `Your browser can’t encode ${vfmt.toUpperCase()} at this size, so this was saved as ${out.ext.toUpperCase()}.` : 'Done.';
+        status.textContent = valpha && !out.alpha ? 'This browser can’t make see-through video here, so the background was left in — try PNG frames.' : out.ext !== (vfmt === 'png' ? 'zip' : vfmt) ? `Your browser can’t encode ${vfmt.toUpperCase()} at this size, so this was saved as ${out.ext.toUpperCase()}.` : out.sound === 'failed' ? 'Done — but this browser couldn’t encode the sound, so the video is silent. Try WEBM.' : 'Done.';
         toast('Video exported');
       } catch (err) {
         console.error(err);
@@ -27578,7 +28605,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       row('Camera', (() => { const sl = h('select.sel', { onchange: e => { closePop(); setCameraMove(e.target.value); S.select([]); } }, Object.entries(R.CAMERA_MOVES).map(([k, l]) => h('option', { value: k, selected: ((S.doc.camera && S.doc.camera.move) || 'none') === k }, l))); return sl; })()),
       h('div.sub-label', null, 'Animate everything'),
       h('div.anim-presets', null, ANIM_PRESETS.map(p => h('button.anim-preset', { type: 'button', onclick: () => { closePop(); applyAnimPreset(p); } }, h('b', null, p.name), h('small', null, p.sub)))),
-      row('Length', num('doc', 'anim.duration', { min: 1, max: 60, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change('doc', 'anim.duration', v, live); updateTimeline(); } })),
+      row('Length', num('doc', 'anim.duration', { min: 1, max: lenMax(), soft: true, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change('doc', 'anim.duration', Math.min(S.MAX_LEN, v), live); updateTimeline(); } })),
       S.hasAnimation() ? h('button.link-btn.danger', { type: 'button', onclick: () => { closePop(); S.doc.elements.forEach(e => { delete e.anim; }); S.stopPreview(); S.touchAll(); S.commit(); renderInspector(); updateTimeline(); updateTop(); toast('Animations removed'); } }, 'Remove all animation') : null,
       h('p.hint', null, 'To animate one layer, select it and use Motion on the right. Camera settings live on the right when nothing is selected.'),
     ].filter(Boolean), { cls: 'anim-pop' });
@@ -27589,7 +28616,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // floating timeline under the canvas whenever something moves
   const tl = $('#timeline');
   function updateTimeline() {
-    const show = S.hasAnimation() || S.isPlaying();
+    const show = (S.hasAnimation() || S.isPlaying()) && !S.vtlOpen;
     tl.hidden = !show;
     $('#stage-area').classList.toggle('has-timeline', show);
     if (!show) return;
@@ -28028,6 +29055,624 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   // open on the styles
   if (U.tab === 'styles') U.setTab('styles', { open: true });
+})();
+
+</script>
+<script>
+/* Savio's editor — the video timeline.
+   A multi-track editor under the canvas, like the ones in video apps: the main video track (clips one after another,
+   with the transitions between them), lanes above it for timed text and layers, and sound lanes below for music and
+   voiceovers. Drag a clip to reorder it, drag its edges to trim, split at the playhead (S), drop files to add them.
+   The clip logic lives in clips.js, sound in audio.js; this file is the UI. */
+(function () {
+  'use strict';
+  const S = window.Studio, R = window.StudioRender, A = window.StudioAudio, U = S.ui;
+  const { h, ic, hydrateIcons, toast, num, row, sec, full, toggle, more } = U;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const LAB = 76;           // label column
+  const MIN_H = 150, DEF_H = 236;
+  const area = document.getElementById('stage-area');
+
+  let open = false, userClosed = false, pps = 0, fitZoom = true, selSound = null, drag = null, raf = 0, height = DEF_H;
+  try { height = clamp(+localStorage.getItem('studio.vtlHeight') || DEF_H, MIN_H, 520); } catch (e) { /* storage blocked */ }
+  Object.defineProperty(S, 'vtlOpen', { get: () => open });
+
+  const fmt = t => { t = Math.max(0, t || 0); const m = Math.floor(t / 60), s = t - m * 60; return `${m}:${s < 10 ? '0' : ''}${s.toFixed(1)}`; };
+  const D = () => Math.max(0.5, S.doc.anim.duration || 5);
+  const now = () => (R.playTime == null ? 0 : R.playTime);
+  const tx = t => LAB + t * pps;
+
+  /* ── DOM ── */
+  const root = h('div.vtl', { hidden: true });
+  const grip = h('div.vtl-grip', { title: 'Drag to resize the timeline' });
+  const playBtn = h('button.vtl-play', { type: 'button', title: 'Play / pause (P)', onclick: () => (S.isPlaying() ? S.pause() : S.play()) }, ic('play'));
+  const timeEl = h('span.vtl-time');
+  const zoomIn = h('input.vtl-zoom', { type: 'range', min: 0, max: 100, value: 0, 'aria-label': 'Timeline zoom', oninput: e => setZoom(+e.target.value) });
+  const btn = (icon, title, run, label) => h('button.vtl-btn', { type: 'button', title, 'aria-label': title, onclick: run }, ic(icon), label ? h('span', null, label) : null);
+  const recBtn = btn('mic', 'Record a voiceover from the playhead', () => toggleRecord(), 'Voice');
+  const musicInput = h('input', { type: 'file', accept: 'audio/*,.mp3,.m4a,.wav,.ogg,.opus,.flac,.aac', multiple: true, hidden: true });
+  musicInput.addEventListener('change', () => { if (musicInput.files.length) S.importFiles([...musicInput.files], { soundAt: now() < 0.1 ? 0 : now() }); musicInput.value = ''; });
+  const bar = h('div.vtl-bar', null,
+    playBtn, timeEl, h('span.vtl-sep'),
+    btn('scissors', 'Split at the playhead (S)', () => split()),
+    btn('copy', 'Duplicate', () => duplicate()),
+    btn('trash', 'Delete', () => remove()),
+    h('span.vtl-sep'),
+    btn('clip', 'Add video clips or photos to the end', () => S.pickClips({}), 'Clips'),
+    btn('music', 'Add music or a sound file at the playhead', () => musicInput.click(), 'Music'),
+    recBtn,
+    btn('type', 'Add a title at the playhead', () => addTitle(), 'Text'),
+    h('div.vtl-grow'),
+    btn('minus', 'Zoom out', () => setZoom(+zoomIn.value - 12)), zoomIn, btn('plus', 'Zoom in', () => setZoom(+zoomIn.value + 12)),
+    btn('fit', 'Fit the whole video', () => { fitZoom = true; render(); }),
+    btn('x', 'Close the timeline', () => { userClosed = true; close(); }),
+    musicInput);
+  const scroll = h('div.vtl-scroll');
+  const inner = h('div.vtl-inner');
+  const ruler = h('canvas.vtl-ruler');
+  const lanes = h('div.vtl-lanes');
+  const head = h('div.vtl-head', null, h('span'));
+  const pop = h('div.vtl-pop', { hidden: true });
+  inner.append(h('div.vtl-rulerrow', null, h('div.vtl-lab'), ruler), lanes, head);
+  scroll.append(inner);
+  root.append(grip, bar, scroll, pop);
+  area.append(root);
+  hydrateIcons(root);
+
+  function setOpen(v) {
+    open = v;
+    root.hidden = !v;
+    area.classList.toggle('vtl-open', v);
+    area.style.setProperty('--vtl-h', height + 'px');
+    S.setStageInset(v ? height : 0);
+    if (dockBtn) dockBtn.classList.toggle('on', v);
+    S.emit('change');
+  }
+  function openTl() {
+    if (!open) { setOpen(true); if (R.playTime == null) S.seek(0); }
+    fitZoom = fitZoom || !pps;
+    render();
+  }
+  function close() { setOpen(false); closePop(); }
+  S.openTimeline = () => { userClosed = false; openTl(); };
+  S.closeTimeline = close;
+
+  // drag the top edge to make the timeline taller or shorter
+  grip.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const y0 = e.clientY, h0 = height;
+    grip.setPointerCapture(e.pointerId);
+    const mv = ev => { height = clamp(h0 - (ev.clientY - y0), MIN_H, Math.min(560, area.clientHeight - 120)); area.style.setProperty('--vtl-h', height + 'px'); S.setStageInset(height); };
+    const up = () => { grip.removeEventListener('pointermove', mv); grip.removeEventListener('pointerup', up); try { localStorage.setItem('studio.vtlHeight', String(height)); } catch (err) { /* ignore */ } };
+    grip.addEventListener('pointermove', mv); grip.addEventListener('pointerup', up);
+  });
+
+  function setZoom(v) {
+    v = clamp(v, 0, 100);
+    zoomIn.value = v;
+    const fit = fitPps();
+    const keepT = (scroll.scrollLeft + scroll.clientWidth / 2 - LAB) / (pps || 1);
+    pps = fit * Math.pow(2, v / 100 * 8);
+    fitZoom = v === 0;
+    render();
+    scroll.scrollLeft = Math.max(0, LAB + keepT * pps - scroll.clientWidth / 2);
+  }
+  const fitPps = () => Math.max(1, (scroll.clientWidth - LAB - 28) / D());
+  scroll.addEventListener('wheel', e => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    setZoom(+zoomIn.value - Math.sign(e.deltaY) * 6);
+  }, { passive: false });
+
+  /* ── what's on the timeline ── */
+  // timed layers (not clips) packed into as few lanes as fit
+  function overlayItems() {
+    const d = S.doc;
+    return d.elements.filter(e => !e.clip && e.time && !e.vox && !e.mcut && !e.cutin && !e.layoutSlot).map(e => ({ el: e, s: e.time.start || 0, e: e.time.end != null && e.time.end > (e.time.start || 0) ? e.time.end : D() }));
+  }
+  function pack(items) {
+    const ends = [];
+    for (const it of items.slice().sort((a, b) => a.s - b.s)) {
+      let k = ends.findIndex(x => x <= it.s + 1e-6);
+      if (k < 0) { k = ends.length; ends.push(0); }
+      ends[k] = it.e; it.lane = k;
+    }
+    return Math.max(1, ends.length);
+  }
+
+  /* ── drawing ── */
+  // while something is being dragged only the drag itself redraws (render(true)), so the dragged block stays put
+  function schedule() { if (!open || raf) return; raf = requestAnimationFrame(() => { raf = 0; if (drag) { drag.pending = true; return; } render(); }); }
+  function render(force) {
+    if (!open || (drag && !force)) return;
+    const d = S.doc, dur = D();
+    if (fitZoom || !pps) { pps = fitPps(); zoomIn.value = 0; }
+    const W = Math.max(scroll.clientWidth, LAB + dur * pps + 120);
+    inner.style.width = W + 'px';
+    drawRuler(W);
+    const clips = S.clips(), sel = new Set(S.sel), ov = overlayItems(), ovLanes = ov.length ? pack(ov) : 0;
+    const snd = (d.audio || []).map(a => ({ a, s: a.start || 0, e: A.trackEnd(a, dur) }));
+    const auLanes = snd.length ? pack(snd) : 0;
+    const rows = [];
+    // timed text and layers
+    for (let k = 0; k < ovLanes; k++) {
+      const lane = h('div.vtl-track.ov');
+      for (const it of ov.filter(x => x.lane === k)) lane.append(overlayBar(it, sel.has(it.el.id)));
+      rows.push(h('div.vtl-row.ov', null, h('div.vtl-lab', null, k === 0 ? h('span', null, 'Text & layers') : null), lane));
+    }
+    // the main video track
+    const main = h('div.vtl-track.main');
+    if (!clips.length) main.append(h('button.vtl-empty', { type: 'button', onclick: () => S.pickClips({}) }, ic('plus'), d.elements.length ? 'Add clips — your videos and photos play one after another' : 'Add video clips or photos — or drop them here'));
+    clips.forEach((el, i) => { main.append(clipBlock(el, i, sel.has(el.id))); if (i) main.append(transChip(el)); });
+    rows.push(h('div.vtl-row.main', null, h('div.vtl-lab', null, h('span', null, 'Video'), h('button.vtl-mini', { type: 'button', title: 'Add clips', 'aria-label': 'Add clips', onclick: () => S.pickClips({}) }, ic('plus'))), main));
+    // sound
+    for (let k = 0; k < Math.max(1, auLanes); k++) {
+      const lane = h('div.vtl-track.au');
+      for (const it of snd.filter(x => x.lane === k)) lane.append(soundBar(it));
+      if (!snd.length) lane.append(h('button.vtl-empty.au', { type: 'button', onclick: () => musicInput.click() }, ic('music'), 'Add music — or drop a sound file here'));
+      rows.push(h('div.vtl-row.au', null, h('div.vtl-lab', null, k === 0 ? h('span', null, 'Sound') : null), lane));
+    }
+    lanes.replaceChildren(...rows);
+    hydrateIcons(lanes);
+    placeHead();
+  }
+  function drawRuler(W) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1), Hh = 22, w = W - LAB;
+    ruler.width = Math.round(w * dpr); ruler.height = Hh * dpr; ruler.style.width = w + 'px'; ruler.style.height = Hh + 'px';
+    const x = ruler.getContext('2d');
+    x.scale(dpr, dpr);
+    const css = getComputedStyle(root);
+    x.fillStyle = css.getPropertyValue('--ink-3') || '#888';
+    x.strokeStyle = css.getPropertyValue('--line-strong') || 'rgba(255,255,255,.2)';
+    x.font = '10px ' + (css.getPropertyValue('--mono') || 'monospace');
+    const steps = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
+    const major = steps.find(s => s * pps >= 70) || 600, minor = major / (major >= 1 && major % 5 === 0 ? 5 : 4);
+    x.beginPath();
+    for (let t = 0; t <= D() + 1e-6 + 60 / pps; t += minor) {
+      const px = Math.round(t * pps) + 0.5, isMaj = Math.abs(t / major - Math.round(t / major)) < 1e-6;
+      x.moveTo(px, isMaj ? 9 : 15); x.lineTo(px, Hh);
+      if (isMaj) x.fillText(fmt(t).replace(/\.0$/, ''), px + 3, 9);
+    }
+    x.stroke();
+    // the end of the video
+    x.fillStyle = 'rgba(255,255,255,.06)';
+    x.fillRect(D() * pps, 0, w, Hh);
+  }
+  function placeHead() {
+    const t = now();
+    head.style.transform = `translateX(${tx(t)}px)`;
+    timeEl.textContent = `${fmt(t)} / ${fmt(D())}`;
+    const want = S.isPlaying() ? 'pause' : 'play';
+    if (playBtn.dataset.state !== want) { playBtn.dataset.state = want; playBtn.replaceChildren(ic(want)); }
+    // keep the playhead in view while playing
+    if (S.isPlaying()) {
+      const x = tx(t);
+      if (x > scroll.scrollLeft + scroll.clientWidth - 40 || x < scroll.scrollLeft + LAB) scroll.scrollLeft = x - LAB - 20;
+    }
+  }
+
+  /* filmstrips: a few frames per video, grabbed once with a private <video> */
+  const strips = new Map(); // asset URL → { frames: [{ t, c }], step, busy }
+  function stripFor(id) {
+    const url = S.assets[id];
+    let st = strips.get(url);
+    if (st) return st;
+    st = { frames: [], step: 1, busy: true };
+    strips.set(url, st);
+    (async () => {
+      const v = document.createElement('video');
+      v.muted = true; v.preload = 'auto'; v.src = url;
+      await new Promise(res => { v.onloadeddata = res; v.onerror = res; setTimeout(res, 8000); });
+      const dur = isFinite(v.duration) ? v.duration : 0;
+      if (!dur || !v.videoWidth) { st.busy = false; return; }
+      const n = Math.min(80, Math.max(2, Math.ceil(dur / 1.5)));
+      st.step = dur / n;
+      const th = 60, tw = Math.round(th * v.videoWidth / v.videoHeight);
+      for (let i = 0; i < n; i++) {
+        const t = Math.min(dur - 0.05, (i + 0.5) * st.step);
+        await new Promise(res => { const fin = () => { v.removeEventListener('seeked', fin); res(); }; v.addEventListener('seeked', fin); setTimeout(fin, 1500); v.currentTime = t; });
+        const c = document.createElement('canvas'); c.width = tw; c.height = th;
+        c.getContext('2d').drawImage(v, 0, 0, tw, th);
+        st.frames.push({ t, c });
+        if (i % 6 === 5 || i === n - 1) schedule();
+      }
+      st.busy = false;
+      v.removeAttribute('src'); v.load();
+    })();
+    return st;
+  }
+  function paintStrip(c, el, w, hgt) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.round(hgt * dpr);
+    c.style.width = w + 'px'; c.style.height = hgt + 'px';
+    const x = c.getContext('2d');
+    x.scale(dpr, dpr);
+    const vid = R.isVideoAsset(el.assetId);
+    const img = vid ? null : R.assetImage(el.assetId), m = vid ? null : R.mediaSize(img);
+    const st = vid ? stripFor(el.assetId) : null;
+    const tileW = vid ? (st.frames[0] ? st.frames[0].c.width * hgt / st.frames[0].c.height : hgt * 16 / 9) : m ? Math.max(20, hgt * m.w / m.h) : hgt;
+    const vd = el.video || {}, sp = vd.speed || 1;
+    for (let px = 0; px < w; px += tileW) {
+      if (vid) {
+        if (!st.frames.length) continue;
+        const lt = (px + tileW / 2) / pps * sp, srcEnd = vd.end > 0 ? vd.end : S.clipSrcLen(el);
+        const t = vd.reverse ? srcEnd - lt : (vd.trim || 0) + lt;
+        const f = st.frames[clamp(Math.round(t / st.step - 0.5), 0, st.frames.length - 1)];
+        x.drawImage(f.c, px, 0, tileW, hgt);
+      } else if (img) {
+        const s = Math.max(tileW / m.w, hgt / m.h);
+        x.drawImage(img, (m.w - tileW / s) / 2, (m.h - hgt / s) / 2, tileW / s, hgt / s, px, 0, tileW, hgt);
+      }
+    }
+  }
+  const waves = new Map(); // key → Float32Array
+  function paintWave(c, a, w, hgt) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.round(hgt * dpr);
+    c.style.width = w + 'px'; c.style.height = hgt + 'px';
+    const n = Math.max(8, Math.min(4000, Math.round(w / 2)));
+    const len = A.trackLen(a), key = S.assets[a.assetId] + '|' + a.trim + '|' + a.end + '|' + n;
+    const pk = waves.get(key);
+    if (!pk) {
+      if (!waves.has(key)) { waves.set(key, null); A.peaks(a.assetId, a.trim || 0, a.end > 0 ? a.end : 0, n).then(p => { if (p) { waves.set(key, p); schedule(); } }); }
+      return;
+    }
+    const x = c.getContext('2d');
+    x.scale(dpr, dpr);
+    x.fillStyle = 'rgba(255,255,255,.55)';
+    const pass = len * pps, reps = a.loop ? Math.ceil(w / Math.max(1, pass)) : 1;
+    for (let r = 0; r < reps; r++) {
+      for (let i = 0; i < n; i++) {
+        const px = r * pass + i / n * Math.min(w, pass);
+        if (px > w) break;
+        const v = pk[i] * (a.volume ?? 1), bh = Math.max(1, Math.min(1, v) * (hgt - 6));
+        x.fillRect(px, (hgt - bh) / 2, Math.max(1, Math.min(w, pass) / n - 0.5), bh);
+      }
+    }
+  }
+
+  function clipBlock(el, i, on) {
+    const s0 = el.time.start, len = el.time.end - el.time.start, w = Math.max(6, len * pps);
+    const vid = R.isVideoAsset(el.assetId), muted = vid && el.video && el.video.mute;
+    const c = h('canvas.vtl-strip');
+    const b = h('div.vtl-clip' + (on ? '.on' : '') + (vid ? '.vid' : '.photo'), { style: { left: s0 * pps + 'px', width: w + 'px' }, 'data-id': el.id },
+      c,
+      h('div.vtl-clip-info', null,
+        h('span', null, (el.name || (vid ? 'Video' : 'Photo')) + ''),
+        h('small', null, fmt(len).replace(/^0:/, '') + 's' + (vid && (el.video.speed || 1) !== 1 ? ` · ${Math.round(el.video.speed * 100)}%` : '') + (vid && el.video.reverse ? ' · reversed' : '')),
+        muted ? h('i.vtl-mut', { 'data-icon': 'mute' }) : null),
+      h('div.vtl-h.l', { title: 'Drag to trim the start' }), h('div.vtl-h.r', { title: 'Drag to trim the end' }));
+    paintStrip(c, el, w, 44);
+    b.addEventListener('pointerdown', e => startDrag(e, { kind: 'clip', el, side: e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : null, b }));
+    b.addEventListener('dblclick', () => S.openTimeline());
+    return b;
+  }
+  function transChip(el) {
+    const tr = el.clip.trans, has = tr && tr.type && tr.type !== 'none';
+    const x = el.time.start * pps + (el.clip._in || 0) * pps / 2;
+    const b = h('button.vtl-trans' + (has ? '.on' : ''), { type: 'button', title: has ? `${R.TRANSITIONS[tr.type]} · ${el.clip._in.toFixed(2)}s — click to change` : 'Add a transition', style: { left: x + 'px' } }, has ? h('b', null, (R.TRANSITIONS[tr.type] || '').slice(0, 1)) : ic('plus'));
+    b.addEventListener('pointerdown', e => e.stopPropagation());
+    b.addEventListener('click', e => { e.stopPropagation(); transPop(el, b); });
+    return b;
+  }
+  function overlayBar(it, on) {
+    const el = it.el, w = Math.max(6, (it.e - it.s) * pps);
+    const b = h('div.vtl-ovb.t-' + el.type + (on ? '.on' : ''), { style: { left: it.s * pps + 'px', width: w + 'px' } },
+      h('span', null, S.elLabel(el)), h('div.vtl-h.l'), h('div.vtl-h.r'));
+    b.addEventListener('pointerdown', e => startDrag(e, { kind: 'ov', el, side: e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : null, b }));
+    return b;
+  }
+  function soundBar(it) {
+    const a = it.a, w = Math.max(6, (it.e - it.s) * pps), on = selSound === a.id;
+    const c = h('canvas.vtl-wave');
+    const b = h('div.vtl-sound' + (on ? '.on' : '') + (a.mute ? '.muted' : '') + (a.voice ? '.voice' : ''), { style: { left: it.s * pps + 'px', width: w + 'px' } },
+      c, h('div.vtl-clip-info', null, h('i', { 'data-icon': a.voice ? 'mic' : 'music' }), h('span', null, a.name || 'Sound'), a.loop ? h('small', null, 'loops') : null, a.mute ? h('i.vtl-mut', { 'data-icon': 'mute' }) : null),
+      a.fadeIn > 0 ? h('div.vtl-fade.in', { style: { width: Math.min(w / 2, a.fadeIn * pps) + 'px' } }) : null,
+      a.fadeOut > 0 ? h('div.vtl-fade.out', { style: { width: Math.min(w / 2, a.fadeOut * pps) + 'px' } }) : null,
+      h('div.vtl-h.l'), a.loop ? null : h('div.vtl-h.r'));
+    paintWave(c, a, w, 36);
+    b.addEventListener('pointerdown', e => startDrag(e, { kind: 'snd', a, side: e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : null, b }));
+    return b;
+  }
+
+  /* ── dragging ── */
+  function selectSound(id) {
+    selSound = id;
+    if (id) S.select([]);
+    U.renderInspector();
+    render();
+  }
+  function startDrag(e, o) {
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    closePop();
+    const x0 = e.clientX;
+    let moved = false;
+    if (o.kind === 'snd') {
+      selSound = o.a.id; if (S.sel.length) S.select([]);
+      for (const x of lanes.querySelectorAll('.on')) x.classList.remove('on');
+      o.b.classList.add('on');
+      U.renderInspector();
+      o.a0 = Object.assign({}, o.a);
+    } else {
+      if (selSound) selSound = null;
+      if (!S.sel.includes(o.el.id)) S.select([o.el.id]);
+      o.v0 = JSON.parse(JSON.stringify({ video: o.el.video || null, clip: o.el.clip || null, time: o.el.time || null }));
+    }
+    drag = o;
+    const target = root;
+    target.setPointerCapture(e.pointerId);
+    const mv = ev => {
+      const dx = ev.clientX - x0;
+      if (!moved && Math.abs(dx) < 4) return;
+      moved = true;
+      dragMove(o, dx / pps, ev);
+    };
+    const up = ev => {
+      target.removeEventListener('pointermove', mv); target.removeEventListener('pointerup', up); target.removeEventListener('pointercancel', up);
+      drag = null;
+      if (target.hasPointerCapture(ev.pointerId)) target.releasePointerCapture(ev.pointerId);
+      if (moved) dragEnd(o, (ev.clientX - x0) / pps, ev);
+      else if (o.kind === 'clip' || o.kind === 'ov') {
+        // a click: show this layer at the playhead, or jump into it
+        const t = now(), tm = o.el.time;
+        if (tm && (t < tm.start || t >= (tm.end ?? D()))) S.seek(tm.start + 0.01);
+      }
+      render();
+    };
+    target.addEventListener('pointermove', mv); target.addEventListener('pointerup', up); target.addEventListener('pointercancel', up);
+  }
+  function dragMove(o, dt, ev) {
+    if (o.kind === 'clip') {
+      const el = o.el, v0 = o.v0;
+      if (!o.side) {
+        // reorder: the block follows the pointer, the others stay until it's dropped
+        o.b.style.transform = `translateX(${dt * pps}px)`;
+        o.b.classList.add('lift');
+        const mid = el.time.start + (el.time.end - el.time.start) / 2 + dt;
+        o.to = S.clips().filter(c => c !== el && c.time.start + (c.time.end - c.time.start) / 2 < mid).length;
+        return;
+      }
+      S.changeEl(el, e => {
+        if (R.isVideoAsset(e.assetId)) {
+          const sp = (v0.video && v0.video.speed) || 1, src = S.clipSrcLen(e) || 9999, tr0 = (v0.video && v0.video.trim) || 0, en0 = v0.video && v0.video.end > 0 ? v0.video.end : src;
+          // trimming the left edge of a reversed clip cuts its end in the file
+          const left = (o.side === 'l') !== !!(v0.video && v0.video.reverse);
+          if (left) e.video.trim = clamp(tr0 + (o.side === 'l' ? dt : -dt) * sp, 0, en0 - 0.1);
+          else e.video.end = clamp(en0 + (o.side === 'r' ? dt : -dt) * sp, tr0 + 0.1, src);
+        } else e.clip.len = clamp(((v0.clip && v0.clip.len) || 3) + (o.side === 'r' ? dt : -dt), 0.2, 600);
+      }, true);
+      S.layoutClips();
+      // show the frame at the cut
+      S.seek(o.side === 'l' ? el.time.start + 0.001 : el.time.end - 0.02);
+    } else if (o.kind === 'ov') {
+      const t0 = o.v0.time || { start: 0, end: null }, s0 = t0.start || 0, e0 = t0.end != null && t0.end > s0 ? t0.end : D();
+      let s = s0, en = e0;
+      if (!o.side) { const k = clamp(dt, -s0, D() - e0 + (e0 - s0) - 0.1); s = s0 + k; en = e0 + k; }
+      else if (o.side === 'l') s = clamp(s0 + dt, 0, e0 - 0.1);
+      else en = clamp(e0 + dt, s0 + 0.1, D());
+      S.changeEl(o.el, e => { e.time = Object.assign({}, e.time, { start: Math.round(s * 100) / 100, end: en >= D() - 0.005 ? null : Math.round(en * 100) / 100 }); }, true);
+      S.seek(o.side === 'r' ? en - 0.02 : s + 0.001);
+    } else if (o.kind === 'snd') {
+      const a0 = o.a0, len0 = A.trackLen(a0), end0 = a0.end > 0 ? a0.end : a0.dur || len0 + (a0.trim || 0);
+      const p = {};
+      if (!o.side) p.start = Math.max(0, (a0.start || 0) + dt);
+      else if (o.side === 'l') { const k = clamp(dt, -(a0.trim || 0), len0 - 0.1); p.trim = (a0.trim || 0) + k; p.start = Math.max(0, (a0.start || 0) + k); }
+      else p.end = clamp(end0 + dt, (a0.trim || 0) + 0.1, a0.dur || end0 + dt);
+      S.changeSound(a0.id, p, true);
+    }
+    render(true);
+  }
+  function dragEnd(o) {
+    if (o.kind === 'clip' && !o.side) {
+      o.b.style.transform = ''; o.b.classList.remove('lift');
+      if (o.to != null && o.to !== S.clips().indexOf(o.el)) S.moveClip(o.el, o.to); else render();
+      return;
+    }
+    S.commit();
+    S.emit('doc');
+  }
+
+  // click / drag on the ruler or an empty spot moves the playhead
+  function seekFromX(clientX) {
+    const r = inner.getBoundingClientRect();
+    S.pause();
+    S.seek(clamp((clientX - r.left - LAB) / pps, 0, D() - 0.001));
+  }
+  inner.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('.vtl-clip, .vtl-ovb, .vtl-sound, .vtl-trans, .vtl-empty, .vtl-lab button')) return;
+    if (e.clientX - inner.getBoundingClientRect().left < LAB) return;
+    closePop();
+    if (selSound) { selSound = null; U.renderInspector(); }
+    seekFromX(e.clientX);
+    inner.setPointerCapture(e.pointerId);
+    const mv = ev => seekFromX(ev.clientX);
+    const up = () => { inner.removeEventListener('pointermove', mv); inner.removeEventListener('pointerup', up); render(); };
+    inner.addEventListener('pointermove', mv); inner.addEventListener('pointerup', up);
+  });
+
+  // drop files: sound becomes a track at the drop point, videos and photos become clips there
+  root.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); e.stopPropagation(); root.classList.add('over'); } });
+  root.addEventListener('dragleave', () => root.classList.remove('over'));
+  root.addEventListener('drop', e => {
+    if (!e.dataTransfer.files.length) return;
+    e.preventDefault(); e.stopPropagation(); root.classList.remove('over');
+    const t = clamp((e.clientX - inner.getBoundingClientRect().left - LAB) / pps, 0, D());
+    const files = [...e.dataTransfer.files];
+    const idx = S.clips().filter(c => c.time.start + (c.time.end - c.time.start) / 2 < t).length;
+    S.importFiles(files, { asClips: true, clipIndex: idx, soundAt: t });
+  });
+
+  /* ── actions ── */
+  function split() {
+    const t = now();
+    if (selSound) { if (!S.splitSound(selSound, t)) toast('Move the playhead inside the sound to split it'); return; }
+    const sel = S.selEls()[0];
+    const el = sel && sel.clip && t > sel.time.start && t < sel.time.end ? sel : S.clipAt(t);
+    if (!el) { toast('Move the playhead over a clip to split it'); return; }
+    if (!S.splitClip(el, t)) toast('Too close to the clip’s edge to split');
+  }
+  function duplicate() {
+    if (selSound) {
+      const a = S.soundById(selSound);
+      if (!a) return;
+      const b = Object.assign({}, a, { id: 'au' + Math.random().toString(36).slice(2, 9), start: A.trackEnd(a, Infinity) });
+      S.doc.audio.splice(S.doc.audio.indexOf(a) + 1, 0, b);
+      S.commit(); S.emit('doc'); selectSound(b.id);
+      return;
+    }
+    if (S.sel.length) S.duplicate();
+  }
+  function remove() {
+    if (selSound) { const id = selSound; selSound = null; S.removeSound(id); U.renderInspector(); return; }
+    if (S.sel.length) { S.removeSelected(); S.commit(); }
+  }
+  function addTitle() {
+    const t = now(), W = S.doc.width;
+    const el = S.mk('text', { text: 'Your title', fontSize: Math.round(Math.min(W, S.doc.height) * 0.08), fontWeight: 700, color: '#ffffff', align: 'center', shadow: { on: true, color: '#000000', opacity: 0.45, blur: 18, x: 0, y: 4 } });
+    el.time = { start: Math.round(t * 100) / 100, end: Math.round(Math.min(D(), t + 3) * 100) / 100 };
+    el.anim = { enter: 'rise', loop: 'none', speed: 1, amount: 1, delay: 0 };
+    el.cx = S.doc.width / 2; el.cy = S.doc.height * 0.78;
+    S.addElement(el, { center: false });
+    S.seek(t + 0.5);
+    S.emit('doc');
+  }
+  async function toggleRecord() {
+    if (A.recording()) {
+      S.pause();
+      const tr = await A.stopRecording();
+      if (tr) { selectSound(tr.id); toast('Voiceover added'); }
+      return;
+    }
+    try {
+      const t = now();
+      await A.record(t);
+      // play the design from the playhead so you can talk over it
+      if (S.isVideoEdit() || S.hasAnimation()) S.play();
+      toast('Recording — click Voice again to stop');
+    } catch (err) { toast('The microphone isn’t available — check the browser’s permission'); }
+  }
+  S.on('recording', on => { recBtn.classList.toggle('rec', !!on); recBtn.lastChild.textContent = on ? 'Stop' : 'Voice'; });
+
+  /* ── transition picker ── */
+  function closePop() { pop.hidden = true; pop.replaceChildren(); }
+  function transPop(el, anchor) {
+    const tr = el.clip.trans || { type: 'none', dur: 0.5, dir: 'left' };
+    const draw = () => {
+      const cur = el.clip.trans || { type: 'none', dur: 0.5, dir: 'left' };
+      pop.replaceChildren(
+        h('div.vtl-pop-title', null, 'Transition'),
+        h('div.vtl-trans-grid', null, Object.entries(R.TRANSITIONS).map(([k, l]) => h('button' + (cur.type === k ? '.on' : ''), { type: 'button', onclick: () => { S.setTransition(el, { type: k }); draw(); render(); } }, l))),
+        cur.type !== 'none' ? h('label.vtl-pop-row', null, h('span', null, 'Length'),
+          h('input', { type: 'range', min: 0.1, max: 3, step: 0.05, value: cur.dur || 0.5, oninput: e => { S.changeEl(el, x => { x.clip.trans.dur = +e.target.value; }, true); S.layoutClips(); render(); val.textContent = (+e.target.value).toFixed(2) + 's'; }, onchange: () => S.commit() }),
+          h('b', null)) : null,
+        cur.type !== 'none' && R.TRANS_DIRS.includes(cur.type) ? h('div.seg.vtl-dirs', null, [['left', '←'], ['right', '→'], ['up', '↑'], ['down', '↓']].map(([k, l]) => h('button' + ((cur.dir || 'left') === k ? '.on' : ''), { type: 'button', title: 'Moves ' + k, onclick: () => { S.setTransition(el, { dir: k }); draw(); } }, l))) : null,
+        h('div.vtl-pop-foot', null,
+          h('button.link-btn', { type: 'button', onclick: () => { S.setAllTransitions(el.clip.trans ? Object.assign({}, el.clip.trans) : { type: 'none' }); toast('Same transition between every clip'); render(); } }, 'Apply to all clips'),
+          h('button.link-btn', { type: 'button', onclick: () => { const t = el.time.start; S.seek(Math.max(0, t - 0.6)); S.play(); setTimeout(() => { if (S.isPlaying() && now() > t + (el.clip._in || 0) + 0.5) S.pause(); }, 1600); } }, 'Preview')));
+      const val = pop.querySelector('.vtl-pop-row b');
+      if (val) val.textContent = (cur.dur || 0.5).toFixed(2) + 's';
+    };
+    void tr;
+    draw();
+    pop.hidden = false;
+    const r = anchor.getBoundingClientRect(), rr = root.getBoundingClientRect();
+    pop.style.left = clamp(r.left - rr.left - 130, 8, rr.width - 290) + 'px';
+    pop.style.bottom = (rr.bottom - r.top + 8) + 'px';
+  }
+  document.addEventListener('pointerdown', e => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.vtl-trans')) closePop(); });
+
+  /* ── keys (only while the timeline is open and nobody is typing) ── */
+  const typing = e => /input|textarea|select/i.test(e.target.tagName) || e.target.isContentEditable;
+  window.addEventListener('keydown', e => {
+    if (!open || typing(e) || document.querySelector('.modal-back')) return;
+    const mod = e.metaKey || e.ctrlKey;
+    if ((!mod && e.key.toLowerCase() === 's' && !e.shiftKey && !e.altKey) || (mod && e.key.toLowerCase() === 'b')) { e.preventDefault(); e.stopImmediatePropagation(); split(); return; }
+    if (selSound && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); e.stopImmediatePropagation(); remove(); return; }
+    // ← → step a frame (Shift: a second) when nothing is selected
+    if (!mod && !S.sel.length && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      const st = e.shiftKey ? 1 : 1 / (S.doc.anim.fps || 30);
+      S.pause(); S.seek(clamp(now() + (e.key === 'ArrowLeft' ? -st : st), 0, D() - 0.001));
+    }
+  }, true);
+
+  /* ── events ── */
+  S.on('time', () => { if (open) placeHead(); });
+  S.on('playstate', () => { if (open) placeHead(); });
+  for (const ev of ['doc', 'change', 'selection', 'history']) S.on(ev, () => { if (ev === 'selection' && S.sel.length && selSound) { selSound = null; } schedule(); autoOpen(); });
+  S.on('project', () => { userClosed = false; selSound = null; });
+  // a design with clips opens the timeline (unless it was closed for this design)
+  function autoOpen() { const home = document.getElementById('home'); if (!open && !userClosed && S.isVideoEdit() && (!home || home.hidden)) openTl(); }
+  new ResizeObserver(() => { if (open) { if (fitZoom) pps = 0; schedule(); } }).observe(scroll);
+
+  /* ── the dock button ── */
+  const dock = document.getElementById('dock');
+  let dockBtn = null;
+  if (dock) {
+    dockBtn = h('button.dock-act', { type: 'button', title: 'Video timeline — clips, music, transitions', onclick: () => (open ? (userClosed = true, close()) : S.openTimeline()) }, ic('timeline'), h('span', null, 'Timeline'));
+    const exp = dock.querySelector('.dock-act.primary');
+    dock.insertBefore(dockBtn, exp || null);
+    hydrateIcons(dockBtn);
+  }
+
+  /* ── inspector: the selected clip, the selected sound, the design's sound ── */
+  U.addSection('el', el => {
+    if (!el.clip) return null;
+    const vid = R.isVideoAsset(el.assetId);
+    const i = S.clips().indexOf(el), tr = el.clip.trans;
+    return sec('Clip', [
+      h('p.hint', null, `Clip ${i + 1} of ${S.clips().length} · ${fmt(el.time.start)} – ${fmt(el.time.end)}`),
+      row('Frame', h('div.seg', null,
+        h('button' + (el.clip.fit !== 'fit' ? '.on' : ''), { type: 'button', title: 'Fill the canvas (crops the edges)', onclick: () => { S.placeClip(el, 'fill'); U.renderInspector(); } }, 'Fill'),
+        h('button' + (el.clip.fit === 'fit' ? '.on' : ''), { type: 'button', title: 'Show the whole picture', onclick: () => { S.placeClip(el, 'fit'); U.renderInspector(); } }, 'Fit'))),
+      vid ? null : row('Shows for', num('sel', 'clip.len', { min: 0.2, max: 60, soft: true, step: 0.1, slider: true, unit: 's', def: 3 })),
+      i > 0 ? row('Transition in', (() => {
+        const s = h('select.sel', { 'aria-label': 'Transition into this clip', onchange: e => { S.setTransition(el, { type: e.target.value }); U.renderInspector(); } }, Object.entries(R.TRANSITIONS).map(([k, l]) => h('option', { value: k, selected: (tr ? tr.type : 'none') === k }, l)));
+        return s;
+      })()) : null,
+      full(h('div.btn-row', null,
+        h('button.btn.grow', { type: 'button', title: 'Even out exposure, contrast and colour from this clip', onclick: () => { if (S.autoFix(el)) { toast('Auto fix applied — fine-tune under Adjust'); U.renderInspector(); } else toast('The clip isn’t ready yet'); } }, ic('wand'), 'Auto fix'),
+        h('button.btn.grow', { type: 'button', title: 'Split at the playhead (S)', onclick: () => split() }, ic('scissors'), 'Split'))),
+      full(h('button.link-btn', { type: 'button', onclick: () => { S.makeClip(el, false); U.renderInspector(); toast('Now a free layer over the video'); } }, 'Take out of the video track (use as an overlay)')),
+    ], true, { key: 'clip', collapsible: false });
+  });
+  // a free photo / video layer can join the main track
+  U.addSection('el', el => {
+    if (el.clip || el.type !== 'image' || !el.assetId || !S.isVideoEdit()) return null;
+    return full(h('button.btn', { type: 'button', style: { margin: '0 0 10px' }, onclick: () => { S.makeClip(el, true); U.renderInspector(); } }, ic('timeline'), 'Put in the video track'));
+  });
+  U.addSection('doc', () => {
+    const a = selSound && S.soundById(selSound);
+    if (a) {
+      const set = (k, v, live) => { S.changeSound(a.id, { [k]: v }, live); render(); };
+      const g = k => () => S.soundById(a.id) && S.soundById(a.id)[k];
+      const len = A.trackLen(a);
+      return sec(a.voice ? 'Voiceover' : 'Music', [
+        h('p.hint', null, `${a.name || 'Sound'} · starts at ${fmt(a.start)} · ${fmt(len)} used of ${fmt(a.dur || len)}`),
+        row('Volume', num('doc', '', { min: 0, max: 200, scale: 100, unit: '%', slider: true, def: 1, get: g('volume'), set: (v, l) => set('volume', v, l) })),
+        row('Fade in', num('doc', '', { min: 0, max: 10, step: 0.1, slider: true, unit: 's', get: g('fadeIn'), set: (v, l) => set('fadeIn', v, l) })),
+        row('Fade out', num('doc', '', { min: 0, max: 10, step: 0.1, slider: true, unit: 's', get: g('fadeOut'), set: (v, l) => set('fadeOut', v, l) })),
+        row('Starts at', num('doc', '', { min: 0, max: Math.max(60, D()), soft: true, step: 0.1, slider: true, unit: 's', get: g('start'), set: (v, l) => set('start', v, l) })),
+        toggle('doc', '', 'Loop to the end of the video', { get: g('loop'), set: v => { set('loop', v); U.renderInspector(); } }),
+        toggle('doc', '', 'Mute', { get: g('mute'), set: v => { set('mute', v); U.renderInspector(); } }),
+        full(h('div.btn-row', null,
+          h('button.btn.grow', { type: 'button', onclick: () => split() }, ic('scissors'), 'Split'),
+          h('button.btn.grow', { type: 'button', onclick: () => remove() }, ic('trash'), 'Delete'))),
+      ], true, { key: 'sound-track', collapsible: false });
+    }
+    const tracks = S.doc.audio || [];
+    const vidSound = A.sources(S.doc).filter(s => s.kind === 'video').length;
+    return sec('Sound', [
+      tracks.length ? h('div.snd-list', null, tracks.map(t => h('button.snd-item', { type: 'button', onclick: () => { S.openTimeline(); selectSound(t.id); } }, ic(t.voice ? 'mic' : 'music'), h('span', null, t.name || 'Sound'), h('small', null, Math.round((t.volume ?? 1) * 100) + '%')))) : null,
+      h('p.hint', null, tracks.length || vidSound ? `${vidSound ? `${vidSound} video${vidSound > 1 ? 's' : ''} with sound` : ''}${vidSound && tracks.length ? ' · ' : ''}${tracks.length ? `${tracks.length} sound track${tracks.length > 1 ? 's' : ''}` : ''} — all of it goes into the exported video.` : 'Add music or record a voiceover; it plays with the design and is exported with the video.'),
+      full(h('div.btn-row', null,
+        h('button.btn.grow', { type: 'button', onclick: () => musicInput.click() }, ic('music'), 'Add music'),
+        h('button.btn.grow', { type: 'button', onclick: () => { S.openTimeline(); toggleRecord(); } }, ic('mic'), 'Record'),
+        h('button.btn', { type: 'button', title: 'Open the video timeline', 'aria-label': 'Open the video timeline', onclick: () => S.openTimeline() }, ic('timeline')))),
+    ], !!tracks.length, { key: 'sound' });
+  });
+  S.on('selection', () => { if (S.sel.length && selSound) selSound = null; });
 })();
 
 </script>

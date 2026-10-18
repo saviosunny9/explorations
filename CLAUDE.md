@@ -51,7 +51,10 @@ requests unless asked.
 | `portraits.js` | Editorial portraits (`window.StudioPortraits.IMG`), registered as `ed-<key>` assets for the Photo effects / Paper & ID templates. |
 | `bgremove.js` | Background removal and the "studio look" cut-out (onnxruntime-web + RMBG-1.4 from Hugging Face). |
 | `tracker.js` | Motion tracking: `S.trackLayer(el, { src, region })` follows a picked point / object / edge / plane through a video and returns `el.track`; `S.detectObject`, `S.trackSources()`. |
-| `video.js` | Video export: frame-by-frame render → WebCodecs → mp4-muxer / webm-muxer; MediaRecorder fallback. `encoderCandidates` lists each codec with the default (hardware) and `prefer-software` encoder; `exportVideo` retries the next candidate when an encoder errors or stalls (`err.fromEncoder`) — hardware H.264 can accept 4K and then fail. |
+| `audio.js` | `window.StudioAudio` (A): sound. `A.sources(doc)` lists every sound (video layers / background video with `video.{volume, mute, fadeIn, fadeOut}`, and `doc.audio` tracks); `A.tick(t)` (= `S.audioTick`, called from the play loop) plays them through Web Audio (media elements → gain), muting what's out of its window; `A.mix(doc, dur)` renders an OfflineAudioContext mix (speed = playbackRate, reverse, loops, fades, soft limiter), `A.encode(buf, 'mp4'\|'webm')` → AudioEncoder chunks (AAC `mp4a.40.2`, else Opus), `A.wav`, `A.peaks` (waveforms), `A.record` / `A.stopRecording` (voiceover via MediaRecorder). Track helpers `S.addSound`, `S.changeSound`, `S.splitSound`, `S.removeSound`, `S.soundById`. |
+| `clips.js` | Video edits: image layers with `el.clip` form the main track. `S.layoutClips()` (run in every `S.commit`) lays them end to end in layer order, sets each `el.time`, overlaps transitions (`clip._in` / `clip._out`), aliases repeated video assets and sets `doc.anim.duration` to the total. `S.addClips`, `S.splitClip`, `S.moveClip`, `S.setTransition`, `S.setAllTransitions`, `S.placeClip` (fill / fit), `S.makeClip`, `S.clipAt`, `S.clipLen`, `S.autoFix`. |
+| `timeline.js` | The video timeline (`.vtl`, bottom of `#stage-area`; `S.setStageInset` shrinks the Konva stage): ruler, Text & layers lanes (timed layers), Video track (filmstrips, trim handles, drag to reorder, transition chips + picker), Sound lanes (waveforms, move / trim), playhead, toolbar (split S / ⌘B, duplicate, delete, Clips, Music, Voice, Text, zoom). Also the inspector's Clip section and the canvas inspector's Sound / selected-track section. `S.openTimeline()`, `S.vtlOpen`. |
+| `video.js` | Video export: frame-by-frame render → WebCodecs → mp4-muxer / webm-muxer; MediaRecorder fallback. `encoderCandidates` lists each codec with the default (hardware) and `prefer-software` encoder; `exportVideo` retries the next candidate when an encoder errors or stalls (`err.fromEncoder`) — hardware H.264 can accept 4K and then fail. Sound (`sound: true`): `S.exportAudio` mixes + encodes first, `audioFeeder` adds audio chunks just ahead of each video chunk; alpha WebM carries it too, PNG frames get `sound.wav`. Files estimated over 400 MB use `pieceTarget` (StreamTarget, chunked; recent pieces stay patchable, older ones become Blobs; MP4 then `fastStart: false`). |
 | `studio.css` | All styling; colour tokens on `:root`, dark mode via `prefers-color-scheme`. |
 | `vendor/` | Konva, muxers, JSZip — inlined into the single-file build so it works offline. |
 | `tools/build_single_file.py` | Builds `dist/collage-studio.html` (everything inlined). |
@@ -70,6 +73,7 @@ doc = {
   anim: { duration, fps },                                                // video length
   camera: { move, target, zoom, start, dur, rotate, shake, blur, … } | null,
   elements: [ … ],                                                        // bottom → top
+  audio: [{ id, assetId, name, start, trim, end, dur, volume, fadeIn, fadeOut, loop, mute, voice }],  // music / voice tracks
 }
 ```
 
@@ -78,7 +82,7 @@ anim?, time?, lblur?, erase? }` plus type fields. Defaults live in `DEFAULTS` in
 (`S.mk(type, over)` builds one, `normalize` fills missing fields on load). Types:
 
 - `text` — text, font, `bg` (box / pill / lines / marker / tape / … highlight styles), stroke, echo, curve, typing marks.
-- `image` — `assetId`, `crop {zoom,x,y,fit}`, `filters`, `frame {style,color,size,radius,…}`, outline, studio look, `video {trim,end,speed,loop}` when the asset is a video, `seq {ids,fps,mode,jitter,still}` for stop motion.
+- `image` — `assetId`, `crop {zoom,x,y,fit}`, `filters`, `frame {style,color,size,radius,…}`, outline, studio look, `video {trim,end,speed,loop,reverse,volume,mute,fadeIn,fadeOut}` when the asset is a video, `seq {ids,fps,mode,jitter,still}` for stop motion, `clip {len,src,fit,trans:{type,dur,dir},_in,_out}` when it's on the main video track (clips.js).
 - `sticker`, `shape` (incl. `person`, `torn`, `burst`, …), `calendar`, `badge`, `checklist`.
 - `ribbon` — text on a Catmull-Rom path (also lines, arrows, marker marks).
 - `camera` — phone / camcorder overlay. `nature` — painted scenery.
@@ -88,7 +92,7 @@ Animation: `el.anim {enter, loop, delay, speed, amount}`; `el.time {start, end, 
 `R.hasAnim(el)` decides whether something moves. Text sequence modes (captions, roll, words) show one
 piece at a time.
 
-**Assets** are data URLs in `assets[id]` (app.js), never inside `doc`. Ids starting `demo-` and `img-`
+**Assets** are URLs in `assets[id]` (app.js), never inside `doc`. Imported photos (original file, ≤ 16384 px), videos and sound files are Blobs: `assets[id]` is a `blob:` URL, `kinds[id]` ('image' | 'video' | 'audio', shared with the renderer via `R.setAssetKinds`, so use `R.isVideoAsset` / `R.isAudioAsset`, never the URL prefix), `S.assetBlob(id)`, `S.addMedia(blob, kind)`; `S.aliasAsset(id)` is a second id for the same file (split clips each need their own `<video>`). Persistence: `saveNow` / My templates store `media: [ids]` and write each asset once to IndexedDB `media:<id>` (`{kind, blob}` | `{kind, url}` | `{kind, alias}`); `S.projects.get` / `S.myTemplates.get` restore them (`loadMedia`; older records with inline `assets` still load); `collectMedia` deletes unreferenced `media:*` 20 s after start-up. Project files: `S.packFile(data)` → JSON, or a zip (`project.json` + `media/<id>.<ext>`, JSZip STORE) when it holds Blobs; `S.readFile(file)` reads either. Length cap `S.MAX_LEN` = 600 s (ui.js sliders use `lenMax()` + `soft`). Ids starting `demo-` and `img-`
 are the bundled photos from `flashes.js`, `film-` from `filmphotos.js`, `ed-` from `portraits.js`, registered at start-up so templates can use them.
 `data:video/…` assets are videos (`R.isVideoAsset`); the renderer draws them through a muted
 `<video>` and `R.syncVideos` seeks frames exactly during export.
@@ -222,6 +226,7 @@ are the bundled photos from `flashes.js`, `film-` from `filmphotos.js`, `ed-` fr
 - Paper relief: `background.relief` with `background.crumple` skips the crumple in `drawBackground` and draws it once above
   the layers, inside the camera (`renderDoc`; `reliefCam` in app.js), so print follows the folds. `overlay.light` is a soft
   window-light falloff in `drawOverlay`.
+- Clip transitions: `drawElement` wraps `drawElementCore`; for an `el.clip` inside its `_in` / `_out` window `clipFx` applies its half of `R.TRANSITIONS` (fade, black / white dips, slide, push, whip with motion blur, wipe, iris, zoom, blur, spin, glitch; `R.TRANS_DIRS` take `dir`). Still view (`t == null`) shows only the first clip. Hidden-at-this-moment layers don't catch clicks (`hitFunc`), `R.syncVideos` / `R.liveSyncVideos` skip users outside their window (and park the next clip on its first frame); `vd.reverse` steps by seeking.
 - Frames: add a case to `frameGeometry` (returns `outer`, `inner` clip, `rect`, optional `extra` painter; starting size and colour in `FRAME_START`, ui.js)
   and a label in `R.FRAMES`. Cut-up frames (`strips`, `mosaic`, `mirror`) set `g.paint(ctx, draw)` and place the
   photo piece by piece by calling `draw(rect)`.
@@ -246,9 +251,9 @@ tools plus the styles action bar. The app opens on the Styles panel (`tab = 'sty
 - State: `doc`, `sel` (ids), `elMap`, `nodes`. Change things with `S.change(target, path, value, live)`
   (`target` = `'doc'` or `'sel'`), `S.changeEl(el, fn)`, then `S.commit()` for history.
 - Events (`S.on`): `selection`, `values`, `doc`, `history`, `change`, `time`, `playstate`, `projects`,
-  `project`, `name`, `templates`, `view`, `uploads`, `replaced`, `spotedit`, `pathedit`, `fonts`, `toast`.
-- Import: `S.pickImages(opts)` / `S.importFiles(files, opts)` (photos and videos; `replaceId`,
-  `asBackground`, `uploadOnly`+`onAdded`, `startFromPhoto`, `imagesOnly`).
+  `project`, `name`, `templates`, `view`, `uploads`, `replaced`, `spotedit`, `pathedit`, `fonts`, `toast`, `recording`.
+- Import: `S.pickImages(opts)` / `S.importFiles(files, opts)` (photos, videos and sound files; `replaceId`,
+  `asBackground`, `uploadOnly`+`onAdded`, `startFromPhoto`, `imagesOnly`, `asClips` (+ `newProject`, `clipIndex`), `soundAt`).
 - Projects: each design is a project in IndexedDB (`project:<id>` + a `projects` index with thumbnails,
   status draft / saved). `S.projects.*`, `S.saveNow()`. Opening the app shows the home page.
 - My templates: `S.myTemplates.*` (save / add / rename / remove / restore) stores a snapshot of the canvas
@@ -378,5 +383,5 @@ Chromium exports WebM (no H.264); real Chrome exports MP4.
 ## Moving to another computer
 
 Copy `studio/dist/collage-studio.html` and double-click it. Designs live in the browser, so move them
-with **⋯ → Download project file** (`.studio.json`, photos / videos / fonts inside) and **Open file** on
+with **⋯ → Download project file** (`.studio.json`, or `.studio.zip` when it holds whole videos / sound / full-size photos; fonts inside) and **Open file** on
 the home page. Offline, everything works except Google Fonts (system fallback) and background removal.

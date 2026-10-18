@@ -63,6 +63,12 @@
     paste: 'M9 4h6v3H9zM15 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2',
     chevDown: 'M6 9l6 6 6-6', chevRight: 'M9 6l6 6-6 6', chevLeft: 'M15 6l-6 6 6 6',
     cursor: 'M5 3l14 7-6.5 1.8L10.5 19z', hand: 'M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4.5a1.5 1.5 0 0 1 3 0V12M14 11.5V6.5a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6.5 7-2.8 0-4.3-1.4-5.8-3.8L3.3 13.6a1.5 1.5 0 0 1 2.4-1.7L8 14.5',
+    music: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM9 9l11-2',
+    mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3M8 21h8',
+    scissors: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
+    volume: 'M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13', mute: 'M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6',
+    timeline: 'M3 5h18M3 19h18M5 9h6v6H5zM13 9h6v6h-6z', reverse: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+    speed: 'M12 21a9 9 0 1 1 9-9M12 12l4-4', clip: 'M4 6h16v12H4zM9 9.5v5l4.5-2.5z', fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
     path: 'M3 17c3-7 6-9 9-5s6 3 9-5', sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   };
   const FILLED_DOTS = new Set(['more']);
@@ -326,6 +332,8 @@
   S.on('values', refreshValues);
 
   function decimals(step) { const s = String(step); return s.includes('.') ? s.split('.')[1].length : 0; }
+  // length sliders cover a minute (or the design's length); longer values up to S.MAX_LEN can be typed
+  const lenMax = () => Math.max(60, Math.ceil((S.doc.anim && S.doc.anim.duration) || 0));
   function num(t, path, o = {}) {
     const scale = o.scale || 1, step = o.step || 1;
     const get = () => { const v = o.get ? o.get() : val(t, path); return (v == null ? (o.def ?? 0) : v) * scale; };
@@ -928,7 +936,7 @@
       // slowing down stretches the clip: lengthen the design so all of it plays (up to a minute)
       const len = clipLen ? clipLen() : 0;
       if (len && v < 1) {
-        const want = Math.min(60, Math.round(len / v * 10) / 10);
+        const want = Math.min(S.MAX_LEN, Math.round(len / v * 10) / 10);
         if (want > S.doc.anim.duration + 0.05) { S.change('doc', 'anim.duration', want); updateTimeline(); toast(`Design length set to ${want}s so the whole slowed clip plays`); }
       }
       renderInspector();
@@ -949,12 +957,29 @@
       dur ? row('End at', num(T, 'video.end', { min: 0.2, max: Math.round(dur * 10) / 10, step: 0.1, slider: true, unit: 's', get: () => { const v = S.selEls()[0].video || {}; return v.end > 0 ? v.end : Math.round(dur * 10) / 10; } })) : null,
       full(h('div.btn-row', null,
         h('button.btn.grow', { type: 'button', title: 'Drag to choose which part of the video shows; scroll to zoom', onclick: () => S.startCrop(el.id) }, ic('crop'), 'Crop & position'),
-        h('button.btn.grow', { type: 'button', onclick: () => { const v = S.selEls()[0].video || {}; const len = ((v.end > 0 ? v.end : dur) - (v.trim || 0)) / (v.speed || 1); S.change('doc', 'anim.duration', Math.min(60, Math.max(1, Math.round(len * 10) / 10))); updateTimeline(); toast(`Design length set to ${S.doc.anim.duration}s`); } }, ic('film'), 'Fit length to clip'))),
+        el.clip ? null : h('button.btn.grow', { type: 'button', onclick: () => { const v = S.selEls()[0].video || {}; const len = ((v.end > 0 ? v.end : dur) - (v.trim || 0)) / (v.speed || 1); S.change('doc', 'anim.duration', Math.min(S.MAX_LEN, Math.max(1, Math.round(len * 10) / 10))); updateTimeline(); toast(`Design length set to ${S.doc.anim.duration}s`); } }, ic('film'), 'Fit length to clip'))),
       ...speedControls(T, 'video', () => { const v = S.selEls()[0].video || {}; return dur ? (v.end > 0 ? v.end : dur) - (v.trim || 0) : 0; }),
-      toggle(T, 'video.loop', 'Loop when it ends', { get: () => (S.selEls()[0].video || {}).loop !== false }),
-      h('p.hint', null, `${dur ? dur.toFixed(1) + 's clip · ' : ''}plays muted and exports without sound. Press play to preview it with your design.`),
+      el.clip ? null : toggle(T, 'video.loop', 'Loop when it ends', { get: () => (S.selEls()[0].video || {}).loop !== false }),
+      toggle(T, 'video.reverse', 'Play backwards', { get: () => !!(S.selEls()[0].video || {}).reverse }),
+      ...soundControls(T, 'video'),
+      h('p.hint', null, `${dur ? dur.toFixed(1) + 's clip · ' : ''}its sound plays with the design and goes into the exported video. Press play to preview.`),
     ], true, { collapsible: false });
   }
+  // a video's own sound: on / off, volume (up to 200%) and fades
+  function soundControls(t, base) {
+    const get = () => (S.getPath(t === 'doc' ? S.doc : S.selEls()[0] || {}, base) || {});
+    const muted = !!get().mute;
+    return [
+      row('Sound', h('div.sound-row', null,
+        h('button.icon-btn' + (muted ? '.on' : ''), { type: 'button', title: muted ? 'Turn the sound on' : 'Mute this video', 'aria-label': muted ? 'Unmute' : 'Mute', onclick: () => { S.change(t, base + '.mute', !muted); S.commit(); renderInspector(); } }, ic(muted ? 'mute' : 'volume')),
+        muted ? h('span.hint', null, 'Muted') : num(t, base + '.volume', { min: 0, max: 200, scale: 100, unit: '%', slider: true, def: 1 }))),
+      muted ? null : more('vid-fades-' + base, [
+        row('Fade in', num(t, base + '.fadeIn', { min: 0, max: 10, step: 0.1, slider: true, unit: 's', def: 0 })),
+        row('Fade out', num(t, base + '.fadeOut', { min: 0, max: 10, step: 0.1, slider: true, unit: 's', def: 0 })),
+      ], 'Sound fades'),
+    ];
+  }
+  S.ui_soundControls = soundControls;
   // stop motion: photos picked here become the frames, in the order they were chosen (file name order)
   function pickFrames(el, replace) {
     S.pickImages({ uploadOnly: true, imagesOnly: true, onAdded: added => {
@@ -981,7 +1006,7 @@
   function fitLengthToFrames(el, force) {
     const sq = el.seq, n = sq.ids.length;
     const pass = (sq.mode === 'bounce' ? 2 * n - 2 : n) / clamp(sq.fps || 6, 1, 30);
-    const want = Math.min(30, Math.max(2, Math.round((pass < 2 ? pass * 2 : pass) * 10) / 10));
+    const want = Math.min(S.MAX_LEN, Math.max(2, Math.round((pass < 2 ? pass * 2 : pass) * 10) / 10));
     if (force || S.doc.anim.duration < want) { S.change('doc', 'anim.duration', want); updateTimeline(); }
   }
   function stopMotionSection(el) {
@@ -1763,12 +1788,13 @@
           ]),
         ],
       },
-      {
+      // a clip's timing comes from its place on the video timeline
+      el.clip ? null : {
         label: 'Show / hide timing', icon: 'film', on: R.hasTiming(el),
         add: () => { S.change(T, 'time', { start: 1, end: null }); updateTimeline(); }, remove: () => { S.change(T, 'time', null); updateTimeline(); },
         body: () => [
-          row('Appears at', num(T, 'time.start', { min: 0, max: 60, step: 0.05, slider: true, def: 0, unit: 's' })),
-          row('Leaves at', num(T, 'time.end', { min: 0, max: 60, step: 0.05, slider: true, def: 0, unit: 's', set: (v, l) => S.change(T, 'time.end', v > 0 ? v : null, l) })),
+          row('Appears at', num(T, 'time.start', { min: 0, max: lenMax(), soft: true, step: 0.05, slider: true, def: 0, unit: 's' })),
+          row('Leaves at', num(T, 'time.end', { min: 0, max: lenMax(), soft: true, step: 0.05, slider: true, def: 0, unit: 's', set: (v, l) => S.change(T, 'time.end', v > 0 ? v : null, l) })),
           tm.cycle && tm.cycle.count > 1 ? h('p.hint', null, `Takes turns with ${tm.cycle.count - 1} other layer${tm.cycle.count > 2 ? 's' : ''}, ${Math.round((tm.cycle.slot || 0.15) * 100) / 100}s each — this is how match cuts flicker.`) : null,
           tm.cycle && tm.cycle.count > 1 ? row('Each shot', num(T, 'time.cycle.slot', { min: 0.04, max: 2, step: 0.01, slider: true, unit: 's' })) : null,
           h('p.hint', null, 'Leave “Leaves at” at 0 to keep it until the end. Great for cuts: show one layer, then swap it for another.'),
@@ -1921,7 +1947,7 @@
         row('Handheld', num(T, 'camera.shake', { min: 0, max: 3, step: 0.05, slider: true, def: 0 })),
         row('Motion blur', num(T, 'camera.blur', { min: 0, max: 100, scale: 100, slider: true, unit: '%', def: 0 })),
         c.move === 'jolt' ? row('Wander', num(T, 'camera.wander', { min: 0, max: 100, scale: 100, slider: true, unit: '%', def: 1 })) : null,
-        row('Video length', num(T, 'anim.duration', { min: 1, max: 60, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change(T, 'anim.duration', v, live); updateTimeline(); } })),
+        row('Video length', num(T, 'anim.duration', { min: 1, max: lenMax(), soft: true, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change(T, 'anim.duration', Math.min(S.MAX_LEN, v), live); updateTimeline(); } })),
       ], 'Tilt, shake & blur'),
       full(h('div.btn-row', null,
         h('button.btn.grow', { type: 'button', onclick: () => { S.seek(0); S.play(); } }, ic('play'), 'Preview'),
@@ -2071,6 +2097,7 @@
         full(h('button.btn.primary', { type: 'button', disabled: S.isRemovingBackground(), title: 'Copies the main subject onto its own layer so you can tuck text behind it', onclick: () => S.cutoutBackgroundSubject() }, ic('wand'), S.isRemovingBackground() ? 'Working…' : 'Cut out subject to a layer')),
         full(filterThumbs(null, 'doc')),
         ...(R.isVideoAsset(bg.assetId) ? speedControls(T, 'background.video', () => { const ve = R.assetVideo(bg.assetId); return ve && ve.v && isFinite(ve.v.duration) ? ve.v.duration : 0; }) : []),
+        ...(R.isVideoAsset(bg.assetId) ? soundControls(T, 'background.video') : []),
         more('bgphoto-more', [
           row('Opacity', num(T, 'background.imageOpacity', { min: 0, max: 100, scale: 100, slider: true, unit: '%' })),
           row('Zoom', num(T, 'background.crop.zoom', { min: 1, max: 5, step: 0.01, slider: true })),
@@ -2503,8 +2530,8 @@
     const data = await S.myTemplates.get(t.mine);
     if (!data) return;
     const name = (t.name || 'template').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'template';
-    const blob = new Blob([JSON.stringify({ app: 'collage-studio', kind: 'template', version: 1, name: t.name, doc: data.doc, assets: data.assets, fonts: data.fonts || [], video: !!data.video })], { type: 'application/json' });
-    download(blob, name + '.template.studio.json').then(r => { if (r === 'saved' || r === 'started') toast('Template file saved'); });
+    const { blob, zip } = await S.packFile({ app: 'collage-studio', kind: 'template', version: 1, name: t.name, doc: data.doc, assets: data.assets, media: data.media, fonts: data.fonts || [], video: !!data.video });
+    download(blob, name + (zip ? '.template.studio.zip' : '.template.studio.json')).then(r => { if (r === 'saved' || r === 'started') toast('Template file saved'); });
   }
   async function deleteTemplate(t) {
     const r = await S.myTemplates.remove(t.mine);
@@ -2786,7 +2813,7 @@
     dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('over'));
     dz.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('over'); S.importFiles([...e.dataTransfer.files], { uploadOnly: true }); });
-    const ups = S.uploads.filter(id => S.assets[id]).map(id => ({
+    const ups = S.uploads.filter(id => S.assets[id] && !R.isAudioAsset(id)).map(id => ({
       name: 'Upload',
       node: () => {
         const b = h('button.upl', { type: 'button', title: 'Add to canvas', onclick: () => S.addImageFromAsset(id) }, assetThumb(id),
@@ -3145,23 +3172,25 @@
     setTimeout(() => URL.revokeObjectURL(url), 60000);
     return 'started';
   }
-  function saveProject() {
-    const blob = new Blob([JSON.stringify(S.projectData())], { type: 'application/json' });
-    download(blob, slug() + '.studio.json').then(r => { if (r === 'saved' || r === 'started') toast('Project file saved'); });
+  // a project file: .studio.json, or .studio.zip once it carries whole videos / sound / full-size photos
+  async function saveProject() {
+    toast('Packing the project file…');
+    const { blob, zip } = await S.packFile(S.projectData());
+    download(blob, slug() + (zip ? '.studio.zip' : '.studio.json')).then(r => { if (r === 'saved' || r === 'started') toast('Project file saved'); });
   }
   $('#project-input').addEventListener('change', async e => {
     const f = e.target.files[0];
     if (!f) return;
     try {
-      const data = JSON.parse(await f.text());
+      const data = await S.readFile(f);
       if (!data.doc) throw new Error('bad');
       if (data.fonts && data.fonts.length) { await F.unpackFamilies(data.fonts); R.fontsVersion++; }
       if (data.kind === 'template') {
-        await S.myTemplates.add(data, data.name || f.name.replace(/(\.template)?\.studio\.json$|\.json$/, ''));
+        await S.myTemplates.add(data, data.name || f.name.replace(/(\.template)?\.studio\.(json|zip)$|\.json$|\.zip$/, ''));
         toast(`Added “${data.name || 'template'}” to My templates`);
         return;
       }
-      S.loadDoc(data.doc, data.assets || {}, { name: data.name || f.name.replace(/\.studio\.json$|\.json$/, ''), project: 'new' });
+      S.loadDoc(data.doc, data.assets || {}, { name: data.name || f.name.replace(/\.studio\.(json|zip)$|\.json$|\.zip$/, ''), project: 'new' });
       S.uploads.splice(0, S.uploads.length, ...(data.uploads || []));
       S.saveNow();
       if (isHome()) leaveHome();
@@ -3303,8 +3332,8 @@
     const data = await S.projects.get(p.id);
     if (!data) return;
     const name = (p.name || 'design').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'design';
-    const blob = new Blob([JSON.stringify({ app: 'collage-studio', version: 1, name: p.name, doc: data.doc, assets: data.assets, uploads: data.uploads })], { type: 'application/json' });
-    download(blob, name + '.studio.json');
+    const { blob, zip } = await S.packFile({ app: 'collage-studio', version: 1, name: p.name, doc: data.doc, assets: data.assets, media: data.media, uploads: data.uploads });
+    download(blob, name + (zip ? '.studio.zip' : '.studio.json'));
   }
   function projectCard(p) {
     const thumb = h('div.proj-thumb');
@@ -3401,6 +3430,13 @@
     photoCard.addEventListener('dragover', e => { e.preventDefault(); photoCard.classList.add('over'); });
     photoCard.addEventListener('dragleave', () => photoCard.classList.remove('over'));
     photoCard.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); photoCard.classList.remove('over'); startPhoto([...e.dataTransfer.files]); });
+    // a video edit: several clips one after another on the timeline
+    const startVideo = files => { const o = { asClips: true, newProject: true, onStart: () => { if (isHome()) leaveHome(); } }; if (files) S.importFiles(files, o); else S.pickImages(o); };
+    const videoCard = h('button.start-card.photo', { type: 'button', onclick: () => startVideo() },
+      h('div.start-art', null, ic('timeline')), h('b', null, 'Video editor'), h('small', null, 'Several clips, music, transitions'));
+    videoCard.addEventListener('dragover', e => { e.preventDefault(); videoCard.classList.add('over'); });
+    videoCard.addEventListener('dragleave', () => videoCard.classList.remove('over'));
+    videoCard.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); videoCard.classList.remove('over'); startVideo([...e.dataTransfer.files]); });
     const tags = ['All', 'Video', ...[...new Set(T.flatMap(t => t.tags || []))].filter(x => x !== 'Video')];
     const chips = h('div.chips.scroll');
     const drawChips = () => chips.replaceChildren(...tags.map(tg => h('button.chip' + (tg === hs.tag ? '.on' : ''), { type: 'button', onclick: () => { hs.tag = tg; drawChips(); drawHomeTemplates(); } }, tg)));
@@ -3417,12 +3453,12 @@
         h('label.home-search', null, ic('search'), search),
         h('div.home-actions', null,
           cur ? h('button.btn', { type: 'button', onclick: leaveHome, title: 'Back to the design you were editing' }, ic('chevLeft'), h('span', null, 'Back to editor')) : null,
-          h('button.btn', { type: 'button', title: 'Open a .studio.json project file', onclick: () => { $('#project-input').value = ''; $('#project-input').click(); } }, ic('folder'), h('span', null, 'Open file')),
+          h('button.btn', { type: 'button', title: 'Open a .studio.json or .studio.zip project file', onclick: () => { $('#project-input').value = ''; $('#project-input').click(); } }, ic('folder'), h('span', null, 'Open file')),
           h('button.btn.primary', { type: 'button', onclick: customSizeModal }, ic('plus'), h('span', null, 'New design')))),
       h('main.home-main', null,
         h('section.home-sec', null,
           h('h1.home-title', { html: 'What are we <em>making</em> today?' }),
-          h('div.start-row', null, HOME_SIZES.map(sizeCard), photoCard,
+          h('div.start-row', null, HOME_SIZES.map(sizeCard), photoCard, videoCard,
             h('button.start-card', { type: 'button', onclick: customSizeModal }, h('div.start-art', null, ic('resize')), h('b', null, 'Custom size'), h('small', null, 'Any width × height')))),
         h('section.home-sec', null,
           h('div.home-head', null, h('h2', null, 'Your designs'), tabs, h('div.grow'), sortSel),
@@ -3466,7 +3502,8 @@
     // a canvas with no background exports see-through by default
     const clearBg = R.isClearBg(S.doc);
     let fmt = 'png', res = 1080, transparent = clearBg, quality = 0.92;
-    let vfmt = clearBg ? 'webm' : 'mp4', vres = 1080, fps = S.doc.anim.fps || 30, vq = 'high', valpha = clearBg;
+    let vfmt = clearBg ? 'webm' : 'mp4', vres = 1080, fps = S.doc.anim.fps || 30, vq = 'high', valpha = clearBg, vsound = true;
+    const audible = !!(window.StudioAudio && window.StudioAudio.hasSound(S.doc));
     let ctrl = null;
     S.pause();
     const preview = h('div.export-preview', null, h('div.hint', null, 'Rendering preview…'));
@@ -3508,8 +3545,9 @@
           row('Size', h('div.seg', null, RES.slice(1).map(([l, v]) => segBtn(vres, v, l.split(' ')[0], x => { vres = x; })))),
           row('Frame rate', h('div.seg', null, [24, 30, 60].map(f => segBtn(fps, f, f + ' fps', x => { fps = x; })))),
           vfmt === 'png' ? null : row('Quality', h('div.seg', null, segBtn(vq, 'standard', 'Standard', v => { vq = v; }), segBtn(vq, 'high', 'High', v => { vq = v; }), segBtn(vq, 'max', 'Max', v => { vq = v; }))),
-          row('Length', num('doc', 'anim.duration', { min: 1, max: 60, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change('doc', 'anim.duration', v, live); if (!live) draw(); } })),
-          h('div.hint', null, `${sz.w} × ${sz.h} px · ${fps} fps · ${S.doc.anim.duration}s` + (vfmt === 'png' ? ` · ${Math.round(S.doc.anim.duration * fps)} frames` : ' · loops seamlessly') + (valpha ? ' · see-through' : '')),
+          row('Length', num('doc', 'anim.duration', { min: 1, max: lenMax(), soft: true, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change('doc', 'anim.duration', Math.min(S.MAX_LEN, v), live); if (!live) draw(); } })),
+          audible ? h('div.toggle-row', null, h('label', null, vfmt === 'png' ? 'Sound (as sound.wav in the zip)' : 'Sound'), h('button.switch' + (vsound ? '.on' : ''), { onclick: () => { vsound = !vsound; draw(); } })) : null,
+          h('div.hint', null, `${sz.w} × ${sz.h} px · ${fps} fps · ${S.doc.anim.duration}s` + (vfmt === 'png' ? ` · ${Math.round(S.doc.anim.duration * fps)} frames` : S.isVideoEdit && S.isVideoEdit() ? '' : ' · loops seamlessly') + (valpha ? ' · see-through' : '') + (audible && vsound ? ' · with sound' : '')),
           h('div.progress', { hidden: true }, h('div')),
           h('div.hint.vstatus'),
           h('div.btn-row', { style: { marginTop: '14px' } },
@@ -3558,22 +3596,22 @@
       const t0 = performance.now();
       try {
         const out = await S.exportVideo({
-          width: sz.w, height: sz.h, fps, duration: S.doc.anim.duration, format: vfmt, transparent: valpha,
+          width: sz.w, height: sz.h, fps, duration: S.doc.anim.duration, format: vfmt, transparent: valpha, sound: vsound,
           bitrate: Math.min(80e6, Math.round(sz.w * sz.h * fps * bpp)), signal: ctrl.signal,
           onProgress: (f, stage) => {
             fill.style.width = Math.round(f * 100) + '%';
             const el = (performance.now() - t0) / 1000;
-            status.textContent = stage === 'retry' ? 'The fast encoder gave up at this size — trying another one…' : stage === 'finish' ? 'Finishing the file…' : `Rendering frames… ${Math.round(f * 100)}%` + (f > 0.05 ? ` · about ${Math.max(1, Math.round(el / f - el))}s left` : '');
+            status.textContent = stage === 'sound' ? 'Mixing the sound…' : stage === 'retry' ? 'The fast encoder gave up at this size — trying another one…' : stage === 'finish' ? 'Finishing the file…' : `Rendering frames… ${Math.round(f * 100)}%` + (f > 0.05 ? ` · about ${Math.max(1, Math.round(el / f - el))}s left` : '');
           },
         });
         const name = `${slug()}.${out.ext}`;
         const url = URL.createObjectURL(out.blob);
-        preview.replaceChildren(h('div.export-result' + (out.alpha ? '.see-through' : ''), null, out.ext === 'zip' ? h('div.hint', null, `${out.frames} PNG frames`) : h('video', { src: url, controls: true, autoplay: true, loop: true, muted: true, playsInline: true }),
+        preview.replaceChildren(h('div.export-result' + (out.alpha ? '.see-through' : ''), null, out.ext === 'zip' ? h('div.hint', null, `${out.frames} PNG frames`) : h('video', { src: url, controls: true, autoplay: true, loop: true, muted: !out.sound || out.sound === 'failed', playsInline: true }),
           h('div.hint', null, `${name} · ${out.width} × ${out.height} · ${(out.blob.size / 1e6).toFixed(1)} MB. If nothing downloaded, use Save again` + (out.ext === 'zip' ? '.' : ', or right-click the video and choose “Save video as”.')),
           h('button.btn', { onclick: () => download(out.blob, name) }, ic('download'), 'Save again')));
         hydrateIcons(preview);
         download(out.blob, name);
-        status.textContent = valpha && !out.alpha ? 'This browser can’t make see-through video here, so the background was left in — try PNG frames.' : out.ext !== (vfmt === 'png' ? 'zip' : vfmt) ? `Your browser can’t encode ${vfmt.toUpperCase()} at this size, so this was saved as ${out.ext.toUpperCase()}.` : 'Done.';
+        status.textContent = valpha && !out.alpha ? 'This browser can’t make see-through video here, so the background was left in — try PNG frames.' : out.ext !== (vfmt === 'png' ? 'zip' : vfmt) ? `Your browser can’t encode ${vfmt.toUpperCase()} at this size, so this was saved as ${out.ext.toUpperCase()}.` : out.sound === 'failed' ? 'Done — but this browser couldn’t encode the sound, so the video is silent. Try WEBM.' : 'Done.';
         toast('Video exported');
       } catch (err) {
         console.error(err);
@@ -3630,7 +3668,7 @@
       row('Camera', (() => { const sl = h('select.sel', { onchange: e => { closePop(); setCameraMove(e.target.value); S.select([]); } }, Object.entries(R.CAMERA_MOVES).map(([k, l]) => h('option', { value: k, selected: ((S.doc.camera && S.doc.camera.move) || 'none') === k }, l))); return sl; })()),
       h('div.sub-label', null, 'Animate everything'),
       h('div.anim-presets', null, ANIM_PRESETS.map(p => h('button.anim-preset', { type: 'button', onclick: () => { closePop(); applyAnimPreset(p); } }, h('b', null, p.name), h('small', null, p.sub)))),
-      row('Length', num('doc', 'anim.duration', { min: 1, max: 60, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change('doc', 'anim.duration', v, live); updateTimeline(); } })),
+      row('Length', num('doc', 'anim.duration', { min: 1, max: lenMax(), soft: true, step: 0.5, slider: true, unit: 's', set: (v, live) => { S.change('doc', 'anim.duration', Math.min(S.MAX_LEN, v), live); updateTimeline(); } })),
       S.hasAnimation() ? h('button.link-btn.danger', { type: 'button', onclick: () => { closePop(); S.doc.elements.forEach(e => { delete e.anim; }); S.stopPreview(); S.touchAll(); S.commit(); renderInspector(); updateTimeline(); updateTop(); toast('Animations removed'); } }, 'Remove all animation') : null,
       h('p.hint', null, 'To animate one layer, select it and use Motion on the right. Camera settings live on the right when nothing is selected.'),
     ].filter(Boolean), { cls: 'anim-pop' });
@@ -3641,7 +3679,7 @@
   // floating timeline under the canvas whenever something moves
   const tl = $('#timeline');
   function updateTimeline() {
-    const show = S.hasAnimation() || S.isPlaying();
+    const show = (S.hasAnimation() || S.isPlaying()) && !S.vtlOpen;
     tl.hidden = !show;
     $('#stage-area').classList.toggle('has-timeline', show);
     if (!show) return;

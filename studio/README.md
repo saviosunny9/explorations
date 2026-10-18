@@ -16,11 +16,32 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `styles-ui.js` | The Styles panel, the Style section of the inspector and the action bar under the canvas |
 | `app.js` | Editor core: stage, selection, snapping & guides, transforms, text editing, crop, history, import |
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
-| `video.js` | Frame-by-frame video export (WebCodecs H.264 → MP4 or VP9 → WebM, MediaRecorder fallback) |
+| `video.js` | Frame-by-frame video export (WebCodecs H.264 → MP4 or VP9 → WebM, with sound; MediaRecorder fallback) |
+| `audio.js` | Sound: video sound and music / voice tracks — playback in step with the timeline, offline mix, AAC / Opus encoding |
+| `clips.js` | Video edits: clips one after another, trimming, splitting, reordering, transitions, auto fix |
+| `timeline.js` | The video timeline under the canvas (clips, text, sound lanes) and the Clip / Sound inspector sections |
 | `ui.js` | Panels, inspector, popovers, dialogs |
 | `templates.js` | About 379 templates plus text, paper, planner, photo-layout and background presets |
 
-Work is autosaved to the browser (IndexedDB). Use **Menu → Download project file** to keep a portable `.studio.json`.
+Work is autosaved to the browser (IndexedDB). Use **Menu → Download project file** to keep a portable `.studio.json` — or a `.studio.zip` once the design holds videos, sound or full-size photos (the files ride inside it as they are).
+
+## Video editor (several clips, music, transitions)
+
+Start one from the home page (**Video editor** — pick or drop several videos and photos at once) or open the **Timeline** in the bar under any canvas. The new design takes the shape of the first clip, 1920 px on the long side.
+
+- **The timeline** sits under the canvas (drag its top edge to make it taller): the **Video** track holds the clips one after another, **Text & layers** above it shows anything timed, **Sound** below holds music and voiceovers with their waveforms. Click or drag on the ruler to move the playhead; the canvas shows that moment and you can edit right there. Zoom with the slider or ⌘/Ctrl-scroll, *Fit* shows the whole video.
+- **Clips**: drag a clip to put it somewhere else, drag its edges to trim (everything after it moves up — no gaps), press **S** (or ⌘B) or the scissors to split at the playhead, ⌘D / the copy button to duplicate, ⌫ to delete. Photos show for 3 s (drag the edge or set *Shows for*). Each clip keeps everything a photo or video layer has: speed (5–400 %, smooth slow motion), **Play backwards**, crop and position (*Fill* or *Fit* the frame), filters and film looks, the 109 Styles, blur, animation — plus **Auto fix**, which evens out exposure, contrast and colour from the clip itself. *Take out of the video track* turns a clip into a free layer over the video (picture in picture); a free photo or video gets *Put in the video track*.
+- **Transitions**: the small square between two clips — Cut, Dissolve, Dip to black, Flash, Slide, Push, Whip pan, Wipe, Circle, Zoom, Blur, Spin and Glitch, with their length (0.1–3 s), a direction for the moving ones, *Apply to all clips* and *Preview*. A transition overlaps the two clips by its length.
+- **Text**: the *Text* button adds a title at the playhead for 3 s; drag its bar to move it, its edges to change when it comes and goes. Any layer with timing shows here.
+- **Sound**: every video keeps its own sound — mute it, set its volume (up to 200 %) and fades in the clip's *Sound* row. **Music** adds any sound file (mp3, m4a, wav, ogg, opus, flac…) at the playhead; drag it along, trim either end, split it, and set its volume, fade in / out and *Loop to the end of the video* when it's selected. **Voice** records a voiceover from the microphone while the video plays from the playhead. Dropping files on the timeline puts sound files on a sound lane and videos / photos into the video track where you drop them. The canvas inspector's **Sound** section lists the tracks and adds music to any design, animated or still (a still design grows to the music's length).
+- **Export** mixes all of it into the video: AAC sound in MP4 (Opus where the browser has no AAC encoder), Opus in WebM, and a `sound.wav` next to PNG frame sequences. A *Sound* switch leaves it out. Changing a clip's speed changes the pitch of its sound, the same in the preview and the file.
+
+## Sizes and limits
+
+- **Photos** keep their original file and full resolution (up to 16384 px on a side / about 250 megapixels; bigger ones are scaled to fit). Adjustments are worked out at up to 4096 px, more than any export size needs.
+- **Videos** keep their original file too, sound included — no size cap beyond what the browser can play (mp4, mov, m4v, webm, mkv). iPhone HEVC .mov files may need converting to H.264 in browsers without HEVC.
+- **Length**: designs and video edits run up to 10 minutes (sliders go to a minute or the current length; type a longer value). Exports past ~400 MB are built in pieces so they don't hit the browser's single-buffer limit.
+- Media is saved in the browser once (IndexedDB), not with every autosave, and media no design or template uses any more is cleared out when the app next opens. The browser is asked to keep the storage (persistent storage) so big projects aren't evicted.
 
 ## Use it on another computer
 
@@ -111,10 +132,10 @@ Commons “Old paper1/2/6/7.jpg”, “Old Paper texture.jpg” (public domain) 
 
 The app opens on a home page:
 
-- **Start something new**: one click for a portrait post, square post, story/reel or landscape canvas, start from a photo (click or drop), or pick any custom size and colour. Templates sit below, grouped into families, with the same tag filters as the editor.
+- **Start something new**: one click for a portrait post, square post, story/reel or landscape canvas, start from a photo (click or drop), start a **Video editor** project from several clips, or pick any custom size and colour. Templates sit below, grouped into families, with the same tag filters as the editor.
 - **Your designs**: every design you start is kept as its own project in this browser, with a thumbnail, its size and when it was last edited. Tabs split them into **Drafts** (everything autosaves as a draft) and **Saved** (press ⌘S / Ctrl+S, click the *Draft* chip next to the design name, or use *Mark as saved*). Sort by last edited, newest or name, and search by name.
 - Each card's **⋯** menu opens, renames (or double-click the name), duplicates, moves between drafts and saved, downloads the project file or deletes — with an Undo right after deleting.
-- **Menu → Home — all designs** (or *Back to editor* on the home page) moves between the two. Opening a `.studio.json` file adds it to your designs.
+- **Menu → Home — all designs** (or *Back to editor* on the home page) moves between the two. Opening a `.studio.json` or `.studio.zip` file adds it to your designs.
 
 Designs live in this browser's storage, so clearing site data removes them — download project files for anything you want to keep elsewhere.
 
@@ -169,7 +190,7 @@ Designs live in this browser's storage, so clearing site data removes them — d
 Select a video (a layer or the canvas background) and the **Playback** section has:
 
 - **Super slow 15% · Slow 40% · Normal · Fast 200%**, and a **Speed** slider for any percentage from 5% to 400%.
-- Slowing a clip down lengthens the design so the whole slowed clip plays (up to a minute; *Fit length to clip* does the same by hand).
+- Slowing a clip down lengthens the design so the whole slowed clip plays (up to 10 minutes; *Fit length to clip* does the same by hand).
 - **Smooth frames** (for anything slower than 100%):
   - **Flow** (default) — new in-between frames follow the motion in the clip, like a phone's slow-mo. The clip's frame rate is measured, the two real frames either side of each moment are taken, the motion between them is worked out both ways, and each in-between frame is drawn by moving the pixels part of the way. On a test pan it scored 35–39 dB against the true in-between frames, about as good as the real frames.
   - **Blend** — in-between frames cross-fade from one real frame to the next: soft, no warping, quicker to export.
@@ -266,7 +287,7 @@ One **Text slides** family holds 69 typographic quote posters in the style of Pi
 ## Video templates and camera
 
 - **Speed flashes** (template family + an element): fast, motion-blurred action shots cut over your own photo or video, like the hustle-edit reels. Four templates — *Against the world* (serif quote over a side profile), *No days off* (mono gym flashes with a white pop on every cut), *Run your race* (orange-tinted running shots, word by word) and *Built different* (supercars and city lights, letterboxed). Add flashes to any design from **Elements → Speed flashes**. A background photo or video can be removed from the Canvas panel (the bin next to *Replace*, or *Remove photo* under the background photo), from the left Canvas tab, or from the flashes *Underneath* card — with Undo right after. Clicks on the canvas pass through the flashes to your photo or video underneath (select the flashes from Layers, or *Edit the speed flashes on top* in the photo panel); the flashes panel opens with an **Underneath** card to replace that photo or video. Pick a photo pack (Hustle mix, Run, Gym, Fight, Drive, Play, Rise) or add your own photos, then set cuts per second, blur amount and direction, strength and blend (Light, Punchy, Soft, Solid), colour / mono / tint, and under *More*: drift, push-in, overlap (two photos at once), flash on cut, gaps that let your shot breathe, contrast and shuffle.
-- **Videos as photos**: anywhere a photo goes — a photo layer's *Replace*, the Photos panel, drag and drop, or the canvas background — you can drop in a video (mp4 / mov / webm, up to 120 MB). It plays with the design when you preview, and video export seeks it frame by frame so it stays in sync. *Playback* sets where it starts, its speed and whether it loops; the design's length grows to match the clip (up to 30 s). Videos play muted and export without sound. Your browser has to be able to play the file (iPhone HEVC .mov files may need converting to H.264 first).
+- **Videos as photos**: anywhere a photo goes — a photo layer's *Replace*, the Photos panel, drag and drop, or the canvas background — you can drop in a video (mp4 / mov / webm / mkv, any size the browser can play). It plays with the design when you preview, and video export seeks it frame by frame so it stays in sync. *Playback* sets where it starts and ends, its speed, whether it loops or plays backwards, and its sound (volume, mute, fades); the design's length grows to match the clip (up to 10 minutes). The sound plays in the preview and goes into the exported video. Your browser has to be able to play the file (iPhone HEVC .mov files may need converting to H.264 first).
 
 - **Template families**: variations of one idea show as a single card with a style count; click it to see every style. Video templates carry a *Video* badge and play when you hover them.
 - **Newspaper reveal** (pull-back, crash zoom, snap zoom, hard cuts, slow push-in), **Typing** (type & follow, typed note, crash zoom, terminal), **Match cut** (keyword, night edition, newsprint flicker — you type only the **highlighted word** under *Text in this video*; the headlines and sentences around it are written from it, *Shuffle sentences* picks new ones, and the highlight colour is one swatch), **Kinetic headline** (good news, big reveal, pop words), **Sticky notes** (colour cut, stack, flip-book) with photos printed onto the notes, **Rolling numbers** (years, countdown, price drop), **Word by word** (italic VHS, bold statement, soft whisper) and **Letter bounce** (everyone, glitch hello, pastel).

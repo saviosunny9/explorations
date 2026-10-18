@@ -24,6 +24,9 @@
     requestAnimationFrame(() => { redrawQueued = false; redrawHook(); });
   }
   R.setAssets = a => { assets = a; };
+  // what each asset is when its URL doesn't say (blob: URLs of videos and sound files)
+  let assetKinds = {};
+  R.setAssetKinds = k => { assetKinds = k; };
   R.onRedraw = fn => { redrawHook = fn; };
   R.requestRedraw = requestRedraw;
   // safety net: any face finishing (e.g. one first used by the DOM) invalidates text metrics
@@ -58,8 +61,9 @@
 
   /* ── video assets: a muted <video> per asset, drawn like a photo ── */
   const vidCache = new Map();
-  function isVideoAsset(id) { const a = id && assets[id]; return typeof a === 'string' && a.startsWith('data:video'); }
+  function isVideoAsset(id) { const a = id && assets[id]; return typeof a === 'string' && (assetKinds[id] === 'video' || a.startsWith('data:video')); }
   R.isVideoAsset = isVideoAsset;
+  R.isAudioAsset = id => { const a = id && assets[id]; return typeof a === 'string' && (assetKinds[id] === 'audio' || a.startsWith('data:audio')); };
   function dataToBlobUrl(src) {
     const i = src.indexOf(','), mime = src.slice(5, src.indexOf(';'));
     const bin = atob(src.slice(i + 1)), u = new Uint8Array(bin.length);
@@ -80,7 +84,7 @@
       v.addEventListener('error', () => { e.failed = true; res(); }, { once: true });
     });
     v.addEventListener('seeked', () => requestRedraw());
-    try { v.src = dataToBlobUrl(src); } catch (err) { e.failed = true; }
+    try { v.src = src.startsWith('data:') ? dataToBlobUrl(src) : src; } catch (err) { e.failed = true; }
     vidCache.set(id, e);
     return e;
   }
@@ -94,22 +98,29 @@
     const ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05)), len = Math.max(0.05, end - ts);
     if (t == null) return Math.min(dur - 0.02, ts + (vd.poster || 0));
     const lt = Math.max(0, t - (start || 0)) * (vd.speed || 1);
-    return Math.min(end - 0.02, ts + (vd.loop === false ? Math.min(lt, len - 0.02) : lt % len));
+    const k = vd.loop === false ? Math.min(lt, len - 0.02) : lt % len;
+    // played backwards: from the end of the trimmed part to its start
+    if (vd.reverse) return Math.max(ts, end - 0.02 - k);
+    return Math.min(end - 0.02, ts + k);
   };
   // every place a video is shown: image layers and the canvas background
   function videoUsers(doc) {
     const out = [];
     const bg = doc.background || {};
-    if (isVideoAsset(bg.assetId)) out.push({ id: bg.assetId, vd: bg.video, start: 0 });
-    for (const el of doc.elements || []) if (el.type === 'image' && !el.hidden && isVideoAsset(el.assetId)) out.push({ id: el.assetId, vd: el.video, start: (el.time && el.time.start) || 0 });
+    if (isVideoAsset(bg.assetId)) out.push({ id: bg.assetId, vd: bg.video, start: 0, el: null });
+    for (const el of doc.elements || []) if (el.type === 'image' && !el.hidden && isVideoAsset(el.assetId)) out.push({ id: el.assetId, vd: el.video, start: (el.time && el.time.start) || 0, el });
     return out;
   }
+  R.videoUsers = videoUsers;
+  // a layer that's cut out at this moment needs no frame (clips after each other each have their own window)
+  const userOn = (u, t) => !u.el || t == null || R.visibleAt(u.el, t);
   R.hasVideo = doc => videoUsers(doc).length > 0;
   R.playing = false;
   // editor preview: let the video run and only correct it when it drifts
   function liveSync(v, vd, t, start) {
     const target = R.videoTarget(vd, t, v, start);
-    if (t == null || !R.playing) {
+    // a video can't play backwards: a reversed clip is stepped by seeking
+    if (t == null || !R.playing || (vd && vd.reverse)) {
       if (!v.paused) v.pause();
       if (Math.abs(v.currentTime - target) > 0.04 && !v.seeking) v.currentTime = target;
       return;
@@ -120,7 +131,17 @@
     else if (Math.abs(v.currentTime - target) > 0.3 && !v.seeking) v.currentTime = target;
   }
   R.liveSyncVideos = function (doc, t) {
-    for (const u of videoUsers(doc)) { const e = assetVideo(u.id); if (e && e.ok) liveSync(e.v, u.vd, t, u.start); }
+    const seen = new Set();
+    for (const u of videoUsers(doc)) {
+      const e = assetVideo(u.id);
+      if (!e || !e.ok) continue;
+      if (userOn(u, t)) { seen.add(u.id); liveSync(e.v, u.vd, t, u.start); continue; }
+      if (seen.has(u.id)) continue;
+      // off screen: stop it, and park a clip that's about to come in on its first frame
+      if (!e.v.paused) e.v.pause();
+      const s0 = u.el.time && u.el.time.start;
+      if (t != null && s0 > t && s0 - t < 1.5 && !e.v.seeking) { const want = R.videoTarget(u.vd, s0, e.v, u.start); if (Math.abs(e.v.currentTime - want) > 0.04) e.v.currentTime = want; }
+    }
   };
   R.pauseVideos = function () { for (const e of vidCache.values()) if (!e.v.paused) e.v.pause(); };
   /* ── smooth slow motion ──
@@ -327,6 +348,7 @@
   R.syncVideos = async function (doc, t, force) {
     const jobs = [];
     for (const u of videoUsers(doc)) {
+      if (!userOn(u, t)) continue;
       const e = assetVideo(u.id);
       if (!e) continue;
       if (!e.ok) await e.promise;
@@ -336,7 +358,7 @@
       // a seek still in flight (from the editor) would leave its old frame on screen
       if (v.seeking) await new Promise(res => { const fin = () => { v.removeEventListener('seeked', fin); res(); }; v.addEventListener('seeked', fin); setTimeout(fin, 1500); });
       // slowed down with smooth frames: build the in-between frame (one video, two seeks, so not in parallel)
-      if (t != null && u.vd && (u.vd.speed || 1) < 0.999) { await smoothFrame(u, e, t); continue; }
+      if (t != null && u.vd && (u.vd.speed || 1) < 0.999 && !u.vd.reverse) { await smoothFrame(u, e, t); continue; }
       const target = R.videoTarget(u.vd, t, v, u.start);
       if (!force && Math.abs(v.currentTime - target) < 0.0005) continue;
       jobs.push(new Promise(res => {
@@ -2019,7 +2041,8 @@
     const hit = isVid ? ((vidFilterCache.get(id) || {}).key === key ? vidFilterCache.get(id).out : null) : filterCache.get(key);
     if (hit) return hit;
     // video frames are graded smaller: 1280 px for export, 720 px while previewing so playback keeps up
-    const ds = isVid ? Math.min(1, (R.playing ? 720 : 1280) / Math.max(iwOf(img), ihOf(img))) : 1;
+    // very large photos are graded at up to 4096 px (more than any canvas size needs, and quick enough to adjust)
+    const ds = Math.min(1, (isVid ? (R.playing ? 720 : 1280) : 4096) / Math.max(iwOf(img), ihOf(img)));
     const c = canvas(Math.max(1, Math.round(iwOf(img) * ds)), Math.max(1, Math.round(ihOf(img) * ds))), x = c.getContext('2d', { willReadFrequently: true });
     x.drawImage(img, 0, 0, c.width, c.height);
     let d;
@@ -3885,7 +3908,7 @@
     const tm = el.time;
     if (!tm) return true;
     // the still view shows every cut at once, except a Vox explainer, which shows its first scene
-    if (t == null) return !(el.vox && tm.start > 0);
+    if (t == null) return !((el.vox || el.clip) && tm.start > 0);
     const s0 = tm.start || 0, e0 = tm.end;
     if (t < s0 - 1e-6) return false;
     if (e0 != null && e0 > s0 && t >= e0) return false;
@@ -4165,7 +4188,85 @@
   }
   R.isTracked = el => !!(el.track && el.track.pts && el.track.pts.length);
 
+  /* ── transitions between clips of a video edit ──
+     A clip's transition overlaps the end of the clip before it (S.layoutClips sets clip._in on the incoming clip and
+     clip._out on the outgoing one); both sides are drawn with their half of the effect. */
+  R.TRANSITIONS = { none: 'Cut', fade: 'Dissolve', black: 'Dip to black', white: 'Flash', slide: 'Slide', push: 'Push', whip: 'Whip pan', wipe: 'Wipe', iris: 'Circle', zoom: 'Zoom', blur: 'Blur', spin: 'Spin', glitch: 'Glitch' };
+  R.TRANS_DIRS = ['slide', 'push', 'whip', 'wipe'];
+  function clipFx(el, t) {
+    const c = el.clip;
+    if (!c || t == null || !el.time) return null;
+    const s0 = el.time.start || 0, e0 = el.time.end;
+    if (c._in > 0 && c.trans && t < s0 + c._in) return { p: clamp((t - s0) / c._in, 0, 1), type: c.trans.type, dir: c.trans.dir, inn: true };
+    if (c._out && c._out.dur > 0 && e0 != null && t > e0 - c._out.dur) return { p: clamp((t - (e0 - c._out.dur)) / c._out.dur, 0, 1), type: c._out.type, dir: c._out.dir, inn: false };
+    return null;
+  }
+  const hash1 = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
   function drawElement(ctx, el, env = {}) {
+    const t = 'time' in env ? env.time : R.playTime;
+    const fx = el.clip ? clipFx(el, t) : null;
+    if (!fx || !fx.type || fx.type === 'none' || !R.visibleAt(el, t)) return drawElementCore(ctx, el, env);
+    const doc = env.doc || R.animDoc || {}, W = doc.width || el.width, H = doc.height || el.height, w = el.width, h = el.height;
+    const p = fx.p, e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2, inn = fx.inn;
+    // the way the picture travels: 'left' = the new clip comes in from the right
+    const d = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[fx.dir || 'left'] || [1, 0];
+    let e2 = el, tint = null;
+    ctx.save();
+    switch (fx.type) {
+      case 'fade': if (inn) ctx.globalAlpha *= e; break;
+      case 'black': case 'white': {
+        // dip: the old clip goes to the colour by halfway, the new one comes up out of it
+        const col = fx.type === 'black' ? '#000000' : '#ffffff';
+        if (inn) { if (p < 0.5) { ctx.restore(); return; } tint = [col, fx.type === 'white' ? Math.pow(2 * (1 - p), 1.6) : 2 * (1 - p)]; } else tint = [col, Math.min(1, 2 * p)];
+        break;
+      }
+      case 'slide': if (inn) ctx.translate((1 - e) * W * d[0], (1 - e) * H * d[1]); break;
+      case 'push': case 'whip': {
+        if (inn) ctx.translate((1 - e) * W * d[0], (1 - e) * H * d[1]); else ctx.translate(-e * W * d[0], -e * H * d[1]);
+        if (fx.type === 'whip') {
+          const sp = Math.sin(Math.PI * p) * Math.hypot(W * d[0], H * d[1]) * 0.22;
+          if (sp > 1.5) e2 = Object.assign({}, el, { lblur: Object.assign({}, el.lblur || {}, { motion: ((el.lblur && el.lblur.motion) || 0) + sp, angle: d[1] ? 90 : 0 }) });
+        }
+        break;
+      }
+      case 'wipe': if (inn) {
+        ctx.beginPath();
+        if (d[0] > 0) ctx.rect(w * (1 - e), -h, w * e + w, h * 3); else if (d[0] < 0) ctx.rect(-w, -h, w * (1 + e), h * 3);
+        else if (d[1] > 0) ctx.rect(-w, h * (1 - e), w * 3, h * e + h); else ctx.rect(-w, -h, w * 3, h * (1 + e));
+        ctx.clip();
+      } break;
+      case 'iris': if (inn) { ctx.beginPath(); ctx.arc(w / 2, h / 2, Math.max(0.5, e * Math.hypot(w, h) / 2), 0, Math.PI * 2); ctx.clip(); } break;
+      case 'zoom': {
+        const k = inn ? 1.3 - 0.3 * e : 1 + 0.3 * e;
+        ctx.translate(w / 2, h / 2); ctx.scale(k, k); ctx.translate(-w / 2, -h / 2);
+        if (inn) ctx.globalAlpha *= Math.min(1, e * 1.4);
+        break;
+      }
+      case 'blur': {
+        const b = (inn ? 1 - e : e) * Math.min(W, H) * 0.03;
+        if (inn) ctx.globalAlpha *= e;
+        if (b > 0.3) e2 = Object.assign({}, el, { lblur: Object.assign({}, el.lblur || {}, { gauss: ((el.lblur && el.lblur.gauss) || 0) + Math.round(b * 2) / 2 }) });
+        break;
+      }
+      case 'spin': {
+        const k = inn ? 0.5 + 0.5 * e : 1 + 0.4 * e, r = inn ? (1 - e) * -120 : e * 120;
+        ctx.translate(w / 2, h / 2); ctx.rotate(r * Math.PI / 180); ctx.scale(k, k); ctx.translate(-w / 2, -h / 2);
+        if (inn) ctx.globalAlpha *= e;
+        break;
+      }
+      case 'glitch': {
+        // flickers between the two with sideways jumps that settle
+        const f = Math.floor(t * 24), amt = inn ? 1 - p : p;
+        if (inn && hash1(f) > p * 1.15) { ctx.restore(); return; }
+        ctx.translate((hash1(f + 7) - 0.5) * W * 0.12 * amt, (hash1(f + 3) - 0.5) * H * 0.02 * amt);
+        break;
+      }
+    }
+    drawElementCore(ctx, e2, env);
+    if (tint && tint[1] > 0.002) { ctx.globalAlpha = Math.min(1, tint[1]) * (el.opacity ?? 1); ctx.fillStyle = tint[0]; ctx.fillRect(0, 0, w, h); }
+    ctx.restore();
+  }
+  function drawElementCore(ctx, el, env = {}) {
     const t = 'time' in env ? env.time : R.playTime;
     if (!R.visibleAt(el, t)) return;
     // clips cut in between typed words: only on screen during their own slot (hidden while editing the still)

@@ -40,7 +40,7 @@ From another account, publish `dist/collage-studio.html` as a new artifact inste
 
 A browser editor for scrapbook / collage Instagram posts and Reels: layered photos (and videos anywhere a photo goes),
 text, stickers, shapes, frames, ~381 templates grouped into families, animation and camera moves, film looks, and export
-to PNG / JPG / MP4 / WebM (including see-through PNG, WebM with alpha and PNG frame sequences). Pure HTML + JS + canvas
+to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha and PNG frame sequences). Pure HTML + JS + canvas
 (Konva for the editor stage), no build step, designs saved in the browser (IndexedDB), with a home page, projects,
 "My templates", and a phone layout.
 
@@ -76,6 +76,9 @@ to PNG / JPG / MP4 / WebM (including see-through PNG, WebM with alpha and PNG fr
   vision thermal look (Rerun-style) + melted thermal edges; the dark effects-studio UI and 105 realtime Styles
   (styles.js / styles-ui.js, on any layer or the whole canvas) with the Image styles template family. Generative
   (AI image-to-image) looks were skipped on request.
+- **Oct 18** — real paper scans; big-media storage (photos at full resolution, videos of any size kept as files in
+  IndexedDB, designs up to 10 minutes, `.studio.zip` project files); sound (video sound, music, voiceover, mixed into
+  exports); the Video editor (several clips on a timeline: trim, split, reorder, 13 transitions, auto fix, titles).
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 
@@ -95,6 +98,10 @@ coffee tastes OFF!", "TO MAKE USING MONEY" → "TO MAKE MONEY SIMPLE". Earlier s
   position (the dashed target outline does follow).
 - The 4K H.264 encoder fallback was tested with a simulated failing encoder; headless Chromium has no H.264, so real
   Chrome MP4 export should be checked on the owner's machine.
+- Sound and the video timeline were tested in headless Chromium (WebM / Opus export, mixing, trimming, reordering,
+  project zip round trip). AAC-in-MP4 export needs real Chrome; if a browser has no AAC encoder the MP4 gets Opus sound.
+  Speed changes shift a clip's pitch; a reversed clip is silent in the preview (its reversed sound is in the export).
+- A design with sound plays it in the preview only while playing (scrubbing is silent).
 - The online copy is meant to read the background-removal model from parts published with it
   (`models/rmbg.part0–4.txt`, `models/ultraface.txt`), but those aren't published yet: huggingface.co was blocked
   from the cloud environment when the project moved. Until they are, background removal there depends on the

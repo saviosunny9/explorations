@@ -117,6 +117,11 @@
   if (window.StudioFlashes && window.StudioFlashes.IMG) for (const [k, v] of Object.entries(window.StudioFlashes.IMG)) assets['img-' + k] = v.src;
   if (window.StudioFilm && window.StudioFilm.IMG) for (const [k, v] of Object.entries(window.StudioFilm.IMG)) assets['film-' + k] = v.src;
   if (window.StudioPortraits && window.StudioPortraits.IMG) for (const [k, v] of Object.entries(window.StudioPortraits.IMG)) assets['ed-' + k] = v.src;
+  // big media (videos, sound, full-size photos) stay as files: assets[id] is a blob: URL, kinds[id] says what it is,
+  // and the bytes go to IndexedDB once ('media:<id>') instead of with every autosave. An alias is a second id for the
+  // same file (a split clip), so each use gets its own <video>
+  const kinds = {}, blobs = {}, aliases = {}, stored = new Set();
+  R.setAssetKinds(kinds);
   let sel = [];
   let playing = false;
   let pathEdit = null;
@@ -387,10 +392,14 @@
     applyView();
   };
   S.zoomBy = f => S.zoomAt(S.view.scale * f);
-  new ResizeObserver(() => {
-    stage.size({ width: area.clientWidth, height: area.clientHeight });
+  // the video timeline takes the bottom of the stage area (S.setStageInset)
+  S.stageInset = 0;
+  function sizeStage() {
+    stage.size({ width: area.clientWidth, height: Math.max(80, area.clientHeight - S.stageInset) });
     if (S.view.fit) S.fit(); else applyView();
-  }).observe(area);
+  }
+  S.setStageInset = px => { if (px === S.stageInset) return; S.stageInset = px; area.style.setProperty('--inset', px + 'px'); sizeStage(); };
+  new ResizeObserver(sizeStage).observe(area);
 
   area.addEventListener('wheel', e => {
     e.preventDefault();
@@ -425,7 +434,8 @@
         try { R.drawElement(ctx, e, { editor: true }); } catch (err) { console.error(err); }
         ctx.restore();
       },
-      hitFunc: (c, shape) => { c.beginPath(); c.rect(0, 0, shape.width(), shape.height()); c.closePath(); c.fillStrokeShape(shape); },
+      // a layer that's cut out at this moment (another clip's turn) doesn't catch clicks
+      hitFunc: (c, shape) => { const e = elMap.get(id); if (e && e.time && !R.visibleAt(e, R.playTime)) return; c.beginPath(); c.rect(0, 0, shape.width(), shape.height()); c.closePath(); c.fillStrokeShape(shape); },
     });
     n.on('mouseenter', () => { if (!dragging && !sel.includes(id)) showHover(n); area.style.cursor = elMap.get(id)?.locked ? 'default' : 'move'; });
     n.on('mouseleave', () => { hoverRect.visible(false); uiLayer.batchDraw(); area.style.cursor = ''; });
@@ -514,6 +524,7 @@
   }
   S.syncTypeLength = syncTypeLength;
   S.commit = function () {
+    if (S.layoutClips) S.layoutClips();
     syncTypeLength();
     const s = snapshot();
     if (hist.stack[hist.idx] === s) return;
@@ -555,24 +566,105 @@
     async get(k) { const d = await this.open(); return new Promise((res, rej) => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
     async set(k, v) { const d = await this.open(); return new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); },
     async del(k) { const d = await this.open(); return new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').delete(k); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); },
+    async keys() { const d = await this.open(); return new Promise((res, rej) => { const q = d.transaction('kv').objectStore('kv').getAllKeys(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
   };
   let saveTimer = null;
-  function usedAssets() {
+  // every asset a design points at
+  function refIds(d) {
     const ids = new Set();
-    if (doc.background.assetId) ids.add(doc.background.assetId);
-    if (doc.overlay && doc.overlay.userTex) ids.add(doc.overlay.userTex);
-    for (const el of doc.elements) {
+    if (d.background.assetId) ids.add(d.background.assetId);
+    if (d.overlay && d.overlay.userTex) ids.add(d.overlay.userTex);
+    for (const el of d.elements) {
       if (el.assetId) ids.add(el.assetId);
       if (el.studio && el.studio.cutId) ids.add(el.studio.cutId);
       if (el.bgRemoved && el.bgRemoved.assetId) ids.add(el.bgRemoved.assetId);
       if (el.type === 'flashes') for (const a of el.images || []) ids.add(a);
       if (el.seq && el.seq.ids) for (const a of el.seq.ids) ids.add(a);
     }
-    for (const id of S.uploads) ids.add(id);
-    const out = {};
-    for (const id of ids) if (assets[id]) out[id] = assets[id];
-    return out;
+    for (const a of d.audio || []) if (a.assetId) ids.add(a.assetId);
+    for (const sc of (d.vox && d.vox.scenes) || []) for (const k of ['assetId', 'assetId2', 'cutId']) if (sc[k]) ids.add(sc[k]);
+    return ids;
   }
+  // the media a design needs saved with it (bundled photos are always there), aliases followed to their file
+  function mediaIds(d, extra) {
+    const out = new Set();
+    for (const id of [...refIds(d), ...(extra || [])]) {
+      if (!assets[id] || BUILT_IN.test(id)) continue;
+      out.add(id);
+      if (aliases[id]) out.add(aliases[id]);
+    }
+    return [...out];
+  }
+  const kindOf = id => kinds[id] || (typeof assets[id] === 'string' && assets[id].startsWith('data:video') ? 'video' : typeof assets[id] === 'string' && assets[id].startsWith('data:audio') ? 'audio' : 'image');
+  S.assetKind = kindOf;
+  S.assetBlob = id => blobs[aliases[id] || id] || null;
+  S.addMedia = function (blob, kind) { const id = uid('a'); blobs[id] = blob; kinds[id] = kind; assets[id] = URL.createObjectURL(blob); return id; };
+  // a second id for the same file
+  S.aliasAsset = function (id) {
+    if (!assets[id]) return id;
+    const root = aliases[id] || id, nid = uid('a');
+    assets[nid] = assets[root]; kinds[nid] = kindOf(root); aliases[nid] = root;
+    return nid;
+  };
+  let storeWarned = false;
+  async function storeMedia(ids) {
+    // files first, so an alias never points at something unsaved
+    for (const id of ids.slice().sort((a, b) => (aliases[a] ? 1 : 0) - (aliases[b] ? 1 : 0))) {
+      if (stored.has(id) || !assets[id]) continue;
+      const rec = aliases[id] ? { kind: kindOf(id), alias: aliases[id] } : blobs[id] ? { kind: kinds[id], blob: blobs[id] } : { kind: kindOf(id), url: assets[id] };
+      try { await DB.set('media:' + id, rec); stored.add(id); } catch (e) {
+        if (!storeWarned) { storeWarned = true; emit('toast', 'The browser’s storage is full — download the project file to keep your media'); }
+      }
+    }
+  }
+  // bring saved media back into the asset store
+  async function loadMedia(ids) {
+    const later = [];
+    for (const id of ids || []) {
+      if (assets[id]) continue;
+      const m = await DB.get('media:' + id).catch(() => null);
+      if (!m) continue;
+      if (m.alias) { later.push([id, m]); continue; }
+      if (m.blob) { blobs[id] = m.blob; assets[id] = URL.createObjectURL(m.blob); } else assets[id] = m.url;
+      if (m.kind) kinds[id] = m.kind;
+      stored.add(id);
+    }
+    for (const [id, m] of later) {
+      if (!assets[m.alias]) await loadMedia([m.alias]);
+      if (!assets[m.alias]) continue;
+      assets[id] = assets[m.alias]; kinds[id] = m.kind || kindOf(m.alias); aliases[id] = m.alias; stored.add(id);
+    }
+  }
+  // assets that arrived inline (older projects and files) as data URLs
+  function takeAssets(obj) {
+    for (const [id, src] of Object.entries(obj || {})) if (!assets[id]) assets[id] = src;
+  }
+  S.loadMedia = loadMedia;
+  // media nothing points at any more (deleted designs and templates) is cleared out once per visit
+  async function collectMedia() {
+    const keys = await DB.keys().catch(() => null);
+    if (!keys) return;
+    const media = keys.filter(k => typeof k === 'string' && k.startsWith('media:'));
+    if (!media.length) return;
+    const keep = new Set([...mediaIds(doc, S.uploads)]);
+    for (const k of keys) {
+      if (typeof k !== 'string' || !(k.startsWith('project:') || k.startsWith('template:'))) continue;
+      const data = await DB.get(k).catch(() => null);
+      for (const id of (data && data.media) || []) keep.add(id);
+    }
+    for (const k of media) {
+      const id = k.slice(6);
+      if (keep.has(id)) continue;
+      const m = await DB.get(k).catch(() => null);
+      if (m && m.alias) continue;
+      await DB.del(k).catch(() => {});
+      stored.delete(id);
+    }
+    // aliases whose file is gone
+    for (const k of media) { const m = await DB.get(k).catch(() => null); if (m && m.alias && !keep.has(k.slice(6)) && !(await DB.get('media:' + m.alias).catch(() => null))) await DB.del(k).catch(() => {}); }
+  }
+  setTimeout(() => { (window.requestIdleCallback || (f => f()))(() => collectMedia()); }, 20000);
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   S.uploads = [];
   // every design is its own project in this browser: the full data lives under
   // 'project:<id>' and a light index (name, size, thumbnail, status) under 'projects'
@@ -606,7 +698,9 @@
     const id = S.projectId;
     if (!id) return;
     const now = Date.now();
-    await DB.set('project:' + id, { doc, assets: usedAssets(), uploads: S.uploads, name: S.docName, savedAt: now }).catch(() => {});
+    const media = mediaIds(doc, S.uploads);
+    await storeMedia(media);
+    await DB.set('project:' + id, { doc, media, uploads: S.uploads, name: S.docName, savedAt: now }).catch(() => {});
     const list = await projects();
     let it = list.find(p => p.id === id);
     if (!it) { it = { id, status: 'draft', created: now }; list.unshift(it); }
@@ -626,7 +720,12 @@
   S.saveNow = saveNow;
   S.projects = {
     list: projects,
-    get: id => DB.get('project:' + id).catch(() => null),
+    // the saved design with its media back in the asset store
+    async get(id) {
+      const data = await DB.get('project:' + id).catch(() => null);
+      if (data) { takeAssets(data.assets); await loadMedia(data.media); }
+      return data;
+    },
     last: () => DB.get('lastProject').catch(() => null),
     async update(id, patch) {
       const list = await projects(), it = list.find(p => p.id === id);
@@ -689,21 +788,6 @@
     tplList = Array.isArray(list) ? list : [];
     return tplList;
   }
-  function docAssets(d) {
-    const ids = new Set();
-    if (d.background.assetId) ids.add(d.background.assetId);
-    if (d.overlay && d.overlay.userTex) ids.add(d.overlay.userTex);
-    for (const el of d.elements) {
-      if (el.assetId) ids.add(el.assetId);
-      if (el.studio && el.studio.cutId) ids.add(el.studio.cutId);
-      if (el.bgRemoved && el.bgRemoved.assetId) ids.add(el.bgRemoved.assetId);
-      if (el.type === 'flashes') for (const a of el.images || []) ids.add(a);
-      if (el.seq && el.seq.ids) for (const a of el.seq.ids) ids.add(a);
-    }
-    const out = {};
-    for (const id of ids) if (assets[id] && !BUILT_IN.test(id)) out[id] = assets[id];
-    return out;
-  }
   async function putTemplate(id, name, data, list, created) {
     const now = Date.now();
     await DB.set('template:' + id, data);
@@ -719,21 +803,29 @@
   }
   S.myTemplates = {
     list: myTemplates,
-    get: id => DB.get('template:' + id).catch(() => null),
+    async get(id) {
+      const data = await DB.get('template:' + id).catch(() => null);
+      if (data) { takeAssets(data.assets); await loadMedia(data.media); }
+      return data;
+    },
     // save the canvas as it is now; with replaceId, overwrite that template instead of adding a new one
     async save(name, replaceId) {
       if (textEdit) finishTextEdit();
       const list = await myTemplates();
       const id = replaceId && list.some(t => t.id === replaceId) ? replaceId : uid('t');
       const d = clone(doc);
-      const data = { name, doc: d, assets: docAssets(d), video: S.hasAnimation(), fonts: window.StudioFonts.packFamilies(usedFamilies()), savedAt: Date.now() };
+      const media = mediaIds(d);
+      await storeMedia(media);
+      const data = { name, doc: d, media, video: S.hasAnimation(), fonts: window.StudioFonts.packFamilies(usedFamilies()), savedAt: Date.now() };
       return putTemplate(id, name, data, list);
     },
     // a template file from another computer
     async add(data, name) {
       const list = await myTemplates();
-      if (data.assets) Object.assign(assets, data.assets);
-      return putTemplate(uid('t'), name || data.name || 'My template', { name: name || data.name, doc: data.doc, assets: data.assets || {}, video: !!data.video, fonts: data.fonts || [], savedAt: Date.now() }, list);
+      takeAssets(data.assets);
+      const media = mediaIds(data.doc);
+      await storeMedia(media);
+      return putTemplate(uid('t'), name || data.name || 'My template', { name: name || data.name, doc: data.doc, media, video: !!data.video, fonts: data.fonts || [], savedAt: Date.now() }, list);
     },
     async rename(id, name) {
       const list = await myTemplates(), it = list.find(t => t.id === id);
@@ -770,7 +862,65 @@
     for (const el of doc.elements) for (const k of ['fontFamily', 'titleFont', 'bodyFont', 'ringFont', 'centerFont']) if (el[k]) fam.add(el[k]);
     return [...fam].filter(f => window.StudioFonts.BY_NAME[f] && window.StudioFonts.BY_NAME[f].custom);
   }
-  S.projectData = () => ({ app: 'collage-studio', version: 1, name: S.docName, doc, assets: usedAssets(), uploads: S.uploads, fonts: window.StudioFonts.packFamilies(usedFamilies()) });
+  S.projectData = () => ({ app: 'collage-studio', version: 1, name: S.docName, doc, media: mediaIds(doc, S.uploads), uploads: S.uploads, fonts: window.StudioFonts.packFamilies(usedFamilies()) });
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      if ([...document.scripts].some(x => x.src === src)) return res();
+      const x = document.createElement('script');
+      x.src = src; x.onload = res; x.onerror = () => rej(new Error('Could not load ' + src));
+      document.head.appendChild(x);
+    });
+  }
+  S.loadJSZip = async function () {
+    if (!window.JSZip) await loadScript('vendor/jszip.min.js').catch(() => loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'));
+    return window.JSZip;
+  };
+  const fileExt = (type, kind) => ({ 'video/quicktime': 'mov', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'image/jpeg': 'jpg', 'audio/wav': 'wav', 'audio/x-wav': 'wav' })[type] ||
+    ((type || '').split('/')[1] || (kind === 'video' ? 'mp4' : kind === 'audio' ? 'mp3' : 'bin')).replace(/[^a-z0-9]/gi, '').slice(0, 5);
+  // a design or template as one file: JSON while its media is small, a zip (project.json + media/…) once it holds whole files
+  S.packFile = async function (data) {
+    const ids = data.media || [];
+    await loadMedia(ids);
+    const out = Object.assign({}, data, { assets: Object.assign({}, data.assets || {}) });
+    delete out.media;
+    const files = [];
+    for (const id of ids) {
+      if (!assets[id]) continue;
+      if (aliases[id]) files.push({ id, alias: aliases[id] });
+      else if (blobs[id]) files.push({ id, kind: kinds[id], type: blobs[id].type || '', path: 'media/' + id + '.' + fileExt(blobs[id].type, kinds[id]) });
+      else out.assets[id] = assets[id];
+    }
+    if (!files.some(f => f.path)) {
+      for (const f of files) if (out.assets[f.alias]) out.assets[f.id] = out.assets[f.alias];
+      return { blob: new Blob([JSON.stringify(out)], { type: 'application/json' }), zip: false };
+    }
+    out.files = files;
+    const Z = await S.loadJSZip(), zip = new Z();
+    zip.file('project.json', JSON.stringify(out));
+    for (const f of files) if (f.path) zip.file(f.path, blobs[f.id], { binary: true });
+    // photos and videos are already compressed: store them as they are
+    return { blob: await zip.generateAsync({ type: 'blob', compression: 'STORE', streamFiles: true, mimeType: 'application/zip' }), zip: true };
+  };
+  // a .studio.json or .studio.zip file → its data, with the media in the asset store
+  S.readFile = async function (file) {
+    const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+    if (!(head[0] === 0x50 && head[1] === 0x4b)) { const d = JSON.parse(await file.text()); takeAssets(d.assets); return d; }
+    const Z = await S.loadJSZip(), zip = await Z.loadAsync(file);
+    const entry = zip.file('project.json') || zip.file(/(^|\/)project\.json$/)[0];
+    if (!entry) throw new Error('Not a project');
+    const data = JSON.parse(await entry.async('string'));
+    takeAssets(data.assets);
+    for (const f of data.files || []) {
+      if (f.alias || assets[f.id]) continue;
+      const z = zip.file(f.path);
+      if (!z) continue;
+      const b = new Blob([await z.async('blob')], { type: f.type || '' });
+      blobs[f.id] = b; kinds[f.id] = f.kind || 'image'; assets[f.id] = URL.createObjectURL(b);
+    }
+    for (const f of data.files || []) if (f.alias && assets[f.alias] && !assets[f.id]) { assets[f.id] = assets[f.alias]; kinds[f.id] = kindOf(f.alias); aliases[f.id] = f.alias; }
+    data.media = (data.files || []).map(f => f.id);
+    return data;
+  };
 
   /* ───────────────────────── load / new ───────────────────────── */
 
@@ -1957,7 +2107,7 @@
 
   let playStart = 0, raf = 0;
   S.isPlaying = () => playing;
-  S.hasAnimation = () => doc.elements.some(R.hasAnim) || R.hasCamera(doc) || R.hasVideo(doc) || R.hasFilmMotion(doc);
+  S.hasAnimation = () => doc.elements.some(R.hasAnim) || R.hasCamera(doc) || R.hasVideo(doc) || R.hasFilmMotion(doc) || !!(doc.audio && doc.audio.length);
   function applyCamera(t) {
     const cam = t != null ? R.camAt(doc, t) : null;
     const a = cam ? { x: doc.width / 2, y: doc.height / 2, offsetX: cam.fx, offsetY: cam.fy, scaleX: cam.z, scaleY: cam.z, rotation: cam.r }
@@ -1995,6 +2145,8 @@
       if (!playing) return;
       const t = ((now - playStart) / 1000) % doc.anim.duration, ts = R.stepTime(doc, t);
       R.playTime = ts;
+      R.liveSyncVideos(doc, ts);
+      if (S.audioTick) S.audioTick(ts);
       applyCamera(ts);
       layer.batchDraw();
       drawScreenView(t);
@@ -2180,7 +2332,8 @@
   S.duplicate = function (offset = 24) {
     const els = S.selEls();
     if (!els.length) return;
-    const copies = els.map(e => { const c = clone(e); c.id = uid(); c.x += offset; c.y += offset; c.locked = false; return c; });
+    // a clip of a video edit is copied in place: it plays right after the original
+    const copies = els.map(e => { const c = clone(e); c.id = uid(); if (c.clip) { if (R.isVideoAsset(c.assetId) && S.aliasAsset) c.assetId = S.aliasAsset(c.assetId); } else { c.x += offset; c.y += offset; } c.locked = false; return c; });
     const maxIdx = Math.max(...els.map(e => doc.elements.indexOf(e)));
     doc.elements.splice(maxIdx + 1, 0, ...copies);
     rebuild();
@@ -2290,7 +2443,7 @@
   // copy / paste properties: the whole look of one layer (font, colours, effects, frame, filters…) onto others
   let styleClip = null;
   const NOT_STYLE = new Set(['track', 'id', 'type', 'x', 'y', 'width', 'height', 'rotation', 'name', 'locked', 'hidden', 'text', 'assetId', 'crop', 'video', 'seq',
-    'points', 'images', 'stickerId', 'shape', 'kind', 'key', 'erase', 'time', 'studio', 'bgRemoved', 'placeholder', 'path', 'autoWidth', 'typing', 'flipX', 'flipY', 'cx', 'cy']);
+    'points', 'images', 'stickerId', 'shape', 'kind', 'key', 'erase', 'time', 'studio', 'bgRemoved', 'placeholder', 'path', 'autoWidth', 'typing', 'flipX', 'flipY', 'cx', 'cy', 'clip']);
   // between different kinds of layer only these carry over
   const SHARED_STYLE = ['opacity', 'blend', 'shadow', 'anim', 'lblur', 'tfx'];
   S.copyStyle = function () {
@@ -2327,96 +2480,123 @@
   // photo slots in the order they appear in the video, then reading order
   S.photoSlots = function (els) {
     const when = e => ((e.time && e.time.start) || 0) + ((e.anim && e.anim.enter && e.anim.enter !== 'none' && e.anim.delay) || 0);
-    return (els || doc.elements).filter(e => e.type === 'image' && !e.locked && !e.hidden && e.name !== 'Film border')
+    return (els || doc.elements).filter(e => e.type === 'image' && !e.locked && !e.hidden && e.name !== 'Film border' && !e.clip)
       .sort((a, b) => when(a) - when(b) || a.y - b.y || a.x - b.x);
   };
   S.fillSlots = function (els) { const slots = S.photoSlots(els); if (slots.length) S.pickImages({ fillIds: slots.map(e => e.id) }); };
   S.pickImages = function (opts = {}) { pickOpts = opts; fileInput.value = ''; fileInput.click(); };
   fileInput.addEventListener('change', () => { if (fileInput.files.length) S.importFiles([...fileInput.files], pickOpts); });
 
+  // photos keep their original file at full resolution; only what a canvas can't hold (over 16384 px or ~250 MP)
+  // and formats a browser can't redraw reliably (SVG, TIFF…) are redrawn
+  const PHOTO_MAX = 16384;
   function readImage(file) {
     return new Promise((res, rej) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
-        const MAX = 2400;
         let w = img.naturalWidth, h = img.naturalHeight;
-        const s = Math.min(1, MAX / Math.max(w, h));
-        w = Math.round(w * s); h = Math.round(h * s);
+        const s = Math.min(1, PHOTO_MAX / Math.max(w, h), Math.sqrt(250e6 / Math.max(1, w * h)));
+        URL.revokeObjectURL(url);
+        if (s === 1 && /^image\/(jpeg|png|webp|gif|avif|bmp)$/.test(file.type)) { res({ blob: file, w, h }); return; }
+        w = Math.max(1, Math.round(w * s)); h = Math.max(1, Math.round(h * s));
         const c = document.createElement('canvas');
         c.width = w; c.height = h;
-        const x = c.getContext('2d');
-        x.drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(url);
-        const alpha = /png|webp|gif|svg/.test(file.type);
-        res({ src: c.toDataURL(alpha ? 'image/png' : 'image/jpeg', 0.92), w, h });
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        const alpha = /png|webp|gif|svg|tiff/.test(file.type);
+        c.toBlob(b => (b ? res({ blob: b, w, h }) : rej(new Error('Could not read image'))), alpha ? 'image/png' : 'image/jpeg', 0.95);
       };
       img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not read image')); };
       img.src = url;
     });
   }
-  // videos are kept whole (muted, like on Instagram) so they can sit under the design
-  const VIDEO_MAX_MB = 120;
+  // videos are kept whole, as the file itself (no size limit beyond what the browser can play), sound included
   function readVideo(file) {
     return new Promise((res, rej) => {
-      if (file.size > VIDEO_MAX_MB * 1048576) { rej(new Error(`Videos up to ${VIDEO_MAX_MB} MB work best — trim this one first`)); return; }
-      const url = URL.createObjectURL(file);
+      // some systems report no type for .mov; browsers read it as mp4
+      const blob = !file.type || /quicktime|octet-stream/.test(file.type) ? new Blob([file], { type: 'video/mp4' }) : file;
+      const url = URL.createObjectURL(blob);
       const v = document.createElement('video');
       v.muted = true; v.preload = 'metadata';
       v.onloadedmetadata = () => {
         const w = v.videoWidth, h = v.videoHeight, duration = v.duration;
         URL.revokeObjectURL(url);
         if (!w || !h) { rej(new Error('This browser can’t play that video')); return; }
-        const fr = new FileReader();
-        fr.onload = () => {
-          let src = String(fr.result);
-          // some systems report no type for .mov; browsers read it as mp4
-          if (src.startsWith('data:;') || src.startsWith('data:application/octet-stream')) src = 'data:video/mp4;' + src.slice(src.indexOf('base64'));
-          if (src.startsWith('data:video/quicktime')) src = 'data:video/mp4;' + src.slice(src.indexOf('base64'));
-          res({ src, w, h, duration, video: true });
-        };
-        fr.onerror = () => rej(new Error('Could not read video'));
-        fr.readAsDataURL(file);
+        res({ blob, w, h, duration, video: true });
       };
       v.onerror = () => { URL.revokeObjectURL(url); rej(new Error('This browser can’t play that video')); };
       v.src = url;
     });
   }
-  const isVideoFile = f => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm)$/i.test(f.name);
-  // a design should run as long as its video, within the 30 s export limit
+  // music and voice: any file the browser can play
+  function readAudio(file) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('audio');
+      a.preload = 'metadata';
+      a.onloadedmetadata = () => { URL.revokeObjectURL(url); res({ blob: file, duration: a.duration, audio: true }); };
+      a.onerror = () => { URL.revokeObjectURL(url); rej(new Error('This browser can’t play ' + file.name)); };
+      a.src = url;
+    });
+  }
+  const isVideoFile = f => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|mkv)$/i.test(f.name);
+  const isAudioFile = f => f.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|weba)$/i.test(f.name);
+  S.isAudioFile = isAudioFile;
+  // the longest design: 10 minutes (exports are built in memory)
+  S.MAX_LEN = 600;
+  // a design should run as long as its video
   function fitDurationToVideo(dur) {
     if (!dur || !isFinite(dur)) return;
-    const want = Math.min(30, Math.round(dur * 10) / 10);
+    const want = Math.min(S.MAX_LEN, Math.round(dur * 10) / 10);
     if (want > doc.anim.duration + 0.05) { doc.anim.duration = want; emit('toast', `Design length set to ${want}s to match the video`); emit('values'); }
   }
+  S.fitDurationToVideo = fitDurationToVideo;
   S.addAsset = function (src) { const id = uid('a'); assets[id] = src; return id; };
   S.importFiles = async function (files, opts = {}) {
+    // music and voice files become sound tracks
+    const sounds = opts.imagesOnly ? [] : files.filter(f => isAudioFile(f) && !isVideoFile(f));
     const imgs = files.filter(f => f.type.startsWith('image/') || (!opts.imagesOnly && isVideoFile(f)));
+    // a new video edit starts from its clips; its music goes in after the new design exists
+    const later = [];
+    const place = got => { for (const a of got) S.addSound(a.id, { name: a.name, duration: a.duration, at: opts.soundAt || 0 }); };
+    if (sounds.length) {
+      const got = [];
+      for (const f of sounds) {
+        try { const a = await readAudio(f); const id = S.addMedia(a.blob, 'audio'); S.uploads.unshift(id); got.push({ id, duration: a.duration, name: f.name.replace(/\.[^.]+$/, ''), audio: true }); } catch (e) { emit('toast', e.message || 'Couldn’t open ' + f.name); }
+      }
+      if (got.length) {
+        emit('uploads');
+        if (opts.uploadOnly) { scheduleSave(); if (opts.onAdded) opts.onAdded(got); }
+        else if (S.addSound) { if (opts.newProject && imgs.length) later.push(...got); else place(got); }
+      }
+    }
     if (!imgs.length) return;
     const added = [];
     for (const f of imgs) {
       try {
         const vid = isVideoFile(f);
         if (vid) emit('toast', 'Loading video…');
-        const { src, w, h, duration } = vid ? await readVideo(f) : await readImage(f);
-        const id = S.addAsset(src);
+        const { blob, w, h, duration } = vid ? await readVideo(f) : await readImage(f);
+        const id = S.addMedia(blob, vid ? 'video' : 'image');
         if (vid) await R.assetVideo(id).promise;
         S.uploads.unshift(id);
-        added.push({ id, w, h, video: vid, duration });
+        added.push({ id, w, h, video: vid, duration, name: f.name.replace(/\.[^.]+$/, '') });
       } catch (e) { emit('toast', (e && e.message && !/^Could not read image$/.test(e.message) ? e.message : 'Couldn’t open ' + f.name)); }
     }
     if (!added.length) return;
+    if (opts.asClips && S.addClips) { emit('uploads'); const r = S.addClips(added, opts); if (later.length) { place(later); S.uploads.unshift(...later.map(a => a.id)); } return r; }
     emit('uploads');
     if (opts.uploadOnly) { scheduleSave(); if (opts.onAdded) opts.onAdded(added); return added; }
     if (opts.startFromPhoto) {
       const a = added[0];
-      const long = 1440, s = long / Math.max(a.w, a.h);
+      const long = 1920, s = long / Math.max(a.w, a.h);
       const W = Math.round(a.w * s), H = Math.round(a.h * s);
       const d = blankDoc(W, H, '#ffffff');
       d.background.assetId = a.id; d.background.none = false;
-      if (a.video) d.anim = { duration: Math.min(30, Math.round(a.duration * 10) / 10) || 5, fps: 30 };
+      if (a.video) d.anim = { duration: Math.min(S.MAX_LEN, Math.round(a.duration * 10) / 10) || 5, fps: 30 };
       S.loadDoc(d, null, { name: a.video ? 'Video edit' : 'Photo edit', project: opts.newProject ? 'new' : undefined });
       if (opts.newProject) { S.uploads.splice(0, 0, ...added.map(x => x.id)); scheduleSave(); }
+      if (later.length) { place(later); S.uploads.unshift(...later.map(x => x.id)); }
       if (opts.onStart) opts.onStart();
       return added;
     }
