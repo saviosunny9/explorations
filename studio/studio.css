@@ -1350,3 +1350,15 @@ body.mobile .snd-add { opacity: 1; }
 .vtl-gopen { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; border: 0; padding: 0; display: grid; place-items: center; background: rgba(255, 255, 255, .14); color: #fff; z-index: 3; }
 .vtl-gopen i { width: 12px; height: 12px; }
 .vtl-gopen:hover { background: rgba(255, 255, 255, .3); }
+
+/* subject picking (subject.js): click what should light up */
+.subj-pick { position: absolute; inset: 0; z-index: 30; cursor: crosshair; }
+.subj-pick.busy { cursor: progress; }
+.subj-dots { position: absolute; inset: 0; pointer-events: none; }
+.subj-dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--sel, #4d9fff); border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+.subj-bar { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; max-width: calc(100% - 24px);
+  padding: 6px 6px 6px 12px; background: var(--surface-2, #111); border: 1px solid var(--line, rgba(255,255,255,.12)); color: var(--text, #fff); font-size: 12px; cursor: default; }
+.subj-bar span { flex: 1; min-width: 0; }
+.subj-pick.busy .subj-bar span::after { content: ' · finding…'; opacity: .7; }
+body.mobile .subj-bar { top: 6px; left: 8px; right: 8px; transform: none; max-width: none; padding: 4px 4px 4px 10px; font-size: 11px; line-height: 1.25; }
+body.mobile .subj-bar .btn { padding: 0 10px; min-height: 30px; }

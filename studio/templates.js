@@ -1252,7 +1252,14 @@
         ['st-fluted', 'Fluted glass', 'film-neon', 'fluted-glass', { size: 22 }, 'Fluted Glass'],
         ['st-crt', 'CRT screen', 'film-tram', 'crt', { size: 3 }, 'CRT Screen', true],
         ['st-thermal', 'Thermal camera', 'ed-think', 'thermal', { readout: true }, 'Thermal'],
+        ['st-flash', 'Flash light', 'ed-stool', 'flash-light', {}, 'Flash Light', true],
+        ['st-flash-night', 'Night flash', 'film-friends', 'flash-night', {}, 'Night Flash', true],
+        ['st-flash-neon', 'Neon flash', 'ed-suit', 'flash-neon', {}, 'Neon Flash', true],
         ['st-datamosh', 'Datamosh', 'film-road', 'datamosh', {}, 'Datamosh', true],
+        ['st-bloom-mosh', 'Bloom mosh', 'film-portrait', 'bloom-mosh', {}, 'Bloom Mosh', true],
+        ['st-mosh-blocks', 'Mosh blocks', 'ed-eye', 'mosh-blocks', {}, 'Mosh Blocks', true],
+        ['st-pixel-drag', 'Pixel drag', 'film-lanterns', 'pixel-drag', {}, 'Pixel Drag', true],
+        ['st-dropout', 'Block dropout', 'ed-smile', 'block-dropout', {}, 'Block Dropout', true],
         ['st-kaleido', 'Kaleidoscope', 'film-golden', 'kaleidoscope', { segments: 8 }, 'Kaleidoscope', true],
         ['st-chrome', 'Liquid chrome', 'ed-light', 'chrome', {}, 'Chrome'],
         ['st-edge', 'Edge glow', 'ed-eye', 'edge-glow', {}, 'Edge Glow'],
@@ -2448,7 +2455,7 @@
 
   // families of variations show as one card in the panel and open into all their styles
   const GROUPS = {
-    'Image styles': ['st-golden', 'st-dream', 'st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-datamosh', 'st-kaleido', 'st-chrome', 'st-edge'],
+    'Image styles': ['st-golden', 'st-dream', 'st-flash', 'st-flash-night', 'st-flash-neon', 'st-datamosh', 'st-bloom-mosh', 'st-mosh-blocks', 'st-pixel-drag', 'st-dropout', 'st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-kaleido', 'st-chrome', 'st-edge'],
     'Vox explainer': [], 'Moving grids': [], 'Photo piles': [], 'Strips & panels': [],
     'Text slides': ['ts-created', 'ts-goal', 'ts-earth', 'ts-crisis', 'ts-brands', 'ts-made', 'ts-align', 'ts-dress', 'ts-meant', 'ts-new', 'ts-visuals', 'ts-average', 'ts-cool', 'ts-iamart', 'ts-redact', 'ts-rest', 'ts-chase', 'ts-chapter', 'ts-do', 'ts-action', 'ts-where', 'ts-norest', 'ts-scribble', 'ts-feeling', 'ts-museum', 'ts-story', 'ts-justdo', 'ts-notend', 'ts-consume', 'ts-love', 'ts-now', 'ts-austen', 'ts-son', 'ts-sleep', 'ts-laziest', 'ts-gofor', 'ts-normalize', 'ts-purpose', 'ts-passion', 'ts-artflip', 'ts-exactly', 'ts-identity', 'ts-ability', 'ts-tryagain', 'ts-authentic', 'ts-happen', 'ts-memories', 'ts-now2', 'ts-hands', 'ts-messy', 'ts-start', 'ts-rushed', 'ts-develop', 'ts-addicted', 'ts-makeit', 'ts-dothis', 'ts-mostcreative', 'ts-busy', 'ts-lesscare', 'ts-chapter2', 'ts-overthink', 'ts-athletes', 'ts-curated', 'ts-outside', 'ts-done', 'ts-whatmakes', 'ts-support', 'ts-takerisk', 'ts-thinkbig'],
     'Photo effects': ['px-scribble', 'px-strips', 'px-censor', 'px-mosaic', 'px-mirror', 'px-eyes', 'px-childhood', 'px-note', 'px-words', 'px-brandfade', 'px-faceswap', 'px-ghost', 'px-phone', 'px-signed', 'px-redbar', 'px-taped', 'px-redprint', 'px-backdrop', 'px-gridpaper', 'px-letter', 'px-quote', 'px-fieldnotes', 'px-belonged', 'px-touch', 'px-margins', 'px-worthy', 'px-sketchbook'],

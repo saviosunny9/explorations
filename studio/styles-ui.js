@@ -13,7 +13,7 @@
   const saveFavs = () => { try { localStorage.setItem('studio.styleFavs', JSON.stringify([...favs])); } catch (e) { /* ignore */ } };
 
   const ui = { sub: 'explore', q: '' };
-  const SUGGEST = ['golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'vitrine'];
+  const SUGGEST = ['flash-light', 'golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'bloom-mosh', 'vitrine'];
 
   /* ── what a style lands on ── */
   // a group picked on the timeline (S.groupTarget, timeline.js) takes the style as one picture
@@ -35,6 +35,7 @@
     const cur = currentSfx();
     if (cur && cur.id === id) return;
     setSfx(Object.assign(ST.defaults(id), { seed: (cur && cur.seed) || 1 }));
+    if (ST.byId(id).subject) autoSubject();
     toast(`${ST.byId(id).name} — ${target().kind === 'doc' ? 'on the whole canvas' : target().kind === 'group' ? 'on the whole group' : 'on this layer'}`, { label: 'Undo', run: () => S.undo && S.undo() });
   }
   function restyle() {
@@ -192,6 +193,50 @@
   S.on('doc', refresh);
   S.on('history', refresh);
 
+  /* ── the subject (subject.js): what Flash Light lights up, or where any style is kept ── */
+  const media = () => { const t = target(); return t.kind === 'el' ? t.els.filter(e => e.type === 'image' && e.assetId) : []; };
+  // a subject style on a photo / video with no subject yet: find the people in it straight away
+  function autoSubject() {
+    if (!S.findSubject) return;
+    for (const el of media()) {
+      const run = S.autoSubject(el, { force: true });
+      if (!run) continue;
+      run.then(sj => {
+        if (sj && sj.cover < 0.01) toast('No people found — pick what should light up', { label: 'Pick', run: () => { const e = S.doc.elements.find(x => x.id === el.id); if (e) S.startSubjectPick(e, { people: false }); } });
+      }).catch(err => toast(err.message || 'Couldn’t look for people — check the connection'));
+    }
+  }
+  function subjectControls(d, cur) {
+    const els = media();
+    if (!els.length || !S.findSubject) return [];
+    const el = els[0], sj = R.hasSubject(el) ? el.subj : null, job = S.subjectJob(el.id), kids = [h('div.st-group', null, d.subject ? 'What lights up' : 'Subject')];
+    // a subject style showing on a picture nobody looked at yet (a template's photo, a new clip): look now
+    if (!d.subject) kids.push(row('Apply to', selectCtl('sel', 'sfx.region', [['all', 'Everything'], ['subject', 'Only the subject'], ['background', 'Only the background']], {
+      def: cur.region || 'all',
+      set: v => { S.change('sel', 'sfx.region', v === 'all' ? null : v); if (v !== 'all') autoSubject(); U.renderInspector(); },
+    })));
+    if (job) {
+      kids.push(h('p.hint', null, job.quick ? 'Finding it…' : job.loading ? 'Loading the detector…' : R.isVideoAsset(el.assetId) ? 'Following it through the video…' : 'Finding it…'),
+        full(h('div.progress.subj-progress', null, h('div', { style: { width: Math.round(job.p * 100) + '%' } }))),
+        job.quick ? null : full(h('button.btn', { type: 'button', onclick: () => S.cancelSubject(el.id) }, 'Cancel')));
+      return kids;
+    }
+    if (!d.subject && (cur.region || 'all') === 'all' && !sj) return kids;
+    const picks = sj && sj.pts ? sj.pts.length : 0, picking = S.isPickingSubject && S.isPickingSubject();
+    const what = !sj ? (d.subject ? 'Guessing the subject for now — find it for a clean result.' : 'Find the subject first.')
+      : sj.preview ? 'Picked on this frame — press Done to follow it through the video.'
+      : [sj.people ? 'People' : null, picks ? `${picks} picked thing${picks > 1 ? 's' : ''}` : null].filter(Boolean).join(' + ') + (sj.cover < 0.01 ? ' — nothing found here' : (sj.n > 1 ? ` · followed through ${sj.n} frames` : ' · found'));
+    kids.push(h('p.hint', null, what));
+    kids.push(full(h('div.btn-row', null,
+      h('button.btn.grow' + (sj && sj.people ? '.on' : ''), { type: 'button', title: 'Find every person automatically', onclick: () => S.findSubject(S.selEls()[0], { people: !(sj && sj.people) || !picks, pts: sj ? sj.pts : [], at: sj ? sj.at : null }).catch(err => toast(err.message)) }, ic('user'), 'People'),
+      h('button.btn.grow' + (picking ? '.on' : ''), { type: 'button', title: 'Click anything on the photo or video to light it up', onclick: () => S.startSubjectPick(S.selEls()[0]) }, ic('target'), picks ? 'Pick more' : 'Pick objects'),
+      sj ? h('button.btn', { type: 'button', title: 'Forget the subject', 'aria-label': 'Forget the subject', onclick: () => { S.forgetSubject(S.selEls()[0]); U.renderInspector(); } }, ic('trash')) : null)));
+    return kids;
+  }
+  S.on('subject', () => U.renderInspector());
+  S.on('subjectpick', () => U.renderInspector());
+  S.on('subjectprogress', () => { const j = S.selEls()[0] && S.subjectJob(S.selEls()[0].id), bar = document.querySelector('.subj-progress > div'); if (j && bar) bar.style.width = Math.round(j.p * 100) + '%'; });
+
   /* ── inspector: the style's own controls ── */
   // T 'grp' = the targeted group: its style lives at doc.groups[gid].sfx
   const grpBase = () => { const t = target(); return t.kind === 'group' ? `groups.${t.gid}.sfx` : 'sfx'; };
@@ -230,12 +275,15 @@
       h('button.btn.grow', { type: 'button', title: 'New random settings for this style', onclick: restyle }, ic('replace'), 'Restyle'),
       h('button.btn.grow', { type: 'button', title: 'Another style', onclick: shuffle }, ic('shuffle'), 'Shuffle'),
       h('button.btn', { type: 'button', title: 'Remove the style', 'aria-label': 'Remove the style', onclick: () => setSfx(null) }, ic('trash')))));
+    // what a Flash style lights up comes first; for other styles, where they apply comes last
+    if (!isDoc && !isGrp && d.subject) kids.push(...subjectControls(d, cur));
     for (const [g, title] of GROUPS) {
       const ps = d.params.filter(p => p.group === g && (!p.when || p.when(P)));
       if (!ps.length) continue;
       if (title) kids.push(h('div.st-group', null, title));
       for (const p of ps) kids.push(control(T, d, p, P));
     }
+    if (!isDoc && !isGrp && !d.subject) kids.push(...subjectControls(d, cur));
     if (isGrp) kids.push(toggle('doc', grpBase() + '.keepShape', 'Keep the group’s outline', { get: () => sfxOf('grp').keepShape !== false, set: v => { S.change('doc', grpBase() + '.keepShape', v); } }));
     else if (!isDoc) kids.push(toggle(T, 'sfx.keepShape', 'Keep the layer’s outline', { get: () => sfxOf(T).keepShape !== false, set: v => { S.change(T, 'sfx.keepShape', v); } }));
     return sec('Style', kids, true, { key: 'style', collapsible: false });

@@ -4651,6 +4651,47 @@
   // realtime styles (styles.js): el.sfx on a layer, doc.sfx over the whole canvas
   const styleOn = sfx => !!(sfx && sfx.id && window.StudioStyles && window.StudioStyles.has(sfx) && sfx.on !== false);
   R.styleOn = styleOn;
+  /* subject masks (subject.js): el.subj holds PNG sprite sheets, white with alpha = subject, one cell per analysed frame.
+     R.subjectMask(el, st) gives the mask for source time st (blended between the two nearest frames), in the picture's
+     own frame — draw it like the photo (drawCover) to line it up. */
+  const subjCache = new Map();
+  // a subject found for this layer's own picture (split clips share the file under another id: same URL)
+  R.hasSubject = el => { const sj = el && el.subj; return !!(sj && sj.sheets && sj.sheets.length && sj.n && (!sj.of || assets[sj.of] === assets[el.assetId])); };
+  R.subjectMask = function (el, st) {
+    const sj = el && el.subj;
+    if (!R.hasSubject(el)) return null;
+    const f = sj.n > 1 && sj.fps ? clamp(((st || 0) - (sj.t0 || 0)) * sj.fps, 0, sj.n - 1) : 0;
+    // masks taken at the clip's own frame rate: the one for this frame; sparser ones (long clips): blended
+    const dense = (sj.fps || 0) >= 23.5, i = dense ? Math.round(f) : Math.floor(f), fr = dense ? 0 : Math.round((f - i) * 8) / 8, j = Math.min(sj.n - 1, i + 1);
+    const key = sj.sheets.join(',') + '|' + i + '|' + fr;
+    let hit = subjCache.get(el.id);
+    if (hit && hit.key === key) return hit.c;
+    const cell = k => { const sh = assetImage(sj.sheets[Math.floor(k / sj.per)]); if (!sh) return null; const q = k % sj.per; return [sh, (q % sj.cols) * sj.cw, Math.floor(q / sj.cols) * sj.ch]; };
+    const A = cell(i), B = fr > 0 ? cell(j) : null;
+    if (!A || (fr > 0 && !B)) return null;
+    const c = hit && hit.c && hit.c.width === sj.cw && hit.c.height === sj.ch ? hit.c : canvas(sj.cw, sj.ch), x = c.getContext('2d');
+    x.clearRect(0, 0, sj.cw, sj.ch);
+    x.globalAlpha = 1 - fr; x.drawImage(A[0], A[1], A[2], sj.cw, sj.ch, 0, 0, sj.cw, sj.ch);
+    if (B) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = fr; x.drawImage(B[0], B[1], B[2], sj.cw, sj.ch, 0, 0, sj.cw, sj.ch); x.globalCompositeOperation = 'source-over'; }
+    x.globalAlpha = 1;
+    if (subjCache.size > 40) subjCache.clear();
+    subjCache.set(el.id, { key, c });
+    return c;
+  };
+  R.subjectReady = el => !el.subj || !el.subj.sheets || el.subj.sheets.every(id => !assets[id] || !!assetImage(id));
+  // the layer's subject mask laid over its cached bitmap (same scale and bleed), for ST.apply
+  function subjectLayerMask(el, env, W, H, s, b) {
+    if (el.type !== 'image' || !el.subj) return null;
+    const v = isVideoAsset(el.assetId) && assetImage(el.assetId), t = 'time' in env ? env.time : R.playTime;
+    const st = !v ? 0 : env.editor || t == null ? v.currentTime : R.videoTarget(el.video, t, v, (el.time && el.time.start) || 0);
+    const m = R.subjectMask(el, st);
+    if (!m) return null;
+    const c = canvas(W, H), x = c.getContext('2d'), g = frameGeometry(el);
+    x.scale(s, s); x.translate(b, b);
+    if (g.inner) x.clip(g.inner);
+    drawCover(x, m, g.rect || { x: 0, y: 0, w: el.width, h: el.height }, Object.assign({}, el, { filters: null }));
+    return c;
+  }
   function textFx(c, el, s, t, b = 0) {
     if (el.tfx.style === 'vision') return visionFx(c, el, s, t, b);
     const fx = el.tfx, W = c.width, H = c.height, hot = fx.style === 'thermal', melt = hot ? meltOf(el, fx) : 0;
@@ -4799,7 +4840,11 @@
         x2.drawImage(mk, 0, 0);
       }
       // a realtime style (ASCII, dither, glass…) reworks the layer's own picture, keeping its outline
-      if (sty) { const sc = window.StudioStyles.apply(c, el.sfx, { t: 'time' in env ? env.time : R.playTime, mask: el.sfx.keepShape !== false }); if (sc !== c) { sc.dirty = c.dirty; c = sc; } }
+      if (sty) {
+        const tt = 'time' in env ? env.time : R.playTime;
+        const sc = window.StudioStyles.apply(c, el.sfx, { t: tt, tr: tt, sid: el.id, mask: el.sfx.keepShape !== false, subject: subjectLayerMask(el, env, W, H, s, b) });
+        if (sc !== c) { sc.dirty = c.dirty; c = sc; }
+      }
       if (tfx) { const fc = textFx(c, el, s, 'time' in env ? env.time : R.playTime, b); fc.dirty = c.dirty; c = fc; }
       if (tb) { const bc = layerBlur(c, el, s, b); bc.dirty = c.dirty; c = bc; }
       if (lb && lb.motion > 0) {
@@ -4843,7 +4888,7 @@
   }
 
   function isComplete(el) {
-    if (el.type === 'image') return (!el.assetId || !!assetImage(el.assetId)) && (!(el.studio && el.studio.on && el.studio.cutId) || !!assetImage(el.studio.cutId));
+    if (el.type === 'image') return (!el.assetId || !!assetImage(el.assetId)) && (!(el.studio && el.studio.on && el.studio.cutId) || !!assetImage(el.studio.cutId)) && R.subjectReady(el);
     if (el.type === 'sticker') { const svg = stickerSvg(el); return !svg || !!svgImage(svg); }
     return true;
   }
@@ -5367,6 +5412,7 @@
       if (el.type === 'image' && el.assetId) ids.add(el.assetId);
       if (el.type === 'image' && el.seq && el.seq.ids) for (const a of el.seq.ids) ids.add(a);
       if (el.type === 'image' && el.studio && el.studio.cutId) ids.add(el.studio.cutId);
+      if (el.type === 'image' && el.subj && el.subj.sheets) for (const a of el.subj.sheets) ids.add(a);
       if (el.type === 'flashes') for (const it of flashSources(el)) jobs.push(loadImage(it.src, imgCache, it.key).promise);
       if (el.type === 'sticker') { const svg = stickerSvg(el); if (svg) jobs.push(loadImage(R.svgDataUrl(svg), svgCache, svg).promise); }
     }

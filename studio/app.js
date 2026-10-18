@@ -593,6 +593,7 @@
       if (el.bgRemoved && el.bgRemoved.assetId) ids.add(el.bgRemoved.assetId);
       if (el.type === 'flashes') for (const a of el.images || []) ids.add(a);
       if (el.seq && el.seq.ids) for (const a of el.seq.ids) ids.add(a);
+      if (el.subj && el.subj.sheets) for (const a of el.subj.sheets) ids.add(a);
     }
     for (const a of d.audio || []) if (a.assetId) ids.add(a.assetId);
     for (const sc of (d.vox && d.vox.scenes) || []) for (const k of ['assetId', 'assetId2', 'cutId']) if (sc[k]) ids.add(sc[k]);
@@ -2542,7 +2543,7 @@
   };
   // copy / paste properties: the whole look of one layer (font, colours, effects, frame, filters…) onto others
   let styleClip = null;
-  const NOT_STYLE = new Set(['track', 'id', 'type', 'x', 'y', 'width', 'height', 'rotation', 'name', 'locked', 'hidden', 'text', 'assetId', 'crop', 'video', 'seq',
+  const NOT_STYLE = new Set(['track', 'subj', 'id', 'type', 'x', 'y', 'width', 'height', 'rotation', 'name', 'locked', 'hidden', 'text', 'assetId', 'crop', 'video', 'seq',
     'points', 'images', 'stickerId', 'shape', 'kind', 'key', 'erase', 'time', 'studio', 'bgRemoved', 'placeholder', 'path', 'autoWidth', 'typing', 'flipX', 'flipY', 'cx', 'cy', 'clip', 'grp', 'gt', 'lane']);
   // between different kinds of layer only these carry over
   const SHARED_STYLE = ['opacity', 'blend', 'shadow', 'anim', 'lblur', 'tfx'];

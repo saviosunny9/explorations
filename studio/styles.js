@@ -179,7 +179,7 @@
   /* ── registry ── */
   const LIST = [], BY = {};
   ST.CATS = [
-    ['dream', 'Dreamy Motion'], ['ascii', 'ASCII & Text'], ['pixel', 'Pixel & Blocks'], ['print', 'Print & Paper'], ['geo', 'Geometric'], ['distort', 'Distort'],
+    ['dream', 'Dreamy Motion'], ['flash', 'Flash Light'], ['mosh', 'Datamosh'], ['ascii', 'ASCII & Text'], ['pixel', 'Pixel & Blocks'], ['print', 'Print & Paper'], ['geo', 'Geometric'], ['distort', 'Distort'],
     ['blur', 'Blur & Focus'], ['glitch', 'Glitch & Signal'], ['light', 'Light & Color'], ['glass', 'Glass'], ['material', 'Material & Texture'],
   ];
   const R_ = (key, label, min, max, def, o = {}) => Object.assign({ key, label, type: 'range', min, max, def }, o);
@@ -276,10 +276,20 @@
     } else {
       const r = d.fn(e, x);
       if (r && r !== out) { x.drawImage(r, 0, 0, W, H); }
-      if ((P.mix ?? 100) < 100) { const m = canvas(W, H), mx = m.getContext('2d'); mx.drawImage(src, 0, 0); mx.globalAlpha = (P.mix ?? 100) / 100; mx.drawImage(out, 0, 0); return finish(m, src, o); }
+      if ((P.mix ?? 100) < 100) { const m = canvas(W, H), mx = m.getContext('2d'); mx.drawImage(src, 0, 0); mx.globalAlpha = (P.mix ?? 100) / 100; mx.drawImage(out, 0, 0); return finish(region(m, src, sfx, d, o), src, o); }
     }
-    return finish(out, src, o);
+    return finish(region(out, src, sfx, d, o), src, o);
   };
+  // a style kept to the subject (or to everything but it): sfx.region with a subject mask from subject.js
+  function region(out, src, sfx, d, o) {
+    const where = sfx.region;
+    if (!o.subject || d.subject || (where !== 'subject' && where !== 'background')) return out;
+    const W = out.width, H = out.height, m = canvas(W, H), mx = m.getContext('2d');
+    mx.drawImage(o.subject, 0, 0, W, H);
+    mx.globalCompositeOperation = where === 'subject' ? 'source-in' : 'source-out'; mx.drawImage(out, 0, 0);
+    const r = canvas(W, H), rx = r.getContext('2d'); rx.drawImage(src, 0, 0); rx.drawImage(m, 0, 0);
+    return r;
+  }
   function finish(out, src, o) {
     // a layer keeps its own outline (a cut-out stays a cut-out, text stays text-shaped)
     if (o.mask) { const x = out.getContext('2d'); x.save(); x.globalCompositeOperation = 'destination-in'; x.drawImage(src, 0, 0); x.restore(); }
@@ -1341,23 +1351,6 @@
     },
   });
   function tintCopy(src, col) { const c = canvas(src.width, src.height), x = c.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'multiply'; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height); x.globalCompositeOperation = 'destination-in'; x.drawImage(src, 0, 0); return c; }
-  def('datamosh', {
-    name: 'Datamosh', cat: 'glitch', tags: 'Glitch · Color', icon: '▞', kind: 'filter', anim: true,
-    params: [R_('amount', 'Melt', 0, 100, 55), R_('block', 'Macroblock', 4, 64, 16), R_('smear', 'Smear', 0, 100, 60), R_('colour', 'Colour crush', 0, 100, 35)],
-    fn(e, x) {
-      // macroblocks dragged along a lazy motion field and smeared, like a broken video keyframe
-      const P = e.P, W = e.W, H = e.H, b = Math.max(3, P.block * e.k), A = P.amount / 100, t = e.t * 0.6;
-      x.drawImage(e.src, 0, 0);
-      const cols = Math.ceil(W / b), rows = Math.ceil(H / b), frame = canvas(W, H), fx = frame.getContext('2d'); fx.drawImage(e.src, 0, 0);
-      for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
-        const n = fbm(q / cols * 3 + t, r / rows * 3, e.seed, 2), m = fbm(q / cols * 3, r / rows * 3 - t, e.seed + 7, 2);
-        if (hash(q, r, e.seed) > A * 0.9 + 0.15) continue;
-        const dx = (n - 0.5) * b * 18 * A, dy = (m - 0.5) * b * 18 * A, steps = 1 + Math.round(P.smear / 20);
-        for (let k = steps; k >= 1; k--) x.drawImage(frame, clamp(q * b + dx * k / steps, 0, W - b), clamp(r * b + dy * k / steps, 0, H - b), b, b, q * b, r * b, b, b);
-      }
-      if (P.colour > 0) { const p = pix(x.canvas, e.w, e.h); posterizePix(p.d, Math.round(lerp(12, 3, P.colour / 100)), 1.2); x.save(); x.globalAlpha = P.colour / 100; x.drawImage(put(p), 0, 0, W, H); x.restore(); }
-    },
-  });
   def('lofi', {
     name: 'Lofi', cat: 'glitch', tags: 'Retro · Color', icon: '▒', kind: 'filter', anim: true,
     params: [R_('res', 'Resolution', 5, 100, 35), R_('bleed', 'Colour bleed', 0, 100, 50), R_('noise', 'Noise', 0, 100, 35), R_('sat', 'Saturation', 0, 200, 125), R_('wobble', 'Tape wobble', 0, 100, 25)],
@@ -1737,6 +1730,350 @@
   def('night-bloom', {
     name: 'Night Bloom', cat: 'dream', tags: 'Retro · Color', icon: '✺', kind: 'filter', anim: true,
     params: DREAM_P, defaults: { palette: 'teal', bloom: 80, blowout: 40, edges: 70, flares: 50 }, fn: dreamGlow,
+  });
+
+  /* ════════════════════════ FLASH LIGHT ════════════════════════
+     The subject (people, or anything picked — subject.js, handed in as o.subject) lit up as glowing white light, with
+     a bloom spilling around it; the rest of the picture dimmed and graded. Without a mask the likeliest subject is
+     guessed from the picture (whatever stands out from the colour around the edges, nearer the middle). */
+  // a Float32 alpha map at w × h, bilinear from a small one
+  function upMap(m, sw, sh, w, h) {
+    const o = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const sy = clamp((y + 0.5) * sh / h - 0.5, 0, sh - 1.001), iy = sy | 0, fy = sy - iy;
+      for (let x = 0; x < w; x++) {
+        const sx = clamp((x + 0.5) * sw / w - 0.5, 0, sw - 1.001), ix = sx | 0, fx = sx - ix, a = iy * sw + ix;
+        o[y * w + x] = (m[a] * (1 - fx) + m[a + 1] * fx) * (1 - fy) + (m[a + sw] * (1 - fx) + m[a + sw + 1] * fx) * fy;
+      }
+    }
+    return o;
+  }
+  function guessSubject(e) {
+    const sw = e.W >= e.H ? 112 : Math.max(8, Math.round(112 * e.W / e.H)), sh = e.W >= e.H ? Math.max(8, Math.round(112 * e.H / e.W)) : 112, p = pix(e.src, sw, sh), d = p.d;
+    const border = [[], [], []];
+    for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) if (x < 3 || y < 3 || x >= sw - 3 || y >= sh - 3) { const o = (y * sw + x) * 4; for (let j = 0; j < 3; j++) border[j].push(d[o + j]); }
+    const med = border.map(a => { a.sort((u, v) => u - v); return a[a.length >> 1]; });
+    const D = new Float32Array(sw * sh);
+    let mx = 0;
+    for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+      const i = y * sw + x, o = i * 4, dx = (x + 0.5) / sw - 0.5, dy = (y + 0.5) / sh - 0.5;
+      const c = Math.sqrt((d[o] - med[0]) ** 2 * 0.3 + (d[o + 1] - med[1]) ** 2 * 0.59 + (d[o + 2] - med[2]) ** 2 * 0.11) / 255;
+      D[i] = c * (1 - clamp((dx * dx + dy * dy) * 2.2, 0, 0.85)) * d[o + 3] / 255; if (D[i] > mx) mx = D[i];
+    }
+    // Otsu on the 0..1 differences
+    const hist = new Float32Array(64); for (const v of D) hist[Math.min(63, (v / (mx || 1) * 63) | 0)]++;
+    let sum = 0, tot = D.length; for (let i = 0; i < 64; i++) sum += i * hist[i];
+    let sb = 0, wb = 0, best = 0, th = 20;
+    for (let i = 0; i < 64; i++) { wb += hist[i]; if (!wb || wb === tot) continue; sb += i * hist[i]; const mb = sb / wb, mf = (sum - sb) / (tot - wb), v = wb * (tot - wb) * (mb - mf) ** 2; if (v > best) { best = v; th = i; } }
+    const t = th / 63 * (mx || 1), M = new Float32Array(D.length);
+    for (let i = 0; i < D.length; i++) M[i] = smooth(t * 0.8, t * 1.25, D[i]);
+    return upMap(blur3(M, sw, sh, 1.5), sw, sh, e.w, e.h);
+  }
+  // the subject at working size (0..1)
+  function subjectMap(e) {
+    if (e.o.subject) { const p = pix(e.o.subject, e.w, e.h), M = new Float32Array(e.w * e.h); for (let i = 0; i < M.length; i++) M[i] = p.d[i * 4 + 3] / 255; return M; }
+    return guessSubject(e);
+  }
+  const FLASH_GRADES = [['keep', 'Natural'], ['cool', 'Cool night'], ['mono', 'Black & white'], ['warm', 'Warm'], ['dark', 'Blackout']];
+  const FLASH_P = [
+    R_('glow', 'Glow', 0, 100, 60), R_('fill', 'Light', 0, 100, 100), R_('detail', 'Keep detail', 0, 100, 12), R_('rim', 'Edge light', 0, 100, 40),
+    C_('color', 'Light colour', '#ffffff'), R_('dim', 'Darken the rest', 0, 100, 30), S_('grade', 'Background', FLASH_GRADES, 'keep'),
+    R_('flicker', 'Flicker', 0, 100, 15), T_('strobe', 'Strobe'), R_('rate', 'Strobe speed', 1, 12, 4, { when: P => P.strobe }), R_('grain', 'Grain', 0, 100, 18),
+  ];
+  function flashLight(e, x) {
+    const P = e.P, w = e.w, h = e.h, n = w * h, p = pix(e.src, w, h), d = p.d, M = subjectMap(e), C = hex(P.color).map(v => v / 255);
+    const kk = e.k * e.ws, t = e.t;
+    // how bright the light is now: a lamp-like flicker, or hard strobe flashes
+    let lit = 1;
+    if (P.strobe) { const ph = fract(t * P.rate / 2); lit = ph < 0.42 ? 1 : ph < 0.5 ? 1 - (ph - 0.42) / 0.08 : 0.06; }
+    if (P.flicker > 0) { const f = P.flicker / 100, nz = vnoise(t * 9, 0.5, e.seed), drop = hash(Math.floor(t * 14), 3, e.seed) < f * 0.18 ? 0.45 : 0; lit *= 1 - f * 0.35 * nz - drop * f; }
+    const rim = P.rim / 100, fill = P.fill / 100 * lit, det = P.detail / 100, dim = P.dim / 100, A = P.glow / 100 * lit;
+    // the edge band of the mask (for the rim light) and two bloom radii
+    const soft = blur3(M, w, h, Math.max(1, 3 * kk)), g1 = blur3(M, w, h, Math.max(1, 14 * kk)), g2 = blur3(M, w, h, Math.max(2, 60 * kk));
+    const r = rng(e.seed + Math.floor(t * 24)), gr = P.grain / 100 * 38;
+    for (let i = 0; i < n; i++) {
+      const o = i * 4; let R = d[o] / 255, G = d[o + 1] / 255, B = d[o + 2] / 255;
+      const L = 0.299 * R + 0.587 * G + 0.114 * B;
+      // the rest of the picture
+      if (P.grade === 'cool') { R = lerp(R, L * 0.7, 0.55); G = lerp(G, L * 0.92, 0.45); B = lerp(B, L * 1.18 + 0.03, 0.5); }
+      else if (P.grade === 'mono') { R = G = B = L; }
+      else if (P.grade === 'warm') { R = R * 1.06 + 0.02; G *= 0.98; B *= 0.84; }
+      else if (P.grade === 'dark') { R *= 0.25; G *= 0.25; B *= 0.3; }
+      const kd = 1 - dim * 0.88; R *= kd; G *= kd; B *= kd;
+      // the subject turned into light: white (the light colour), a touch of its own shading left if asked
+      const m = M[i] * fill, sh = lerp(1, 0.62 + L * 0.55, det), edge = clamp(1 - Math.abs(soft[i] - 0.5) * 2, 0, 1) * rim;
+      R = lerp(R, C[0] * sh, m); G = lerp(G, C[1] * sh, m); B = lerp(B, C[2] * sh, m);
+      // bloom screened over everything (outside the subject it reads as light spilling)
+      const gl = clamp((g1[i] * 0.7 + g2[i] * 0.85) * A * 1.2 + edge * lit * 0.8, 0, 1.4);
+      R = 1 - (1 - R) * (1 - Math.min(1, gl * C[0])); G = 1 - (1 - G) * (1 - Math.min(1, gl * C[1])); B = 1 - (1 - B) * (1 - Math.min(1, gl * C[2]));
+      const nz = gr ? (r() - 0.5) * gr : 0;
+      d[o] = R * 255 + nz; d[o + 1] = G * 255 + nz; d[o + 2] = B * 255 + nz;
+    }
+    x.drawImage(put(p), 0, 0, e.W, e.H);
+  }
+  def('flash-light', {
+    name: 'Flash Light', cat: 'flash', tags: 'Light · Subject', icon: '☀', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, fn: flashLight,
+  });
+  def('flash-night', {
+    name: 'Night Flash', cat: 'flash', tags: 'Light · Night', icon: '☾', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, defaults: { glow: 78, dim: 72, grade: 'cool', rim: 55, flicker: 20, grain: 30 }, fn: flashLight,
+  });
+  def('flash-strobe', {
+    name: 'Strobe Flash', cat: 'flash', tags: 'Light · Beat', icon: '⚡', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, defaults: { strobe: true, rate: 4, glow: 70, dim: 45, flicker: 0, grade: 'mono' }, fn: flashLight,
+  });
+  def('flash-glow', {
+    name: 'Overexposed', cat: 'flash', tags: 'Light · Soft', icon: '◌', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, defaults: { fill: 78, detail: 62, glow: 52, rim: 70, dim: 18, flicker: 10 }, fn: flashLight,
+  });
+  def('flash-neon', {
+    name: 'Neon Flash', cat: 'flash', tags: 'Light · Color', icon: '✦', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, defaults: { color: '#7cf3ff', fill: 88, detail: 20, glow: 82, rim: 85, dim: 70, grade: 'dark', flicker: 12, grain: 22 }, fn: flashLight,
+  });
+
+  /* ════════════════════════ DATAMOSH ════════════════════════
+     The real thing for video: each frame's motion (block matching between this frame and the last) is applied to the
+     *previous moshed picture* instead of the clean frame — as if the key frames were cut out of the file — with a share
+     of the frame's own change added back (the residual), so moving things smear and melt into each other. Per layer
+     state (o.sid) lives across frames; a jump in time starts clean. Still pictures (and thumbnails) get a simulated
+     motion field instead. */
+  const MOSH = new Map();
+  function moshState(e, tag) {
+    const o = e.o; if (!o.sid || o.tr == null) return null;
+    const key = o.sid + '|' + tag, t = o.tr;
+    let s = MOSH.get(key);
+    if (!s || s.w !== e.w || s.h !== e.h || t < s.t - 1e-4 || t - s.t > 0.6) {
+      s = { w: e.w, h: e.h, t, fresh: true };
+      MOSH.delete(key); MOSH.set(key, s);
+      if (MOSH.size > 8) MOSH.delete(MOSH.keys().next().value);
+    }
+    return s;
+  }
+  const GW = 128; // motion analysis width
+  function greyOf(d, w, h, gw, gh) {
+    const g = new Float32Array(gw * gh);
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+      const o = (Math.min(h - 1, ((y + 0.5) * h / gh) | 0) * w + Math.min(w - 1, ((x + 0.5) * w / gw) | 0)) * 4;
+      g[y * gw + x] = d[o] * 0.299 + d[o + 1] * 0.587 + d[o + 2] * 0.114;
+    }
+    return g;
+  }
+  // for each 8 × 8 block of cur: where it came from in prev (vx, vy in analysis px) and how badly it matched
+  function motion(prev, cur, gw, gh) {
+    const B = 8, R = 6, cols = Math.ceil(gw / B), rows = Math.ceil(gh / B), vx = new Float32Array(cols * rows), vy = new Float32Array(cols * rows), err = new Float32Array(cols * rows);
+    for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+      const x0 = q * B, y0 = r * B, x1 = Math.min(gw, x0 + B), y1 = Math.min(gh, y0 + B);
+      let best = 1e12, bx = 0, by = 0, zero = 0;
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if (x0 + dx < 0 || y0 + dy < 0 || x1 + dx > gw || y1 + dy > gh) continue;
+        let s = 0;
+        for (let y = y0; y < y1 && s < best; y++) { const a = y * gw, b = (y + dy) * gw + dx; for (let x = x0; x < x1; x++) s += Math.abs(cur[a + x] - prev[b + x]); }
+        // a small pull towards no motion, so flat areas don't wander
+        s += (Math.abs(dx) + Math.abs(dy)) * 6;
+        if (!dx && !dy) zero = s;
+        if (s < best) { best = s; bx = dx; by = dy; }
+      }
+      const i = r * cols + q; vx[i] = bx; vy[i] = by; err[i] = best / ((x1 - x0) * (y1 - y0)); if (zero - best < 30) { vx[i] = 0; vy[i] = 0; err[i] = zero / ((x1 - x0) * (y1 - y0)); }
+    }
+    return { vx, vy, err, cols, rows, B };
+  }
+  const MOSH_P = [
+    R_('amount', 'Melt', 0, 100, 60), R_('block', 'Block size', 4, 64, 16), R_('residual', 'New detail', 0, 100, 35), R_('drift', 'Drift', 0, 100, 25),
+    R_('refresh', 'Clean frame every', 0, 10, 0, { unit: 's' }), R_('heal', 'Heal', 0, 100, 8), R_('colour', 'Colour bleed', 0, 100, 25),
+  ];
+  function moshMelt(e, x, look = {}) {
+    const P = e.P, w = e.w, h = e.h, n = w * h, cur = pix(e.src, w, h), cd = cur.d, A = P.amount / 100;
+    const bs = Math.max(2, Math.round(P.block * e.k * e.ws)), cols = Math.ceil(w / bs), rows = Math.ceil(h / bs);
+    const gw = Math.min(GW, w), gh = Math.max(4, Math.round(gw * h / w)), fx = w / gw, fy = h / gh;
+    const st = moshState(e, 'melt' + (look.tag || ''));
+    const curG = greyOf(cd, w, h, gw, gh);
+    const dt = st && !st.fresh ? clamp(e.o.tr - st.t, 1 / 120, 0.2) : 1 / 30;
+    if (st && st.last && st.t === e.o.tr && !st.fresh) { x.drawImage(st.last, 0, 0, e.W, e.H); return; }
+    let buf, prevD, field = null;
+    const refreshNow = st && !st.fresh && P.refresh > 0 && Math.floor(e.o.tr / P.refresh) !== Math.floor(st.t / P.refresh);
+    if (st && !st.fresh && !refreshNow) { buf = st.buf; prevD = st.prev; field = motion(st.prevG, curG, gw, gh); }
+    else if (st) { buf = new Float32Array(n * 4); for (let i = 0; i < n * 4; i++) buf[i] = cd[i]; prevD = cd.slice(); }
+    // starting cold (a jump in time, or the first frame): begin from a simulated mosh so it never looks clean — except
+    // on a planned clean frame
+    const drift = P.drift / 100, gain = 1 + A * (look.gain || 2.2), heal = P.heal / 100, res = P.residual / 100, col = P.colour / 100;
+    const fr = Math.floor((st ? e.o.tr : e.t) * 30), tt = e.t * 0.35;
+    // the vector for a work block: measured motion (exaggerated) + a slow drift field so nothing ever sits still
+    const vec = (q, r, out) => {
+      let vx = 0, vy = 0, er = 0;
+      if (field) { const gq = Math.min(field.cols - 1, ((q + 0.5) * bs / fx / field.B) | 0), gr = Math.min(field.rows - 1, ((r + 0.5) * bs / fy / field.B) | 0), i = gr * field.cols + gq; vx = field.vx[i] * fx * gain; vy = field.vy[i] * fy * gain; er = field.err[i]; }
+      const nx = fbm(q / cols * 2.2 + tt, r / rows * 2.2, e.seed, 2) - 0.5, ny = fbm(q / cols * 2.2, r / rows * 2.2 - tt, e.seed + 9, 2) - 0.5;
+      // a still (or a cold start) has no real motion, so the simulated drift does all the work
+      const dk = (field ? drift : Math.max(drift, 0.5 + A * 0.5)) * bs * 2.4 * (field ? dt * 30 : 1);
+      out[0] = vx + nx * dk * (look.dx ?? 1); out[1] = vy + ny * dk * (look.dy ?? 1); out[2] = er; return out;
+    };
+    const v = [0, 0, 0];
+    if (!st || (st.fresh && !refreshNow)) {
+      // a still: run a few steps of simulated motion on the picture itself
+      if (!buf) { buf = new Float32Array(n * 4); for (let i = 0; i < n * 4; i++) buf[i] = cd[i]; }
+      const steps = 2 + Math.round(A * 6), tmp = new Float32Array(n * 4);
+      for (let s = 0; s < steps; s++) {
+        for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+          vec(q, r, v); const on = hash(q, r, e.seed + s) < 0.35 + A * 0.55, ox = on ? Math.round(v[0] * 1.6) : 0, oy = on ? Math.round(v[1] * 1.6) : 0;
+          for (let y = r * bs; y < Math.min(h, r * bs + bs); y++) { const sy = clamp(y + oy, 0, h - 1); for (let xx = q * bs; xx < Math.min(w, q * bs + bs); xx++) { const a = (y * w + xx) * 4, b = (sy * w + clamp(xx + ox, 0, w - 1)) * 4; tmp[a] = buf[b]; tmp[a + 1] = buf[b + 1]; tmp[a + 2] = buf[b + 2]; tmp[a + 3] = buf[b + 3]; } }
+        }
+        buf.set(tmp);
+      }
+    } else if (field) {
+      const out = new Float32Array(n * 4);
+      for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+        vec(q, r, v);
+        const ox = Math.round(v[0]), oy = Math.round(v[1]);
+        // blocks the decoder would have re-drawn from scratch (a big change) heal back to the real frame now and then
+        const healIt = heal > 0 && v[2] > 22 && hash(q, r, e.seed + fr) < heal * 0.9;
+        // colour bleed: moving blocks turn their colour a little every frame, so trails come out as rainbow smears
+        const mag = Math.hypot(v[0], v[1]), th = col > 0 && mag > 0.5 ? col * (look.hue ?? 0.04) * Math.min(mag, bs * 2) / bs * (fbm(q / cols * 2, r / rows * 2, e.seed + 5, 2) > 0.5 ? 1 : -1) : 0;
+        const ca = Math.cos(th), sa = Math.sin(th), tint = th !== 0;
+        for (let y = r * bs; y < Math.min(h, r * bs + bs); y++) {
+          const sy = clamp(y + oy, 0, h - 1);
+          for (let xx = q * bs; xx < Math.min(w, q * bs + bs); xx++) {
+            const a = (y * w + xx) * 4, b = (sy * w + clamp(xx + ox, 0, w - 1)) * 4;
+            if (healIt) { out[a] = cd[a]; out[a + 1] = cd[a + 1]; out[a + 2] = cd[a + 2]; out[a + 3] = cd[a + 3]; continue; }
+            // the moshed picture moved by this frame's motion, plus this frame's own change on top
+            for (let j = 0; j < 3; j++) out[a + j] = buf[b + j] + res * (cd[a + j] - prevD[b + j]);
+            out[a + 3] = cd[a + 3];
+            if (tint) {
+              const L = out[a] * 0.299 + out[a + 1] * 0.587 + out[a + 2] * 0.114, u = out[a + 2] - L, w2 = out[a] - L, nu = u * ca - w2 * sa, nv = u * sa + w2 * ca;
+              out[a] = L + nv; out[a + 2] = L + nu; out[a + 1] = L - (0.299 * nv + 0.114 * nu) / 0.587;
+            }
+          }
+        }
+      }
+      for (let i = 0; i < out.length; i++) out[i] = out[i] < -40 ? -40 : out[i] > 295 ? 295 : out[i];
+      buf = out;
+    }
+    const o = cur; // reuse the frame's pixels for the output
+    for (let i = 0; i < n * 4; i += 4) { o.d[i] = buf[i]; o.d[i + 1] = buf[i + 1]; o.d[i + 2] = buf[i + 2]; }
+    if (look.post) look.post(e, o, cd);
+    const c = put(o);
+    if (st) { st.buf = buf; st.prev = cd.slice(); st.prevG = curG; st.t = e.o.tr; st.fresh = false; st.last = c; }
+    x.drawImage(c, 0, 0, e.W, e.H);
+  }
+  // colourful light: saturation pushed and the highlights bloomed (the "figure in a rainbow smear" look)
+  function bloomPost(e, p) {
+    const d = p.d, w = p.w, h = p.h, n = w * h, Lm = new Float32Array(n), sat = 1 + e.P.colour / 100 * 1.4;
+    for (let i = 0; i < n; i++) {
+      const o = i * 4, L = (d[o] * 0.299 + d[o + 1] * 0.587 + d[o + 2] * 0.114);
+      for (let j = 0; j < 3; j++) d[o + j] = L + (d[o + j] - L) * sat;
+      Lm[i] = Math.max(0, L / 255 - 0.45) * 1.8;
+    }
+    const kk = e.k * e.ws, g = blur3(Lm, w, h, Math.max(2, 22 * kk));
+    for (let i = 0; i < n; i++) { const o = i * 4, b = Math.min(1, g[i] * (e.P.bloom ?? 60) / 100 * 1.4); for (let j = 0; j < 3; j++) d[o + j] = 255 - (255 - d[o + j]) * (1 - b); }
+  }
+  def('datamosh', {
+    name: 'Datamosh', cat: 'mosh', tags: 'Glitch · Motion', icon: '▞', kind: 'filter', anim: true, noTone: true,
+    params: MOSH_P, fn: (e, x) => moshMelt(e, x),
+  });
+  def('bloom-mosh', {
+    name: 'Bloom Mosh', cat: 'mosh', tags: 'Glitch · Color', icon: '✺', kind: 'filter', anim: true, noTone: true,
+    params: [...MOSH_P, R_('bloom', 'Bloom', 0, 100, 60)], defaults: { amount: 80, residual: 28, drift: 40, colour: 75, block: 20 },
+    fn: (e, x) => moshMelt(e, x, { tag: 'bloom', gain: 3, hue: 0.22, post: bloomPost }),
+  });
+
+  /* the other kinds of broken video: blocks from the wrong place, smeared rows, dropped patches */
+  const beatOf = (e, rate) => Math.floor(e.t * rate);
+  function moshBlocks(e, x) {
+    // foreign and flat-colour macroblocks of a few sizes, reshuffled every beat
+    const P = e.P, w = e.w, h = e.h, p = pix(e.src, w, h), d = p.d, src = d.slice(), beat = beatOf(e, P.beat), A = P.amount / 100;
+    const base = Math.max(4, Math.round(P.block * e.k * e.ws)), r = rng(e.seed * 31 + beat);
+    const st = moshState(e, 'blocks'), stale = st && st.old ? st.old : null;
+    const fill = (x0, y0, s, kind) => {
+      const x1 = Math.min(w, x0 + s), y1 = Math.min(h, y0 + s);
+      if (kind === 'flat') {
+        let R = 0, G = 0, B = 0, c = 0;
+        for (let y = y0; y < y1; y += 2) for (let q = x0; q < x1; q += 2) { const o = (y * w + q) * 4; R += src[o]; G += src[o + 1]; B += src[o + 2]; c++; }
+        R /= c; G /= c; B /= c; const L = (R + G + B) / 3, k = 1 + P.colour / 100 * 1.6, bump = (r() - 0.5) * 24;
+        R = L + (R - L) * k + bump; G = L + (G - L) * k + bump; B = L + (B - L) * k + bump;
+        for (let y = y0; y < y1; y++) for (let q = x0; q < x1; q++) { const o = (y * w + q) * 4; d[o] = R; d[o + 1] = G; d[o + 2] = B; }
+        return;
+      }
+      const from = kind === 'stale' && stale ? stale : src;
+      const ox = kind === 'stale' ? 0 : Math.round((r() - 0.5) * w * 0.5), oy = kind === 'stale' ? 0 : Math.round((r() - 0.5) * h * 0.5);
+      for (let y = y0; y < y1; y++) { const sy = clamp(y + oy, 0, h - 1); for (let q = x0; q < x1; q++) { const o = (y * w + q) * 4, b = (sy * w + clamp(q + ox, 0, w - 1)) * 4; d[o] = from[b]; d[o + 1] = from[b + 1]; d[o + 2] = from[b + 2]; } }
+    };
+    const S = base * 4, cols = Math.ceil(w / S), rows = Math.ceil(h / S);
+    for (let gr = 0; gr < rows; gr++) for (let gq = 0; gq < cols; gq++) {
+      // split big blocks into smaller ones, like a codec's partitions
+      const split = (x0, y0, s, depth) => {
+        if (depth < 2 && r() < 0.45) { const hs = s / 2; for (const [a, b] of [[0, 0], [hs, 0], [0, hs], [hs, hs]]) split(x0 + a, y0 + b, hs, depth + 1); return; }
+        // broken blocks come in clumps, as where a codec lost a run of its data
+        const clump = fbm((x0 + s / 2) / w * 2.6 + beat * 0.37, (y0 + s / 2) / h * 2.6 - beat * 0.23, e.seed, 3);
+        if (clump < 1 - A * 0.7 || r() > 0.35 + A * 0.6) return;
+        const k = r();
+        fill(Math.round(x0), Math.round(y0), Math.ceil(s), k < P.flat / 100 ? 'flat' : k < 0.75 && stale ? 'stale' : 'foreign');
+      };
+      split(gq * S, gr * S, S, 0);
+    }
+    if (st) { if (!st.old || st.beat !== beat) { st.old = st.cur || src; st.beat = beat; } st.cur = src; st.t = e.o.tr; st.fresh = false; }
+    x.drawImage(put(p), 0, 0, e.W, e.H);
+  }
+  def('mosh-blocks', {
+    name: 'Mosh Blocks', cat: 'mosh', tags: 'Glitch · Blocks', icon: '▦', kind: 'filter', anim: true, noTone: true,
+    params: [R_('amount', 'Amount', 0, 100, 60), R_('block', 'Block size', 4, 64, 14), R_('flat', 'Flat colour', 0, 100, 35), R_('colour', 'Colour push', 0, 100, 50), R_('beat', 'Changes a second', 1, 24, 6)],
+    fn: moshBlocks,
+  });
+  function pixelDrag(e, x) {
+    // whole rows of blocks dragged sideways: each pixel trails the colour before it, like broken motion vectors
+    const P = e.P, w = e.w, h = e.h, p = pix(e.src, w, h), d = p.d, beat = beatOf(e, P.beat), bs = Math.max(2, Math.round(P.band * e.k * e.ws)), A = P.amount / 100;
+    const bands = Math.ceil(h / bs), keep = P.length / 100;
+    for (let b = 0; b < bands; b++) {
+      // bands come in runs (fbm over the band index), more of them with Amount
+      const on = fbm(b / bands * 5, beat * 0.21, e.seed, 2);
+      if (on < 1 - A * 0.85 || hash(b, beat, e.seed) > 0.3 + A * 0.7) continue;
+      const dir = P.dir === 'both' ? (hash(b, 1, e.seed + beat) < 0.5 ? 1 : -1) : P.dir === 'left' ? -1 : 1;
+      const x0 = Math.floor(hash(b, 2, e.seed + beat) * w * 0.8), len = Math.round(w * (0.15 + hash(b, 3, e.seed + beat) * 0.85) * keep);
+      const persist = 0.95 + keep * 0.045;
+      for (let y = b * bs; y < Math.min(h, b * bs + bs); y++) {
+        let R = -1, G = 0, B = 0;
+        for (let k = 0; k < len; k++) {
+          const q = dir > 0 ? x0 + k : w - 1 - x0 - k; if (q < 0 || q >= w) break;
+          const o = (y * w + q) * 4;
+          if (R < 0) { R = d[o]; G = d[o + 1]; B = d[o + 2]; continue; }
+          // brighter pixels take over the streak, darker ones are dragged under it
+          const Lc = d[o] + d[o + 1] + d[o + 2], Ls = R + G + B, m = Lc > Ls + 40 ? 0.5 : 1 - persist;
+          R += (d[o] - R) * m; G += (d[o + 1] - G) * m; B += (d[o + 2] - B) * m;
+          const fade = k > len * 0.85 ? (k - len * 0.85) / (len * 0.15) : 0;
+          d[o] = lerp(R, d[o], fade); d[o + 1] = lerp(G, d[o + 1], fade); d[o + 2] = lerp(B, d[o + 2], fade);
+        }
+      }
+    }
+    x.drawImage(put(p), 0, 0, e.W, e.H);
+  }
+  def('pixel-drag', {
+    name: 'Pixel Drag', cat: 'mosh', tags: 'Glitch · Streaks', icon: '≡', kind: 'filter', anim: true, noTone: true,
+    params: [R_('amount', 'Amount', 0, 100, 60), R_('band', 'Band height', 1, 60, 8), R_('length', 'Streak length', 0, 100, 70), S_('dir', 'Direction', [['right', 'Right'], ['left', 'Left'], ['both', 'Both']], 'right'), R_('beat', 'Changes a second', 1, 24, 8)],
+    fn: pixelDrag,
+  });
+  function blockDrop(e, x) {
+    // patches of blocks that stop updating (or slip / lose their colour) while the rest of the video plays on
+    const P = e.P, w = e.w, h = e.h, p = pix(e.src, w, h), d = p.d, src = d.slice(), bs = Math.max(3, Math.round(P.block * e.k * e.ws)), cols = Math.ceil(w / bs), rows = Math.ceil(h / bs);
+    const A = P.amount / 100, beat = beatOf(e, P.beat), st = moshState(e, 'drop');
+    if (st && st.t === e.o.tr && st.last && !st.fresh) { x.drawImage(st.last, 0, 0, e.W, e.H); return; }
+    const hold = st && st.hold && st.hold.length === src.length ? st.hold : src.slice();
+    for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+      const patch = fbm(q / cols * 3.4 + beat * 0.13, r / rows * 3.4 - beat * 0.09, e.seed, 3) > 1 - A * 0.62;
+      const x1 = Math.min(w, q * bs + bs), y1 = Math.min(h, r * bs + bs);
+      if (!patch) { for (let y = r * bs; y < y1; y++) for (let k = q * bs; k < x1; k++) { const o = (y * w + k) * 4; hold[o] = src[o]; hold[o + 1] = src[o + 1]; hold[o + 2] = src[o + 2]; } continue; }
+      const u = hash(q, r, e.seed + beat), ox = u < 0.3 ? Math.round((hash(r, q, beat) - 0.5) * bs * 4) : 0, grey = u > 1 - P.lost / 100 * 0.4;
+      for (let y = r * bs; y < y1; y++) for (let k = q * bs; k < x1; k++) {
+        const o = (y * w + k) * 4, b = (y * w + clamp(k + ox, 0, w - 1)) * 4;
+        if (grey) { const L = (hold[b] + hold[b + 1] + hold[b + 2]) / 3; d[o] = L * 0.55 + 40; d[o + 1] = L * 0.62 + 60; d[o + 2] = L * 0.5 + 38; }
+        else { d[o] = hold[b]; d[o + 1] = hold[b + 1]; d[o + 2] = hold[b + 2]; }
+      }
+    }
+    const c = put(p);
+    if (st) { st.hold = hold; st.t = e.o.tr; st.fresh = false; st.last = c; }
+    x.drawImage(c, 0, 0, e.W, e.H);
+  }
+  def('block-dropout', {
+    name: 'Block Dropout', cat: 'mosh', tags: 'Glitch · Patches', icon: '▤', kind: 'filter', anim: true, noTone: true,
+    params: [R_('amount', 'Amount', 0, 100, 62), R_('block', 'Block size', 4, 64, 22), R_('lost', 'Lost blocks', 0, 100, 25), R_('beat', 'Changes a second', 1, 24, 5)],
+    fn: blockDrop,
   });
 
   /* ════════════════════════ GLASS ════════════════════════ */

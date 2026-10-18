@@ -12,7 +12,8 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `nature.js` | Procedural garden painters (lawn hills, flower beds, bushes, hedges, trees, clouds, sky) and 9 garden backdrops |
 | `papers.js` | 12 real paper scans (ambientCG CC0, Wikimedia Commons public domain / CC0) used for every paper texture |
 | `render.js` | Canvas renderer for every element type, used by both the editor and export |
-| `styles.js` | 109 realtime image styles (dreamy motion, ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
+| `styles.js` | 118 realtime image styles (dreamy motion, flash light, datamosh, ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
+| `subject.js` | Finds the subject of a photo or video (people automatically, or anything you click) and follows it through every frame |
 | `styles-ui.js` | The Styles panel, the Style section of the inspector and the action bar under the canvas |
 | `app.js` | Editor core: stage, selection, snapping & guides, transforms, text editing, crop, history, import |
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
@@ -33,7 +34,7 @@ Work is autosaved to the browser (IndexedDB). Use **Menu → Download project fi
 Start one from the home page (**Video editor** — pick or drop several videos and photos at once) or open the **Timeline** in the bar under any canvas. The new design takes the shape of the first clip, 1920 px on the long side.
 
 - **The timeline** sits under the canvas (drag its top edge to make it taller): the **Video** track holds the clips one after another, **Text & layers** above it shows anything timed, **Sound** below holds music and voiceovers with their waveforms. Click or drag on the ruler to move the playhead; the canvas shows that moment and you can edit right there. Zoom with the slider or ⌘/Ctrl-scroll, *Fit* shows the whole video.
-- **Clips**: drag a clip to put it somewhere else, drag its edges to trim (everything after it moves up — no gaps), press **S** (or ⌘B) or the scissors to split at the playhead, ⌘D / the copy button to duplicate, ⌫ to delete. Photos show for 3 s (drag the edge or set *Shows for*). Each clip keeps everything a photo or video layer has: speed (5–400 %, smooth slow motion), **Play backwards**, crop and position (*Fill* or *Fit* the frame), filters and film looks, the 109 Styles, blur, animation — plus **Auto fix**, which evens out exposure, contrast and colour from the clip itself. *Take out of the video track* turns a clip into a free layer over the video (picture in picture); a free photo or video gets *Put in the video track*.
+- **Clips**: drag a clip to put it somewhere else, drag its edges to trim (everything after it moves up — no gaps), press **S** (or ⌘B) or the scissors to split at the playhead, ⌘D / the copy button to duplicate, ⌫ to delete. Photos show for 3 s (drag the edge or set *Shows for*). Each clip keeps everything a photo or video layer has: speed (5–400 %, smooth slow motion), **Play backwards**, crop and position (*Fill* or *Fit* the frame), filters and film looks, the 118 Styles, blur, animation — plus **Auto fix**, which evens out exposure, contrast and colour from the clip itself. *Take out of the video track* turns a clip into a free layer over the video (picture in picture); a free photo or video gets *Put in the video track*.
 - **Transitions**: the small square between two clips — Cut, Dissolve, Dip to black, Flash, Slide, Push, Whip pan, Wipe, Circle, Zoom, Blur, Spin and Glitch, with their length (0.1–3 s), a direction for the moving ones, *Apply to all clips* and *Preview*. A transition overlaps the two clips by its length.
 - **Layers over the video**: tracks above the video track hold anything that plays over it — videos and photos (picture in picture: the *Layer* button or the **+** on *New layer* adds them at the playhead), titles, stickers and shapes. Drag a bar along to move it in time, its edges to trim (a video's left edge trims the clip itself), or up and down to another track — a higher track draws on top. Drop files onto a layer track to add them there.
 - **Text**: the *Text* button adds a title at the playhead for 3 s; drag its bar to move it, its edges to change when it comes and goes. Any layer with timing shows here.
@@ -97,7 +98,7 @@ Open the same link on a phone and the editor switches to a phone layout on its o
 - Menus, colour pickers and dialogs (export, canvas size…) slide up from the bottom. Handles are bigger for fingers.
 - Turn the phone sideways and the sheets sit beside the canvas instead of under it.
 
-## Styles (109 realtime looks)
+## Styles (118 realtime looks)
 
 The editor opens on **Styles** (first button on the left). Pick a style and it is applied at once: to the selected
 layer(s) — a photo, a video, text, a sticker — or, with nothing selected, to the **whole canvas** (the line *Applies to*
@@ -112,6 +113,25 @@ the search finds names and tags (Mono, Retro, Glitch…).
   even on a still photo). **Dream Glow** / **Night Bloom** —
   blown, blooming highlights, a moonlit blue (or teal, rose, amber) grade, soft focus melting into dark dreamy edges,
   grain, a hand-held drift and specks of light.
+- **Flash Light** (people and things turned into glowing white light, as if lit by a flash in the dark): **Flash Light**,
+  **Night Flash** (the rest goes dark and cool), **Strobe Flash** (flashes on and off to a beat), **Overexposed** (blown
+  out but you can still see who it is), **Neon Flash** (coloured light on black). Settings: glow, how much light, keep
+  detail, edge light, light colour, how dark the rest gets and its colour (natural, cool night, black & white, warm,
+  blackout), flicker, strobe and its speed, grain. **What lights up**: put a Flash style on a photo or video and every
+  person in it is found straight away (on a video, followed through every frame — a progress bar shows it; quick on
+  a computer with a graphics card, up to about a second a frame without one). The Style section's **/ Subject** part shows what was found: **People** turns the automatic
+  people finder on or off, **Pick objects** lets you click anything on the canvas — a stool, a car, a dog, a cup — and
+  it lights up at once; click more things to add them, Alt-click a dot to take one away, then **Done** follows them all
+  through the video. The bin forgets the subject. A new photo or video in the layer is looked at again by itself.
+- **Datamosh** (real datamoshing on videos: each frame's motion is pushed through the *previous* broken picture instead
+  of the clean one, as if the key frames were cut out of the file, so things melt and smear into each other):
+  **Datamosh** (melt, block size, new detail, drift so it never sits still, a clean frame every few seconds, heal,
+  colour bleed), **Bloom Mosh** (rainbow-coloured smears with bloomed highlights), **Mosh Blocks** (macroblocks from the
+  wrong place and flat colour blocks, in clumps), **Pixel Drag** (rows of pixels dragged into long streaks — right, left
+  or both), **Block Dropout** (patches that stop updating, slip sideways or lose their colour). On a still photo the
+  motion is simulated. Jumping around the timeline starts the mosh again from that moment; exports always run from the start.
+- Any style can be kept to **only the subject** or **only the background** (*Apply to* under / Subject, on photos and
+  videos) — say, a dither on the background behind a sharp person.
 - **ASCII & Text**: Characters (17 character sets — Standard, Classic ASCII, Blocks, Braille, Binary, Katakana… — or your
   own), ASCII Studio, Block, Dots, Mixed, Braille (real 2×4 dot characters).
 - **Pixel & Blocks**: Pixel Art (Pico-8, NES, Game Boy… palettes, outline, dither), Mosaic, LEGO (real brick colours, studs),
@@ -124,7 +144,7 @@ the search finds names and tags (Mono, Retro, Glitch…).
   Truchet, Iso Extrude, Flow Field, Lattice, Topography, Forms, Schematic, Neon Grid.
 - **Distort**: Smudge, Pinch, Spherize, Twirl, ZigZag, Ripple, Polar, Shear. **Blur & Focus**: Motion, Tilt-Shift,
   Gaussian, Radial.
-- **Glitch & Signal**: CRT Screen, Pixel Sort, Forensics, Digital Distortion, Datamosh, Lofi, RGB Split, Scanline,
+- **Glitch & Signal**: CRT Screen, Pixel Sort, Forensics, Digital Distortion, Lofi, RGB Split, Scanline,
   Thermal (Ironbow, Rainbow, Arctic…), Beacon.
 - **Light & Color**: Disco, Anaglyph 3D, Gradient Map, Prism, Dreamdust, Light Wind, Kaleidoscope, Warpbloom, Duotone,
   Edge Glow, Aberration.
@@ -143,9 +163,10 @@ keeps a cut-out or text shaped like itself. Styles work on videos frame by frame
 The bar under the canvas: tools, then **Upload**, **Inspire** (a sample photo to try styles on), **Restyle**,
 **Shuffle**, **Library** (your photos) and **Export**.
 
-The **Image styles** template family (16) shows one look each on a demo photo — Golden drift (video), Dream glow (video), ASCII portrait, 1-bit dither, Pixel art,
-Brick mosaic, Risograph print, Halftone poster, Cyanotype, Fluted glass, CRT screen (video), Thermal camera, Datamosh
-(video), Kaleidoscope (video), Liquid chrome, Edge glow — swap in your own photo or video.
+The **Image styles** template family (23) shows one look each on a demo photo — Golden drift (video), Dream glow (video),
+Flash light, Night flash, Neon flash, Datamosh, Bloom mosh, Mosh blocks, Pixel drag, Block dropout (all video), ASCII
+portrait, 1-bit dither, Pixel art, Brick mosaic, Risograph print, Halftone poster, Cyanotype, Fluted glass, CRT screen
+(video), Thermal camera, Kaleidoscope (video), Liquid chrome, Edge glow — swap in your own photo or video.
 
 The editor's look: near-black chrome with hairline borders, white as the only accent, Geist for words, Geist Mono for
 numbers and `/ SECTION` labels, Geist Pixel for display type (all free Google Fonts).
@@ -347,6 +368,17 @@ One **Text slides** family holds 69 typographic quote posters in the style of Pi
 - **Typing screen** template family (video, 4 orientations — landscape, story, portrait, square — plus *Your canvas*): a question typed on a white display, filmed close up — you see the screen's pixel mesh, letters made of real screen pixels, soft lens focus, a shallow depth of field and a speck or two of dust. It types with a human rhythm (quicker inside words, a beat at spaces, longer after punctuation) while the camera rides the caret by hand, then pulls back to show the whole line with the cursor blinking. Type **any number of words** in *Text in this video*: the typing, camera and video length follow, and long text wraps onto more lines. Camera → *Screen typing*: typing speed, zoom, end hold (and, optionally, photos or videos to cut to between words).
 - **Screen close-up** (Canvas → Finish → +): put any design on a "real screen" — pixel size, pixel grid, depth of field and dust. The pixels show when the camera is zoomed in; press play to see the look in the editor.
 - **Smooth cam text** template family (video, 4 orientations: story, portrait, square, landscape — plus *Your canvas* for any size): words pull into focus one after another (*you’ve* · *probably* · *seen those*), the camera whips up to the headline with motion blur and a tilt, settles and pushes in slowly, the headline changes into italic with new word sizes, and the exposure flashes at the end. Resize the canvas and it re-flows, keeping the words you typed. New pieces it uses: a **Blur in (focus)** entrance for any layer and a **Smooth cam (keyframes)** camera path.
+
+## Finding the subject (Flash Light, *Apply to* subject / background)
+
+Runs in the browser with Google's MediaPipe Tasks (`@mediapipe/tasks-vision` from jsDelivr): the *selfie multiclass*
+segmenter finds people, *magic touch* finds whatever you click. The models download on first use (16 MB for people, 6 MB for
+picking, plus the runtime, from storage.googleapis.com and jsDelivr — so it needs a connection) and run on the graphics card when that is quicker,
+otherwise on the processor. Every frame of a video is looked at (up to 30 a second; fewer for clips over 80 s), each mask is
+sharpened along the picture's own edges and steadied against its neighbours; a clicked spot is followed forwards and
+backwards from the frame you clicked on by matching the picture around it, and the model is asked again there — kept
+near where the thing just was, looking like it did when you clicked, and with any person touching it cut out (so a
+picked chair doesn't slide onto the person sitting on it). The masks are saved with the design (small PNG sheets), so they're found only once.
 
 ## Background removal
 

@@ -86,6 +86,10 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   places, a drum kit), original marimba / vibraphone ringtones, 14 music beds incl. lo-fi, slow jazz, café jazz, bossa
   (real drums); timeline groups (a template over a video = one bar that opens into its layers, a Style on the whole group),
   Shift-click multi-select with shared settings, native timeline scrolling.
+  Then: Flash Light (5 looks — people / clicked objects as glowing white light) with a subject finder (MediaPipe people
+  segmentation + click-to-pick, followed through every video frame, saved as mask sheets; any style can be kept to the
+  subject or the background) and Datamosh (5 looks — real frame-to-frame motion moshing, bloom mosh, mosh blocks, pixel
+  drag, block dropout), 7 new Image styles templates.
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 
@@ -97,6 +101,12 @@ coffee tastes OFF!", "TO MAKE USING MONEY" → "TO MAKE MONEY SIMPLE". Earlier s
 
 ## Known limitations / open items
 
+- Subject finding needs a connection (MediaPipe from jsDelivr + Google storage, ~23 MB of models). In headless Chromium
+  it ran on the CPU at ~0.9 s a frame (every frame of the clip is analysed, ≤ 30 fps — a 4 s clip ≈ 2 minutes); a real graphics card should be far quicker (the GPU is
+  used when a test frame takes < 90 ms) — check the speed on the owner's laptop. Picked objects are followed by
+  patch matching + re-prompting each frame; fast or hidden objects can be lost for a few frames.
+- Datamosh needs the frames in order: the editor shows a fresh (simulated) mosh after every jump on the timeline; the
+  export always runs from the start, so it matches playback from the start.
 - Word-level entrances (Word build, Blur shuffle, Select sweep, Word wall) draw words in the fill colour only — a text
   box, outline or shadow on that layer doesn't show while they play (layer blur does).
 - In the still editing view, layers that are cut in and out over time are all visible at once.

@@ -1361,6 +1361,18 @@ body.mobile .snd-add { opacity: 1; }
 .vtl-gopen i { width: 12px; height: 12px; }
 .vtl-gopen:hover { background: rgba(255, 255, 255, .3); }
 
+/* subject picking (subject.js): click what should light up */
+.subj-pick { position: absolute; inset: 0; z-index: 30; cursor: crosshair; }
+.subj-pick.busy { cursor: progress; }
+.subj-dots { position: absolute; inset: 0; pointer-events: none; }
+.subj-dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--sel, #4d9fff); border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+.subj-bar { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; max-width: calc(100% - 24px);
+  padding: 6px 6px 6px 12px; background: var(--surface-2, #111); border: 1px solid var(--line, rgba(255,255,255,.12)); color: var(--text, #fff); font-size: 12px; cursor: default; }
+.subj-bar span { flex: 1; min-width: 0; }
+.subj-pick.busy .subj-bar span::after { content: ' · finding…'; opacity: .7; }
+body.mobile .subj-bar { top: 6px; left: 8px; right: 8px; transform: none; max-width: none; padding: 4px 4px 4px 10px; font-size: 11px; line-height: 1.25; }
+body.mobile .subj-bar .btn { padding: 0 10px; min-height: 30px; }
+
 </style>
 </head>
 <body>
@@ -12846,6 +12858,47 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // realtime styles (styles.js): el.sfx on a layer, doc.sfx over the whole canvas
   const styleOn = sfx => !!(sfx && sfx.id && window.StudioStyles && window.StudioStyles.has(sfx) && sfx.on !== false);
   R.styleOn = styleOn;
+  /* subject masks (subject.js): el.subj holds PNG sprite sheets, white with alpha = subject, one cell per analysed frame.
+     R.subjectMask(el, st) gives the mask for source time st (blended between the two nearest frames), in the picture's
+     own frame — draw it like the photo (drawCover) to line it up. */
+  const subjCache = new Map();
+  // a subject found for this layer's own picture (split clips share the file under another id: same URL)
+  R.hasSubject = el => { const sj = el && el.subj; return !!(sj && sj.sheets && sj.sheets.length && sj.n && (!sj.of || assets[sj.of] === assets[el.assetId])); };
+  R.subjectMask = function (el, st) {
+    const sj = el && el.subj;
+    if (!R.hasSubject(el)) return null;
+    const f = sj.n > 1 && sj.fps ? clamp(((st || 0) - (sj.t0 || 0)) * sj.fps, 0, sj.n - 1) : 0;
+    // masks taken at the clip's own frame rate: the one for this frame; sparser ones (long clips): blended
+    const dense = (sj.fps || 0) >= 23.5, i = dense ? Math.round(f) : Math.floor(f), fr = dense ? 0 : Math.round((f - i) * 8) / 8, j = Math.min(sj.n - 1, i + 1);
+    const key = sj.sheets.join(',') + '|' + i + '|' + fr;
+    let hit = subjCache.get(el.id);
+    if (hit && hit.key === key) return hit.c;
+    const cell = k => { const sh = assetImage(sj.sheets[Math.floor(k / sj.per)]); if (!sh) return null; const q = k % sj.per; return [sh, (q % sj.cols) * sj.cw, Math.floor(q / sj.cols) * sj.ch]; };
+    const A = cell(i), B = fr > 0 ? cell(j) : null;
+    if (!A || (fr > 0 && !B)) return null;
+    const c = hit && hit.c && hit.c.width === sj.cw && hit.c.height === sj.ch ? hit.c : canvas(sj.cw, sj.ch), x = c.getContext('2d');
+    x.clearRect(0, 0, sj.cw, sj.ch);
+    x.globalAlpha = 1 - fr; x.drawImage(A[0], A[1], A[2], sj.cw, sj.ch, 0, 0, sj.cw, sj.ch);
+    if (B) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = fr; x.drawImage(B[0], B[1], B[2], sj.cw, sj.ch, 0, 0, sj.cw, sj.ch); x.globalCompositeOperation = 'source-over'; }
+    x.globalAlpha = 1;
+    if (subjCache.size > 40) subjCache.clear();
+    subjCache.set(el.id, { key, c });
+    return c;
+  };
+  R.subjectReady = el => !el.subj || !el.subj.sheets || el.subj.sheets.every(id => !assets[id] || !!assetImage(id));
+  // the layer's subject mask laid over its cached bitmap (same scale and bleed), for ST.apply
+  function subjectLayerMask(el, env, W, H, s, b) {
+    if (el.type !== 'image' || !el.subj) return null;
+    const v = isVideoAsset(el.assetId) && assetImage(el.assetId), t = 'time' in env ? env.time : R.playTime;
+    const st = !v ? 0 : env.editor || t == null ? v.currentTime : R.videoTarget(el.video, t, v, (el.time && el.time.start) || 0);
+    const m = R.subjectMask(el, st);
+    if (!m) return null;
+    const c = canvas(W, H), x = c.getContext('2d'), g = frameGeometry(el);
+    x.scale(s, s); x.translate(b, b);
+    if (g.inner) x.clip(g.inner);
+    drawCover(x, m, g.rect || { x: 0, y: 0, w: el.width, h: el.height }, Object.assign({}, el, { filters: null }));
+    return c;
+  }
   function textFx(c, el, s, t, b = 0) {
     if (el.tfx.style === 'vision') return visionFx(c, el, s, t, b);
     const fx = el.tfx, W = c.width, H = c.height, hot = fx.style === 'thermal', melt = hot ? meltOf(el, fx) : 0;
@@ -12994,7 +13047,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         x2.drawImage(mk, 0, 0);
       }
       // a realtime style (ASCII, dither, glass…) reworks the layer's own picture, keeping its outline
-      if (sty) { const sc = window.StudioStyles.apply(c, el.sfx, { t: 'time' in env ? env.time : R.playTime, mask: el.sfx.keepShape !== false }); if (sc !== c) { sc.dirty = c.dirty; c = sc; } }
+      if (sty) {
+        const tt = 'time' in env ? env.time : R.playTime;
+        const sc = window.StudioStyles.apply(c, el.sfx, { t: tt, tr: tt, sid: el.id, mask: el.sfx.keepShape !== false, subject: subjectLayerMask(el, env, W, H, s, b) });
+        if (sc !== c) { sc.dirty = c.dirty; c = sc; }
+      }
       if (tfx) { const fc = textFx(c, el, s, 'time' in env ? env.time : R.playTime, b); fc.dirty = c.dirty; c = fc; }
       if (tb) { const bc = layerBlur(c, el, s, b); bc.dirty = c.dirty; c = bc; }
       if (lb && lb.motion > 0) {
@@ -13038,7 +13095,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function isComplete(el) {
-    if (el.type === 'image') return (!el.assetId || !!assetImage(el.assetId)) && (!(el.studio && el.studio.on && el.studio.cutId) || !!assetImage(el.studio.cutId));
+    if (el.type === 'image') return (!el.assetId || !!assetImage(el.assetId)) && (!(el.studio && el.studio.on && el.studio.cutId) || !!assetImage(el.studio.cutId)) && R.subjectReady(el);
     if (el.type === 'sticker') { const svg = stickerSvg(el); return !svg || !!svgImage(svg); }
     return true;
   }
@@ -13562,6 +13619,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (el.type === 'image' && el.assetId) ids.add(el.assetId);
       if (el.type === 'image' && el.seq && el.seq.ids) for (const a of el.seq.ids) ids.add(a);
       if (el.type === 'image' && el.studio && el.studio.cutId) ids.add(el.studio.cutId);
+      if (el.type === 'image' && el.subj && el.subj.sheets) for (const a of el.subj.sheets) ids.add(a);
       if (el.type === 'flashes') for (const it of flashSources(el)) jobs.push(loadImage(it.src, imgCache, it.key).promise);
       if (el.type === 'sticker') { const svg = stickerSvg(el); if (svg) jobs.push(loadImage(R.svgDataUrl(svg), svgCache, svg).promise); }
     }
@@ -14009,7 +14067,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   /* ── registry ── */
   const LIST = [], BY = {};
   ST.CATS = [
-    ['dream', 'Dreamy Motion'], ['ascii', 'ASCII & Text'], ['pixel', 'Pixel & Blocks'], ['print', 'Print & Paper'], ['geo', 'Geometric'], ['distort', 'Distort'],
+    ['dream', 'Dreamy Motion'], ['flash', 'Flash Light'], ['mosh', 'Datamosh'], ['ascii', 'ASCII & Text'], ['pixel', 'Pixel & Blocks'], ['print', 'Print & Paper'], ['geo', 'Geometric'], ['distort', 'Distort'],
     ['blur', 'Blur & Focus'], ['glitch', 'Glitch & Signal'], ['light', 'Light & Color'], ['glass', 'Glass'], ['material', 'Material & Texture'],
   ];
   const R_ = (key, label, min, max, def, o = {}) => Object.assign({ key, label, type: 'range', min, max, def }, o);
@@ -14106,10 +14164,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     } else {
       const r = d.fn(e, x);
       if (r && r !== out) { x.drawImage(r, 0, 0, W, H); }
-      if ((P.mix ?? 100) < 100) { const m = canvas(W, H), mx = m.getContext('2d'); mx.drawImage(src, 0, 0); mx.globalAlpha = (P.mix ?? 100) / 100; mx.drawImage(out, 0, 0); return finish(m, src, o); }
+      if ((P.mix ?? 100) < 100) { const m = canvas(W, H), mx = m.getContext('2d'); mx.drawImage(src, 0, 0); mx.globalAlpha = (P.mix ?? 100) / 100; mx.drawImage(out, 0, 0); return finish(region(m, src, sfx, d, o), src, o); }
     }
-    return finish(out, src, o);
+    return finish(region(out, src, sfx, d, o), src, o);
   };
+  // a style kept to the subject (or to everything but it): sfx.region with a subject mask from subject.js
+  function region(out, src, sfx, d, o) {
+    const where = sfx.region;
+    if (!o.subject || d.subject || (where !== 'subject' && where !== 'background')) return out;
+    const W = out.width, H = out.height, m = canvas(W, H), mx = m.getContext('2d');
+    mx.drawImage(o.subject, 0, 0, W, H);
+    mx.globalCompositeOperation = where === 'subject' ? 'source-in' : 'source-out'; mx.drawImage(out, 0, 0);
+    const r = canvas(W, H), rx = r.getContext('2d'); rx.drawImage(src, 0, 0); rx.drawImage(m, 0, 0);
+    return r;
+  }
   function finish(out, src, o) {
     // a layer keeps its own outline (a cut-out stays a cut-out, text stays text-shaped)
     if (o.mask) { const x = out.getContext('2d'); x.save(); x.globalCompositeOperation = 'destination-in'; x.drawImage(src, 0, 0); x.restore(); }
@@ -15171,23 +15239,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     },
   });
   function tintCopy(src, col) { const c = canvas(src.width, src.height), x = c.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'multiply'; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height); x.globalCompositeOperation = 'destination-in'; x.drawImage(src, 0, 0); return c; }
-  def('datamosh', {
-    name: 'Datamosh', cat: 'glitch', tags: 'Glitch · Color', icon: '▞', kind: 'filter', anim: true,
-    params: [R_('amount', 'Melt', 0, 100, 55), R_('block', 'Macroblock', 4, 64, 16), R_('smear', 'Smear', 0, 100, 60), R_('colour', 'Colour crush', 0, 100, 35)],
-    fn(e, x) {
-      // macroblocks dragged along a lazy motion field and smeared, like a broken video keyframe
-      const P = e.P, W = e.W, H = e.H, b = Math.max(3, P.block * e.k), A = P.amount / 100, t = e.t * 0.6;
-      x.drawImage(e.src, 0, 0);
-      const cols = Math.ceil(W / b), rows = Math.ceil(H / b), frame = canvas(W, H), fx = frame.getContext('2d'); fx.drawImage(e.src, 0, 0);
-      for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
-        const n = fbm(q / cols * 3 + t, r / rows * 3, e.seed, 2), m = fbm(q / cols * 3, r / rows * 3 - t, e.seed + 7, 2);
-        if (hash(q, r, e.seed) > A * 0.9 + 0.15) continue;
-        const dx = (n - 0.5) * b * 18 * A, dy = (m - 0.5) * b * 18 * A, steps = 1 + Math.round(P.smear / 20);
-        for (let k = steps; k >= 1; k--) x.drawImage(frame, clamp(q * b + dx * k / steps, 0, W - b), clamp(r * b + dy * k / steps, 0, H - b), b, b, q * b, r * b, b, b);
-      }
-      if (P.colour > 0) { const p = pix(x.canvas, e.w, e.h); posterizePix(p.d, Math.round(lerp(12, 3, P.colour / 100)), 1.2); x.save(); x.globalAlpha = P.colour / 100; x.drawImage(put(p), 0, 0, W, H); x.restore(); }
-    },
-  });
   def('lofi', {
     name: 'Lofi', cat: 'glitch', tags: 'Retro · Color', icon: '▒', kind: 'filter', anim: true,
     params: [R_('res', 'Resolution', 5, 100, 35), R_('bleed', 'Colour bleed', 0, 100, 50), R_('noise', 'Noise', 0, 100, 35), R_('sat', 'Saturation', 0, 200, 125), R_('wobble', 'Tape wobble', 0, 100, 25)],
@@ -15567,6 +15618,350 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   def('night-bloom', {
     name: 'Night Bloom', cat: 'dream', tags: 'Retro · Color', icon: '✺', kind: 'filter', anim: true,
     params: DREAM_P, defaults: { palette: 'teal', bloom: 80, blowout: 40, edges: 70, flares: 50 }, fn: dreamGlow,
+  });
+
+  /* ════════════════════════ FLASH LIGHT ════════════════════════
+     The subject (people, or anything picked — subject.js, handed in as o.subject) lit up as glowing white light, with
+     a bloom spilling around it; the rest of the picture dimmed and graded. Without a mask the likeliest subject is
+     guessed from the picture (whatever stands out from the colour around the edges, nearer the middle). */
+  // a Float32 alpha map at w × h, bilinear from a small one
+  function upMap(m, sw, sh, w, h) {
+    const o = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const sy = clamp((y + 0.5) * sh / h - 0.5, 0, sh - 1.001), iy = sy | 0, fy = sy - iy;
+      for (let x = 0; x < w; x++) {
+        const sx = clamp((x + 0.5) * sw / w - 0.5, 0, sw - 1.001), ix = sx | 0, fx = sx - ix, a = iy * sw + ix;
+        o[y * w + x] = (m[a] * (1 - fx) + m[a + 1] * fx) * (1 - fy) + (m[a + sw] * (1 - fx) + m[a + sw + 1] * fx) * fy;
+      }
+    }
+    return o;
+  }
+  function guessSubject(e) {
+    const sw = e.W >= e.H ? 112 : Math.max(8, Math.round(112 * e.W / e.H)), sh = e.W >= e.H ? Math.max(8, Math.round(112 * e.H / e.W)) : 112, p = pix(e.src, sw, sh), d = p.d;
+    const border = [[], [], []];
+    for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) if (x < 3 || y < 3 || x >= sw - 3 || y >= sh - 3) { const o = (y * sw + x) * 4; for (let j = 0; j < 3; j++) border[j].push(d[o + j]); }
+    const med = border.map(a => { a.sort((u, v) => u - v); return a[a.length >> 1]; });
+    const D = new Float32Array(sw * sh);
+    let mx = 0;
+    for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+      const i = y * sw + x, o = i * 4, dx = (x + 0.5) / sw - 0.5, dy = (y + 0.5) / sh - 0.5;
+      const c = Math.sqrt((d[o] - med[0]) ** 2 * 0.3 + (d[o + 1] - med[1]) ** 2 * 0.59 + (d[o + 2] - med[2]) ** 2 * 0.11) / 255;
+      D[i] = c * (1 - clamp((dx * dx + dy * dy) * 2.2, 0, 0.85)) * d[o + 3] / 255; if (D[i] > mx) mx = D[i];
+    }
+    // Otsu on the 0..1 differences
+    const hist = new Float32Array(64); for (const v of D) hist[Math.min(63, (v / (mx || 1) * 63) | 0)]++;
+    let sum = 0, tot = D.length; for (let i = 0; i < 64; i++) sum += i * hist[i];
+    let sb = 0, wb = 0, best = 0, th = 20;
+    for (let i = 0; i < 64; i++) { wb += hist[i]; if (!wb || wb === tot) continue; sb += i * hist[i]; const mb = sb / wb, mf = (sum - sb) / (tot - wb), v = wb * (tot - wb) * (mb - mf) ** 2; if (v > best) { best = v; th = i; } }
+    const t = th / 63 * (mx || 1), M = new Float32Array(D.length);
+    for (let i = 0; i < D.length; i++) M[i] = smooth(t * 0.8, t * 1.25, D[i]);
+    return upMap(blur3(M, sw, sh, 1.5), sw, sh, e.w, e.h);
+  }
+  // the subject at working size (0..1)
+  function subjectMap(e) {
+    if (e.o.subject) { const p = pix(e.o.subject, e.w, e.h), M = new Float32Array(e.w * e.h); for (let i = 0; i < M.length; i++) M[i] = p.d[i * 4 + 3] / 255; return M; }
+    return guessSubject(e);
+  }
+  const FLASH_GRADES = [['keep', 'Natural'], ['cool', 'Cool night'], ['mono', 'Black & white'], ['warm', 'Warm'], ['dark', 'Blackout']];
+  const FLASH_P = [
+    R_('glow', 'Glow', 0, 100, 60), R_('fill', 'Light', 0, 100, 100), R_('detail', 'Keep detail', 0, 100, 12), R_('rim', 'Edge light', 0, 100, 40),
+    C_('color', 'Light colour', '#ffffff'), R_('dim', 'Darken the rest', 0, 100, 30), S_('grade', 'Background', FLASH_GRADES, 'keep'),
+    R_('flicker', 'Flicker', 0, 100, 15), T_('strobe', 'Strobe'), R_('rate', 'Strobe speed', 1, 12, 4, { when: P => P.strobe }), R_('grain', 'Grain', 0, 100, 18),
+  ];
+  function flashLight(e, x) {
+    const P = e.P, w = e.w, h = e.h, n = w * h, p = pix(e.src, w, h), d = p.d, M = subjectMap(e), C = hex(P.color).map(v => v / 255);
+    const kk = e.k * e.ws, t = e.t;
+    // how bright the light is now: a lamp-like flicker, or hard strobe flashes
+    let lit = 1;
+    if (P.strobe) { const ph = fract(t * P.rate / 2); lit = ph < 0.42 ? 1 : ph < 0.5 ? 1 - (ph - 0.42) / 0.08 : 0.06; }
+    if (P.flicker > 0) { const f = P.flicker / 100, nz = vnoise(t * 9, 0.5, e.seed), drop = hash(Math.floor(t * 14), 3, e.seed) < f * 0.18 ? 0.45 : 0; lit *= 1 - f * 0.35 * nz - drop * f; }
+    const rim = P.rim / 100, fill = P.fill / 100 * lit, det = P.detail / 100, dim = P.dim / 100, A = P.glow / 100 * lit;
+    // the edge band of the mask (for the rim light) and two bloom radii
+    const soft = blur3(M, w, h, Math.max(1, 3 * kk)), g1 = blur3(M, w, h, Math.max(1, 14 * kk)), g2 = blur3(M, w, h, Math.max(2, 60 * kk));
+    const r = rng(e.seed + Math.floor(t * 24)), gr = P.grain / 100 * 38;
+    for (let i = 0; i < n; i++) {
+      const o = i * 4; let R = d[o] / 255, G = d[o + 1] / 255, B = d[o + 2] / 255;
+      const L = 0.299 * R + 0.587 * G + 0.114 * B;
+      // the rest of the picture
+      if (P.grade === 'cool') { R = lerp(R, L * 0.7, 0.55); G = lerp(G, L * 0.92, 0.45); B = lerp(B, L * 1.18 + 0.03, 0.5); }
+      else if (P.grade === 'mono') { R = G = B = L; }
+      else if (P.grade === 'warm') { R = R * 1.06 + 0.02; G *= 0.98; B *= 0.84; }
+      else if (P.grade === 'dark') { R *= 0.25; G *= 0.25; B *= 0.3; }
+      const kd = 1 - dim * 0.88; R *= kd; G *= kd; B *= kd;
+      // the subject turned into light: white (the light colour), a touch of its own shading left if asked
+      const m = M[i] * fill, sh = lerp(1, 0.62 + L * 0.55, det), edge = clamp(1 - Math.abs(soft[i] - 0.5) * 2, 0, 1) * rim;
+      R = lerp(R, C[0] * sh, m); G = lerp(G, C[1] * sh, m); B = lerp(B, C[2] * sh, m);
+      // bloom screened over everything (outside the subject it reads as light spilling)
+      const gl = clamp((g1[i] * 0.7 + g2[i] * 0.85) * A * 1.2 + edge * lit * 0.8, 0, 1.4);
+      R = 1 - (1 - R) * (1 - Math.min(1, gl * C[0])); G = 1 - (1 - G) * (1 - Math.min(1, gl * C[1])); B = 1 - (1 - B) * (1 - Math.min(1, gl * C[2]));
+      const nz = gr ? (r() - 0.5) * gr : 0;
+      d[o] = R * 255 + nz; d[o + 1] = G * 255 + nz; d[o + 2] = B * 255 + nz;
+    }
+    x.drawImage(put(p), 0, 0, e.W, e.H);
+  }
+  def('flash-light', {
+    name: 'Flash Light', cat: 'flash', tags: 'Light · Subject', icon: '☀', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, fn: flashLight,
+  });
+  def('flash-night', {
+    name: 'Night Flash', cat: 'flash', tags: 'Light · Night', icon: '☾', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, defaults: { glow: 78, dim: 72, grade: 'cool', rim: 55, flicker: 20, grain: 30 }, fn: flashLight,
+  });
+  def('flash-strobe', {
+    name: 'Strobe Flash', cat: 'flash', tags: 'Light · Beat', icon: '⚡', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, defaults: { strobe: true, rate: 4, glow: 70, dim: 45, flicker: 0, grade: 'mono' }, fn: flashLight,
+  });
+  def('flash-glow', {
+    name: 'Overexposed', cat: 'flash', tags: 'Light · Soft', icon: '◌', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, defaults: { fill: 78, detail: 62, glow: 52, rim: 70, dim: 18, flicker: 10 }, fn: flashLight,
+  });
+  def('flash-neon', {
+    name: 'Neon Flash', cat: 'flash', tags: 'Light · Color', icon: '✦', kind: 'filter', anim: true, subject: true, noTone: true,
+    params: FLASH_P, defaults: { color: '#7cf3ff', fill: 88, detail: 20, glow: 82, rim: 85, dim: 70, grade: 'dark', flicker: 12, grain: 22 }, fn: flashLight,
+  });
+
+  /* ════════════════════════ DATAMOSH ════════════════════════
+     The real thing for video: each frame's motion (block matching between this frame and the last) is applied to the
+     *previous moshed picture* instead of the clean frame — as if the key frames were cut out of the file — with a share
+     of the frame's own change added back (the residual), so moving things smear and melt into each other. Per layer
+     state (o.sid) lives across frames; a jump in time starts clean. Still pictures (and thumbnails) get a simulated
+     motion field instead. */
+  const MOSH = new Map();
+  function moshState(e, tag) {
+    const o = e.o; if (!o.sid || o.tr == null) return null;
+    const key = o.sid + '|' + tag, t = o.tr;
+    let s = MOSH.get(key);
+    if (!s || s.w !== e.w || s.h !== e.h || t < s.t - 1e-4 || t - s.t > 0.6) {
+      s = { w: e.w, h: e.h, t, fresh: true };
+      MOSH.delete(key); MOSH.set(key, s);
+      if (MOSH.size > 8) MOSH.delete(MOSH.keys().next().value);
+    }
+    return s;
+  }
+  const GW = 128; // motion analysis width
+  function greyOf(d, w, h, gw, gh) {
+    const g = new Float32Array(gw * gh);
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+      const o = (Math.min(h - 1, ((y + 0.5) * h / gh) | 0) * w + Math.min(w - 1, ((x + 0.5) * w / gw) | 0)) * 4;
+      g[y * gw + x] = d[o] * 0.299 + d[o + 1] * 0.587 + d[o + 2] * 0.114;
+    }
+    return g;
+  }
+  // for each 8 × 8 block of cur: where it came from in prev (vx, vy in analysis px) and how badly it matched
+  function motion(prev, cur, gw, gh) {
+    const B = 8, R = 6, cols = Math.ceil(gw / B), rows = Math.ceil(gh / B), vx = new Float32Array(cols * rows), vy = new Float32Array(cols * rows), err = new Float32Array(cols * rows);
+    for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+      const x0 = q * B, y0 = r * B, x1 = Math.min(gw, x0 + B), y1 = Math.min(gh, y0 + B);
+      let best = 1e12, bx = 0, by = 0, zero = 0;
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if (x0 + dx < 0 || y0 + dy < 0 || x1 + dx > gw || y1 + dy > gh) continue;
+        let s = 0;
+        for (let y = y0; y < y1 && s < best; y++) { const a = y * gw, b = (y + dy) * gw + dx; for (let x = x0; x < x1; x++) s += Math.abs(cur[a + x] - prev[b + x]); }
+        // a small pull towards no motion, so flat areas don't wander
+        s += (Math.abs(dx) + Math.abs(dy)) * 6;
+        if (!dx && !dy) zero = s;
+        if (s < best) { best = s; bx = dx; by = dy; }
+      }
+      const i = r * cols + q; vx[i] = bx; vy[i] = by; err[i] = best / ((x1 - x0) * (y1 - y0)); if (zero - best < 30) { vx[i] = 0; vy[i] = 0; err[i] = zero / ((x1 - x0) * (y1 - y0)); }
+    }
+    return { vx, vy, err, cols, rows, B };
+  }
+  const MOSH_P = [
+    R_('amount', 'Melt', 0, 100, 60), R_('block', 'Block size', 4, 64, 16), R_('residual', 'New detail', 0, 100, 35), R_('drift', 'Drift', 0, 100, 25),
+    R_('refresh', 'Clean frame every', 0, 10, 0, { unit: 's' }), R_('heal', 'Heal', 0, 100, 8), R_('colour', 'Colour bleed', 0, 100, 25),
+  ];
+  function moshMelt(e, x, look = {}) {
+    const P = e.P, w = e.w, h = e.h, n = w * h, cur = pix(e.src, w, h), cd = cur.d, A = P.amount / 100;
+    const bs = Math.max(2, Math.round(P.block * e.k * e.ws)), cols = Math.ceil(w / bs), rows = Math.ceil(h / bs);
+    const gw = Math.min(GW, w), gh = Math.max(4, Math.round(gw * h / w)), fx = w / gw, fy = h / gh;
+    const st = moshState(e, 'melt' + (look.tag || ''));
+    const curG = greyOf(cd, w, h, gw, gh);
+    const dt = st && !st.fresh ? clamp(e.o.tr - st.t, 1 / 120, 0.2) : 1 / 30;
+    if (st && st.last && st.t === e.o.tr && !st.fresh) { x.drawImage(st.last, 0, 0, e.W, e.H); return; }
+    let buf, prevD, field = null;
+    const refreshNow = st && !st.fresh && P.refresh > 0 && Math.floor(e.o.tr / P.refresh) !== Math.floor(st.t / P.refresh);
+    if (st && !st.fresh && !refreshNow) { buf = st.buf; prevD = st.prev; field = motion(st.prevG, curG, gw, gh); }
+    else if (st) { buf = new Float32Array(n * 4); for (let i = 0; i < n * 4; i++) buf[i] = cd[i]; prevD = cd.slice(); }
+    // starting cold (a jump in time, or the first frame): begin from a simulated mosh so it never looks clean — except
+    // on a planned clean frame
+    const drift = P.drift / 100, gain = 1 + A * (look.gain || 2.2), heal = P.heal / 100, res = P.residual / 100, col = P.colour / 100;
+    const fr = Math.floor((st ? e.o.tr : e.t) * 30), tt = e.t * 0.35;
+    // the vector for a work block: measured motion (exaggerated) + a slow drift field so nothing ever sits still
+    const vec = (q, r, out) => {
+      let vx = 0, vy = 0, er = 0;
+      if (field) { const gq = Math.min(field.cols - 1, ((q + 0.5) * bs / fx / field.B) | 0), gr = Math.min(field.rows - 1, ((r + 0.5) * bs / fy / field.B) | 0), i = gr * field.cols + gq; vx = field.vx[i] * fx * gain; vy = field.vy[i] * fy * gain; er = field.err[i]; }
+      const nx = fbm(q / cols * 2.2 + tt, r / rows * 2.2, e.seed, 2) - 0.5, ny = fbm(q / cols * 2.2, r / rows * 2.2 - tt, e.seed + 9, 2) - 0.5;
+      // a still (or a cold start) has no real motion, so the simulated drift does all the work
+      const dk = (field ? drift : Math.max(drift, 0.5 + A * 0.5)) * bs * 2.4 * (field ? dt * 30 : 1);
+      out[0] = vx + nx * dk * (look.dx ?? 1); out[1] = vy + ny * dk * (look.dy ?? 1); out[2] = er; return out;
+    };
+    const v = [0, 0, 0];
+    if (!st || (st.fresh && !refreshNow)) {
+      // a still: run a few steps of simulated motion on the picture itself
+      if (!buf) { buf = new Float32Array(n * 4); for (let i = 0; i < n * 4; i++) buf[i] = cd[i]; }
+      const steps = 2 + Math.round(A * 6), tmp = new Float32Array(n * 4);
+      for (let s = 0; s < steps; s++) {
+        for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+          vec(q, r, v); const on = hash(q, r, e.seed + s) < 0.35 + A * 0.55, ox = on ? Math.round(v[0] * 1.6) : 0, oy = on ? Math.round(v[1] * 1.6) : 0;
+          for (let y = r * bs; y < Math.min(h, r * bs + bs); y++) { const sy = clamp(y + oy, 0, h - 1); for (let xx = q * bs; xx < Math.min(w, q * bs + bs); xx++) { const a = (y * w + xx) * 4, b = (sy * w + clamp(xx + ox, 0, w - 1)) * 4; tmp[a] = buf[b]; tmp[a + 1] = buf[b + 1]; tmp[a + 2] = buf[b + 2]; tmp[a + 3] = buf[b + 3]; } }
+        }
+        buf.set(tmp);
+      }
+    } else if (field) {
+      const out = new Float32Array(n * 4);
+      for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+        vec(q, r, v);
+        const ox = Math.round(v[0]), oy = Math.round(v[1]);
+        // blocks the decoder would have re-drawn from scratch (a big change) heal back to the real frame now and then
+        const healIt = heal > 0 && v[2] > 22 && hash(q, r, e.seed + fr) < heal * 0.9;
+        // colour bleed: moving blocks turn their colour a little every frame, so trails come out as rainbow smears
+        const mag = Math.hypot(v[0], v[1]), th = col > 0 && mag > 0.5 ? col * (look.hue ?? 0.04) * Math.min(mag, bs * 2) / bs * (fbm(q / cols * 2, r / rows * 2, e.seed + 5, 2) > 0.5 ? 1 : -1) : 0;
+        const ca = Math.cos(th), sa = Math.sin(th), tint = th !== 0;
+        for (let y = r * bs; y < Math.min(h, r * bs + bs); y++) {
+          const sy = clamp(y + oy, 0, h - 1);
+          for (let xx = q * bs; xx < Math.min(w, q * bs + bs); xx++) {
+            const a = (y * w + xx) * 4, b = (sy * w + clamp(xx + ox, 0, w - 1)) * 4;
+            if (healIt) { out[a] = cd[a]; out[a + 1] = cd[a + 1]; out[a + 2] = cd[a + 2]; out[a + 3] = cd[a + 3]; continue; }
+            // the moshed picture moved by this frame's motion, plus this frame's own change on top
+            for (let j = 0; j < 3; j++) out[a + j] = buf[b + j] + res * (cd[a + j] - prevD[b + j]);
+            out[a + 3] = cd[a + 3];
+            if (tint) {
+              const L = out[a] * 0.299 + out[a + 1] * 0.587 + out[a + 2] * 0.114, u = out[a + 2] - L, w2 = out[a] - L, nu = u * ca - w2 * sa, nv = u * sa + w2 * ca;
+              out[a] = L + nv; out[a + 2] = L + nu; out[a + 1] = L - (0.299 * nv + 0.114 * nu) / 0.587;
+            }
+          }
+        }
+      }
+      for (let i = 0; i < out.length; i++) out[i] = out[i] < -40 ? -40 : out[i] > 295 ? 295 : out[i];
+      buf = out;
+    }
+    const o = cur; // reuse the frame's pixels for the output
+    for (let i = 0; i < n * 4; i += 4) { o.d[i] = buf[i]; o.d[i + 1] = buf[i + 1]; o.d[i + 2] = buf[i + 2]; }
+    if (look.post) look.post(e, o, cd);
+    const c = put(o);
+    if (st) { st.buf = buf; st.prev = cd.slice(); st.prevG = curG; st.t = e.o.tr; st.fresh = false; st.last = c; }
+    x.drawImage(c, 0, 0, e.W, e.H);
+  }
+  // colourful light: saturation pushed and the highlights bloomed (the "figure in a rainbow smear" look)
+  function bloomPost(e, p) {
+    const d = p.d, w = p.w, h = p.h, n = w * h, Lm = new Float32Array(n), sat = 1 + e.P.colour / 100 * 1.4;
+    for (let i = 0; i < n; i++) {
+      const o = i * 4, L = (d[o] * 0.299 + d[o + 1] * 0.587 + d[o + 2] * 0.114);
+      for (let j = 0; j < 3; j++) d[o + j] = L + (d[o + j] - L) * sat;
+      Lm[i] = Math.max(0, L / 255 - 0.45) * 1.8;
+    }
+    const kk = e.k * e.ws, g = blur3(Lm, w, h, Math.max(2, 22 * kk));
+    for (let i = 0; i < n; i++) { const o = i * 4, b = Math.min(1, g[i] * (e.P.bloom ?? 60) / 100 * 1.4); for (let j = 0; j < 3; j++) d[o + j] = 255 - (255 - d[o + j]) * (1 - b); }
+  }
+  def('datamosh', {
+    name: 'Datamosh', cat: 'mosh', tags: 'Glitch · Motion', icon: '▞', kind: 'filter', anim: true, noTone: true,
+    params: MOSH_P, fn: (e, x) => moshMelt(e, x),
+  });
+  def('bloom-mosh', {
+    name: 'Bloom Mosh', cat: 'mosh', tags: 'Glitch · Color', icon: '✺', kind: 'filter', anim: true, noTone: true,
+    params: [...MOSH_P, R_('bloom', 'Bloom', 0, 100, 60)], defaults: { amount: 80, residual: 28, drift: 40, colour: 75, block: 20 },
+    fn: (e, x) => moshMelt(e, x, { tag: 'bloom', gain: 3, hue: 0.22, post: bloomPost }),
+  });
+
+  /* the other kinds of broken video: blocks from the wrong place, smeared rows, dropped patches */
+  const beatOf = (e, rate) => Math.floor(e.t * rate);
+  function moshBlocks(e, x) {
+    // foreign and flat-colour macroblocks of a few sizes, reshuffled every beat
+    const P = e.P, w = e.w, h = e.h, p = pix(e.src, w, h), d = p.d, src = d.slice(), beat = beatOf(e, P.beat), A = P.amount / 100;
+    const base = Math.max(4, Math.round(P.block * e.k * e.ws)), r = rng(e.seed * 31 + beat);
+    const st = moshState(e, 'blocks'), stale = st && st.old ? st.old : null;
+    const fill = (x0, y0, s, kind) => {
+      const x1 = Math.min(w, x0 + s), y1 = Math.min(h, y0 + s);
+      if (kind === 'flat') {
+        let R = 0, G = 0, B = 0, c = 0;
+        for (let y = y0; y < y1; y += 2) for (let q = x0; q < x1; q += 2) { const o = (y * w + q) * 4; R += src[o]; G += src[o + 1]; B += src[o + 2]; c++; }
+        R /= c; G /= c; B /= c; const L = (R + G + B) / 3, k = 1 + P.colour / 100 * 1.6, bump = (r() - 0.5) * 24;
+        R = L + (R - L) * k + bump; G = L + (G - L) * k + bump; B = L + (B - L) * k + bump;
+        for (let y = y0; y < y1; y++) for (let q = x0; q < x1; q++) { const o = (y * w + q) * 4; d[o] = R; d[o + 1] = G; d[o + 2] = B; }
+        return;
+      }
+      const from = kind === 'stale' && stale ? stale : src;
+      const ox = kind === 'stale' ? 0 : Math.round((r() - 0.5) * w * 0.5), oy = kind === 'stale' ? 0 : Math.round((r() - 0.5) * h * 0.5);
+      for (let y = y0; y < y1; y++) { const sy = clamp(y + oy, 0, h - 1); for (let q = x0; q < x1; q++) { const o = (y * w + q) * 4, b = (sy * w + clamp(q + ox, 0, w - 1)) * 4; d[o] = from[b]; d[o + 1] = from[b + 1]; d[o + 2] = from[b + 2]; } }
+    };
+    const S = base * 4, cols = Math.ceil(w / S), rows = Math.ceil(h / S);
+    for (let gr = 0; gr < rows; gr++) for (let gq = 0; gq < cols; gq++) {
+      // split big blocks into smaller ones, like a codec's partitions
+      const split = (x0, y0, s, depth) => {
+        if (depth < 2 && r() < 0.45) { const hs = s / 2; for (const [a, b] of [[0, 0], [hs, 0], [0, hs], [hs, hs]]) split(x0 + a, y0 + b, hs, depth + 1); return; }
+        // broken blocks come in clumps, as where a codec lost a run of its data
+        const clump = fbm((x0 + s / 2) / w * 2.6 + beat * 0.37, (y0 + s / 2) / h * 2.6 - beat * 0.23, e.seed, 3);
+        if (clump < 1 - A * 0.7 || r() > 0.35 + A * 0.6) return;
+        const k = r();
+        fill(Math.round(x0), Math.round(y0), Math.ceil(s), k < P.flat / 100 ? 'flat' : k < 0.75 && stale ? 'stale' : 'foreign');
+      };
+      split(gq * S, gr * S, S, 0);
+    }
+    if (st) { if (!st.old || st.beat !== beat) { st.old = st.cur || src; st.beat = beat; } st.cur = src; st.t = e.o.tr; st.fresh = false; }
+    x.drawImage(put(p), 0, 0, e.W, e.H);
+  }
+  def('mosh-blocks', {
+    name: 'Mosh Blocks', cat: 'mosh', tags: 'Glitch · Blocks', icon: '▦', kind: 'filter', anim: true, noTone: true,
+    params: [R_('amount', 'Amount', 0, 100, 60), R_('block', 'Block size', 4, 64, 14), R_('flat', 'Flat colour', 0, 100, 35), R_('colour', 'Colour push', 0, 100, 50), R_('beat', 'Changes a second', 1, 24, 6)],
+    fn: moshBlocks,
+  });
+  function pixelDrag(e, x) {
+    // whole rows of blocks dragged sideways: each pixel trails the colour before it, like broken motion vectors
+    const P = e.P, w = e.w, h = e.h, p = pix(e.src, w, h), d = p.d, beat = beatOf(e, P.beat), bs = Math.max(2, Math.round(P.band * e.k * e.ws)), A = P.amount / 100;
+    const bands = Math.ceil(h / bs), keep = P.length / 100;
+    for (let b = 0; b < bands; b++) {
+      // bands come in runs (fbm over the band index), more of them with Amount
+      const on = fbm(b / bands * 5, beat * 0.21, e.seed, 2);
+      if (on < 1 - A * 0.85 || hash(b, beat, e.seed) > 0.3 + A * 0.7) continue;
+      const dir = P.dir === 'both' ? (hash(b, 1, e.seed + beat) < 0.5 ? 1 : -1) : P.dir === 'left' ? -1 : 1;
+      const x0 = Math.floor(hash(b, 2, e.seed + beat) * w * 0.8), len = Math.round(w * (0.15 + hash(b, 3, e.seed + beat) * 0.85) * keep);
+      const persist = 0.95 + keep * 0.045;
+      for (let y = b * bs; y < Math.min(h, b * bs + bs); y++) {
+        let R = -1, G = 0, B = 0;
+        for (let k = 0; k < len; k++) {
+          const q = dir > 0 ? x0 + k : w - 1 - x0 - k; if (q < 0 || q >= w) break;
+          const o = (y * w + q) * 4;
+          if (R < 0) { R = d[o]; G = d[o + 1]; B = d[o + 2]; continue; }
+          // brighter pixels take over the streak, darker ones are dragged under it
+          const Lc = d[o] + d[o + 1] + d[o + 2], Ls = R + G + B, m = Lc > Ls + 40 ? 0.5 : 1 - persist;
+          R += (d[o] - R) * m; G += (d[o + 1] - G) * m; B += (d[o + 2] - B) * m;
+          const fade = k > len * 0.85 ? (k - len * 0.85) / (len * 0.15) : 0;
+          d[o] = lerp(R, d[o], fade); d[o + 1] = lerp(G, d[o + 1], fade); d[o + 2] = lerp(B, d[o + 2], fade);
+        }
+      }
+    }
+    x.drawImage(put(p), 0, 0, e.W, e.H);
+  }
+  def('pixel-drag', {
+    name: 'Pixel Drag', cat: 'mosh', tags: 'Glitch · Streaks', icon: '≡', kind: 'filter', anim: true, noTone: true,
+    params: [R_('amount', 'Amount', 0, 100, 60), R_('band', 'Band height', 1, 60, 8), R_('length', 'Streak length', 0, 100, 70), S_('dir', 'Direction', [['right', 'Right'], ['left', 'Left'], ['both', 'Both']], 'right'), R_('beat', 'Changes a second', 1, 24, 8)],
+    fn: pixelDrag,
+  });
+  function blockDrop(e, x) {
+    // patches of blocks that stop updating (or slip / lose their colour) while the rest of the video plays on
+    const P = e.P, w = e.w, h = e.h, p = pix(e.src, w, h), d = p.d, src = d.slice(), bs = Math.max(3, Math.round(P.block * e.k * e.ws)), cols = Math.ceil(w / bs), rows = Math.ceil(h / bs);
+    const A = P.amount / 100, beat = beatOf(e, P.beat), st = moshState(e, 'drop');
+    if (st && st.t === e.o.tr && st.last && !st.fresh) { x.drawImage(st.last, 0, 0, e.W, e.H); return; }
+    const hold = st && st.hold && st.hold.length === src.length ? st.hold : src.slice();
+    for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+      const patch = fbm(q / cols * 3.4 + beat * 0.13, r / rows * 3.4 - beat * 0.09, e.seed, 3) > 1 - A * 0.62;
+      const x1 = Math.min(w, q * bs + bs), y1 = Math.min(h, r * bs + bs);
+      if (!patch) { for (let y = r * bs; y < y1; y++) for (let k = q * bs; k < x1; k++) { const o = (y * w + k) * 4; hold[o] = src[o]; hold[o + 1] = src[o + 1]; hold[o + 2] = src[o + 2]; } continue; }
+      const u = hash(q, r, e.seed + beat), ox = u < 0.3 ? Math.round((hash(r, q, beat) - 0.5) * bs * 4) : 0, grey = u > 1 - P.lost / 100 * 0.4;
+      for (let y = r * bs; y < y1; y++) for (let k = q * bs; k < x1; k++) {
+        const o = (y * w + k) * 4, b = (y * w + clamp(k + ox, 0, w - 1)) * 4;
+        if (grey) { const L = (hold[b] + hold[b + 1] + hold[b + 2]) / 3; d[o] = L * 0.55 + 40; d[o + 1] = L * 0.62 + 60; d[o + 2] = L * 0.5 + 38; }
+        else { d[o] = hold[b]; d[o + 1] = hold[b + 1]; d[o + 2] = hold[b + 2]; }
+      }
+    }
+    const c = put(p);
+    if (st) { st.hold = hold; st.t = e.o.tr; st.fresh = false; st.last = c; }
+    x.drawImage(c, 0, 0, e.W, e.H);
+  }
+  def('block-dropout', {
+    name: 'Block Dropout', cat: 'mosh', tags: 'Glitch · Patches', icon: '▤', kind: 'filter', anim: true, noTone: true,
+    params: [R_('amount', 'Amount', 0, 100, 62), R_('block', 'Block size', 4, 64, 22), R_('lost', 'Lost blocks', 0, 100, 25), R_('beat', 'Changes a second', 1, 24, 5)],
+    fn: blockDrop,
   });
 
   /* ════════════════════════ GLASS ════════════════════════ */
@@ -19117,7 +19512,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         ['st-fluted', 'Fluted glass', 'film-neon', 'fluted-glass', { size: 22 }, 'Fluted Glass'],
         ['st-crt', 'CRT screen', 'film-tram', 'crt', { size: 3 }, 'CRT Screen', true],
         ['st-thermal', 'Thermal camera', 'ed-think', 'thermal', { readout: true }, 'Thermal'],
+        ['st-flash', 'Flash light', 'ed-stool', 'flash-light', {}, 'Flash Light', true],
+        ['st-flash-night', 'Night flash', 'film-friends', 'flash-night', {}, 'Night Flash', true],
+        ['st-flash-neon', 'Neon flash', 'ed-suit', 'flash-neon', {}, 'Neon Flash', true],
         ['st-datamosh', 'Datamosh', 'film-road', 'datamosh', {}, 'Datamosh', true],
+        ['st-bloom-mosh', 'Bloom mosh', 'film-portrait', 'bloom-mosh', {}, 'Bloom Mosh', true],
+        ['st-mosh-blocks', 'Mosh blocks', 'ed-eye', 'mosh-blocks', {}, 'Mosh Blocks', true],
+        ['st-pixel-drag', 'Pixel drag', 'film-lanterns', 'pixel-drag', {}, 'Pixel Drag', true],
+        ['st-dropout', 'Block dropout', 'ed-smile', 'block-dropout', {}, 'Block Dropout', true],
         ['st-kaleido', 'Kaleidoscope', 'film-golden', 'kaleidoscope', { segments: 8 }, 'Kaleidoscope', true],
         ['st-chrome', 'Liquid chrome', 'ed-light', 'chrome', {}, 'Chrome'],
         ['st-edge', 'Edge glow', 'ed-eye', 'edge-glow', {}, 'Edge Glow'],
@@ -20313,7 +20715,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // families of variations show as one card in the panel and open into all their styles
   const GROUPS = {
-    'Image styles': ['st-golden', 'st-dream', 'st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-datamosh', 'st-kaleido', 'st-chrome', 'st-edge'],
+    'Image styles': ['st-golden', 'st-dream', 'st-flash', 'st-flash-night', 'st-flash-neon', 'st-datamosh', 'st-bloom-mosh', 'st-mosh-blocks', 'st-pixel-drag', 'st-dropout', 'st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-kaleido', 'st-chrome', 'st-edge'],
     'Vox explainer': [], 'Moving grids': [], 'Photo piles': [], 'Strips & panels': [],
     'Text slides': ['ts-created', 'ts-goal', 'ts-earth', 'ts-crisis', 'ts-brands', 'ts-made', 'ts-align', 'ts-dress', 'ts-meant', 'ts-new', 'ts-visuals', 'ts-average', 'ts-cool', 'ts-iamart', 'ts-redact', 'ts-rest', 'ts-chase', 'ts-chapter', 'ts-do', 'ts-action', 'ts-where', 'ts-norest', 'ts-scribble', 'ts-feeling', 'ts-museum', 'ts-story', 'ts-justdo', 'ts-notend', 'ts-consume', 'ts-love', 'ts-now', 'ts-austen', 'ts-son', 'ts-sleep', 'ts-laziest', 'ts-gofor', 'ts-normalize', 'ts-purpose', 'ts-passion', 'ts-artflip', 'ts-exactly', 'ts-identity', 'ts-ability', 'ts-tryagain', 'ts-authentic', 'ts-happen', 'ts-memories', 'ts-now2', 'ts-hands', 'ts-messy', 'ts-start', 'ts-rushed', 'ts-develop', 'ts-addicted', 'ts-makeit', 'ts-dothis', 'ts-mostcreative', 'ts-busy', 'ts-lesscare', 'ts-chapter2', 'ts-overthink', 'ts-athletes', 'ts-curated', 'ts-outside', 'ts-done', 'ts-whatmakes', 'ts-support', 'ts-takerisk', 'ts-thinkbig'],
     'Photo effects': ['px-scribble', 'px-strips', 'px-censor', 'px-mosaic', 'px-mirror', 'px-eyes', 'px-childhood', 'px-note', 'px-words', 'px-brandfade', 'px-faceswap', 'px-ghost', 'px-phone', 'px-signed', 'px-redbar', 'px-taped', 'px-redprint', 'px-backdrop', 'px-gridpaper', 'px-letter', 'px-quote', 'px-fieldnotes', 'px-belonged', 'px-touch', 'px-margins', 'px-worthy', 'px-sketchbook'],
@@ -21464,6 +21866,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
       if (el.bgRemoved && el.bgRemoved.assetId) ids.add(el.bgRemoved.assetId);
       if (el.type === 'flashes') for (const a of el.images || []) ids.add(a);
       if (el.seq && el.seq.ids) for (const a of el.seq.ids) ids.add(a);
+      if (el.subj && el.subj.sheets) for (const a of el.subj.sheets) ids.add(a);
     }
     for (const a of d.audio || []) if (a.assetId) ids.add(a.assetId);
     for (const sc of (d.vox && d.vox.scenes) || []) for (const k of ['assetId', 'assetId2', 'cutId']) if (sc[k]) ids.add(sc[k]);
@@ -23413,7 +23816,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   };
   // copy / paste properties: the whole look of one layer (font, colours, effects, frame, filters…) onto others
   let styleClip = null;
-  const NOT_STYLE = new Set(['track', 'id', 'type', 'x', 'y', 'width', 'height', 'rotation', 'name', 'locked', 'hidden', 'text', 'assetId', 'crop', 'video', 'seq',
+  const NOT_STYLE = new Set(['track', 'subj', 'id', 'type', 'x', 'y', 'width', 'height', 'rotation', 'name', 'locked', 'hidden', 'text', 'assetId', 'crop', 'video', 'seq',
     'points', 'images', 'stickerId', 'shape', 'kind', 'key', 'erase', 'time', 'studio', 'bgRemoved', 'placeholder', 'path', 'autoWidth', 'typing', 'flipX', 'flipY', 'cx', 'cy', 'clip', 'grp', 'gt', 'lane']);
   // between different kinds of layer only these carry over
   const SHARED_STYLE = ['opacity', 'blend', 'shadow', 'anim', 'lblur', 'tfx'];
@@ -25663,6 +26066,507 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
 
 </script>
 <script>
+/* Savio's editor — subject masks.
+   Finds the subject of a photo or video layer — every person (MediaPipe selfie multiclass), and / or anything the user
+   clicks (MediaPipe magic touch, prompted again on every frame from deep inside the last frame's mask) — follows it
+   through the clip and keeps the result on the layer as a mask track:
+     el.subj = { people, pts: [[u, v], …], sheets: [assetId, …], fps, n, per, cols, cw, ch, t0 }
+   Masks are white with alpha = subject, packed into PNG sprite sheets saved like any other asset; R.subjectMask
+   (render.js) picks (and blends) the right frame for a moment and styles get it as o.subject (Flash Light, or any
+   style limited to the subject / background). Masks are refined against the frame (guided filter) and steadied over
+   time (median of three frames). */
+(function () {
+  'use strict';
+  const S = window.Studio, R = window.StudioRender;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const VER = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+  const MP = 'https://storage.googleapis.com/mediapipe-models/';
+  const MODELS = {
+    people: MP + 'image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',
+    pick: MP + 'interactive_segmenter/magic_touch/float32/1/magic_touch.tflite',
+  };
+  const AN = 512;      // analysis size (long side) fed to the models
+  const SHEET = 4096;  // sprite sheet size limit
+
+  /* ── models (loaded on first use) ──
+     From jsDelivr / Google storage; the online copy (window.STUDIO_MODEL_PARTS) falls back to copies published next to
+     the page: vendor/vision_bundle.mjs + vision_wasm_internal.{js,wasm}, models/subject-<kind>.part<i>.txt (base64). */
+  const PARTS = { people: 2, pick: 1 };
+  let vision = null;
+  const segs = {};
+  async function runtime() {
+    const local = { wasmLoaderPath: new URL('vendor/vision_wasm_internal.js', location.href).href, wasmBinaryPath: new URL('vendor/vision_wasm_internal.wasm', location.href).href };
+    let v;
+    try { v = await import(VER + '/vision_bundle.mjs'); }
+    catch (e) { if (!window.STUDIO_MODEL_PARTS) throw e; v = await import(new URL('vendor/vision_bundle.mjs', location.href).href); return { v, files: local, local }; }
+    return { v, files: await v.FilesetResolver.forVisionTasks(VER + '/wasm'), local };
+  }
+  async function modelBytes(kind) {
+    try { const r = await fetch(MODELS[kind]); if (!r.ok) throw new Error('HTTP ' + r.status); return new Uint8Array(await r.arrayBuffer()); }
+    catch (e) {
+      if (!window.STUDIO_MODEL_PARTS) throw new Error('Couldn’t download the subject finder — check the connection');
+      let t = '';
+      for (let i = 0; i < PARTS[kind]; i++) t += (await (await fetch(`models/subject-${kind}.part${i}.txt`)).text()).trim();
+      const bin = atob(t), u = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      return u;
+    }
+  }
+  function model(kind) {
+    if (segs[kind]) return segs[kind];
+    segs[kind] = (async () => {
+      if (!vision) vision = runtime().catch(e => { vision = null; throw e; });
+      const rt = await vision, { v } = rt, bytes = await modelBytes(kind);
+      const Cls = kind === 'people' ? v.ImageSegmenter : v.InteractiveSegmenter;
+      const opts = delegate => Object.assign({ baseOptions: { modelAssetBuffer: bytes, delegate }, outputConfidenceMasks: true, outputCategoryMask: false }, kind === 'people' ? { runningMode: 'IMAGE' } : {});
+      // the wasm runtime from the CDN, or (online copy) the one published with the page
+      let files = rt.files;
+      const make = async delegate => {
+        try { return await Cls.createFromOptions(files, opts(delegate)); }
+        catch (e) { if (!window.STUDIO_MODEL_PARTS || files === rt.local) throw e; files = rt.local; return Cls.createFromOptions(files, opts(delegate)); }
+      };
+      // the GPU is many times faster on a real graphics card, but slower than the CPU on software WebGL: time it on a
+      // test frame and keep whichever is quicker
+      const test = document.createElement('canvas'); test.width = 256; test.height = 256;
+      const tx = test.getContext('2d'); tx.fillStyle = '#888'; tx.fillRect(0, 0, 256, 256); tx.fillStyle = '#c96'; tx.fillRect(80, 40, 96, 180);
+      const run = seg => { const r = kind === 'people' ? seg.segment(test) : seg.segment(test, { keypoint: { x: 0.5, y: 0.5 } }); r.confidenceMasks[0].getAsFloat32Array(); r.close(); };
+      try {
+        const gpu = await make('GPU');
+        run(gpu);
+        const t0 = performance.now(); run(gpu); run(gpu);
+        if ((performance.now() - t0) / 2 < 90) return gpu;
+        gpu.close();
+      } catch (e) { /* no WebGL 2: use the CPU */ }
+      return make('CPU');
+    })();
+    segs[kind].catch(() => { delete segs[kind]; });
+    return segs[kind];
+  }
+  S.subjectModelsReady = () => !!(segs.people || segs.pick);
+
+  /* ── one frame ── */
+  function frameCanvas(src, w, h) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d', { willReadFrequently: true }).drawImage(src, 0, 0, w, h);
+    return c;
+  }
+  // a confidence mask (any size) resampled to w × h
+  function resample(m, mw, mh, w, h) {
+    if (mw === w && mh === h) return m;
+    const o = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const sy = clamp((y + 0.5) * mh / h - 0.5, 0, mh - 1.001), iy = sy | 0, fy = sy - iy;
+      for (let x = 0; x < w; x++) {
+        const sx = clamp((x + 0.5) * mw / w - 0.5, 0, mw - 1.001), ix = sx | 0, fx = sx - ix, a = iy * mw + ix;
+        o[y * w + x] = (m[a] * (1 - fx) + m[a + 1] * fx) * (1 - fy) + (m[a + mw] * (1 - fx) + m[a + mw + 1] * fx) * fy;
+      }
+    }
+    return o;
+  }
+  async function peopleMask(c) {
+    const seg = await model('people'), out = seg.segment(c), cm = out.confidenceMasks, w = cm[0].width, h = cm[0].height;
+    const bg = cm[0].getAsFloat32Array(), m = new Float32Array(w * h);
+    for (let i = 0; i < m.length; i++) m[i] = 1 - bg[i];
+    out.close();
+    return resample(m, w, h, c.width, c.height);
+  }
+  async function pickMask(c, u, v) {
+    const seg = await model('pick'), out = seg.segment(c, { keypoint: { x: clamp(u, 0.001, 0.999), y: clamp(v, 0.001, 0.999) } });
+    const mk = out.confidenceMasks[0], w = mk.width, h = mk.height, m = mk.getAsFloat32Array().slice();
+    out.close();
+    return resample(m, w, h, c.width, c.height);
+  }
+
+  /* ── following a clicked object: the next prompt sits deep inside the last mask, near the last prompt ── */
+  const GS = 96; // grid for the prompt search
+  function grid(m, w, h) {
+    const gw = w >= h ? GS : Math.max(8, Math.round(GS * w / h)), gh = w >= h ? Math.max(8, Math.round(GS * h / w)) : GS, g = new Uint8Array(gw * gh);
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) g[y * gw + x] = m[Math.min(h - 1, ((y + 0.5) * h / gh) | 0) * w + Math.min(w - 1, ((x + 0.5) * w / gw) | 0)] > 0.5 ? 1 : 0;
+    return { g, gw, gh };
+  }
+  // chamfer distance to the outside of the mask
+  function dist(G) {
+    const { g, gw, gh } = G, d = new Float32Array(gw * gh), BIG = 1e6;
+    for (let i = 0; i < d.length; i++) d[i] = g[i] ? BIG : 0;
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+      const i = y * gw + x; if (!d[i]) continue;
+      const a = x ? d[i - 1] + 1 : 1, b = y ? d[i - gw] + 1 : 1, c = x && y ? d[i - gw - 1] + 1.414 : 1.414, e = y && x < gw - 1 ? d[i - gw + 1] + 1.414 : 1.414;
+      d[i] = Math.min(d[i], a, b, c, e);
+    }
+    for (let y = gh - 1; y >= 0; y--) for (let x = gw - 1; x >= 0; x--) {
+      const i = y * gw + x; if (!d[i]) continue;
+      const a = x < gw - 1 ? d[i + 1] + 1 : 1, b = y < gh - 1 ? d[i + gw] + 1 : 1, c = x < gw - 1 && y < gh - 1 ? d[i + gw + 1] + 1.414 : 1.414, e = y < gh - 1 && x ? d[i + gw - 1] + 1.414 : 1.414;
+      d[i] = Math.min(d[i], a, b, c, e);
+    }
+    return d;
+  }
+  // a spot followed from one frame to the next: zero-mean SAD of a patch, coarse (step 2, ±24 px) then fine (±2 px)
+  function greyOf(c) {
+    const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data, g = new Float32Array(c.width * c.height);
+    for (let i = 0; i < g.length; i++) g[i] = d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114;
+    g.rgba = d;
+    return g;
+  }
+  // what the thing looks like: a 4 × 4 × 4 colour histogram of the pixels inside its mask
+  function hist(d, m) {
+    const h = new Float32Array(64); let n = 0;
+    for (let i = 0; i < m.length; i += 2) { if (m[i] < 0.5) continue; const o = i * 4; h[(d[o] >> 6) * 16 + (d[o + 1] >> 6) * 4 + (d[o + 2] >> 6)]++; n++; }
+    if (n) for (let k = 0; k < 64; k++) h[k] /= n;
+    return n ? h : null;
+  }
+  const same = (a, b) => { if (!a || !b) return 0; let s = 0; for (let k = 0; k < 64; k++) s += Math.min(a[k], b[k]); return s; };
+  function follow(a, b, w, h, p) {
+    const x0 = Math.round(clamp(p[0], 0, 1) * w), y0 = Math.round(clamp(p[1], 0, 1) * h);
+    // a smaller patch near the edge of the frame
+    const R = Math.min(9, x0 - 1, y0 - 1, w - 2 - x0, h - 2 - y0);
+    if (R < 3) return p;
+    let ma = 0; for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) ma += a[(y0 + y) * w + x0 + x];
+    ma /= (2 * R + 1) ** 2;
+    const cost = (cx, cy) => {
+      if (cx < R || cy < R || cx >= w - R || cy >= h - R) return 1e12;
+      let mb = 0; for (let y = -R; y <= R; y += 2) for (let x = -R; x <= R; x += 2) mb += b[(cy + y) * w + cx + x];
+      mb /= (R + 1) ** 2;
+      let s = 0; for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) s += Math.abs(a[(y0 + y) * w + x0 + x] - ma - b[(cy + y) * w + cx + x] + mb);
+      return s;
+    };
+    let bx = x0, by = y0, best = cost(x0, y0);
+    for (let dy = -24; dy <= 24; dy += 2) for (let dx = -24; dx <= 24; dx += 2) { const s = cost(x0 + dx, y0 + dy) + (Math.abs(dx) + Math.abs(dy)) * 3; if (s < best) { best = s; bx = x0 + dx; by = y0 + dy; } }
+    const cx = bx, cy = by;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const s = cost(cx + dx, cy + dy); if (s < best) { best = s; bx = cx + dx; by = cy + dy; } }
+    return [(bx + 0.5) / w, (by + 0.5) / h];
+  }
+  function nextPrompt(G, u, v, pull = 0.35) {
+    const d = dist(G), { gw, gh } = G;
+    let best = -1, bx = u, by = v, maxD = 0;
+    for (const x of d) if (x > maxD) maxD = x;
+    if (maxD <= 0) return null;
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+      const D = d[y * gw + x]; if (!D) continue;
+      // deep inside (but not necessarily the deepest spot of a big blob) and close to where we were
+      const s = Math.min(D, maxD * 0.6) - pull * Math.hypot(x + 0.5 - u * gw, y + 0.5 - v * gh);
+      if (s > best) { best = s; bx = (x + 0.5) / gw; by = (y + 0.5) / gh; }
+    }
+    return [bx, by];
+  }
+  const shiftGrid = (G, du, dv) => {
+    const { g, gw, gh } = G, sx = Math.round(du * gw), sy = Math.round(dv * gh), o = new Uint8Array(g.length);
+    for (let y = 0; y < gh; y++) { const yy = y - sy; if (yy < 0 || yy >= gh) continue; for (let x = 0; x < gw; x++) { const xx = x - sx; if (xx >= 0 && xx < gw) o[y * gw + x] = g[yy * gw + xx]; } }
+    return { g: o, gw, gh };
+  };
+  // a mask grown by r grid cells (square), to keep the next frame's mask near where the thing was
+  function grow(G, r) {
+    const { g, gw, gh } = G, t = new Uint8Array(g.length), o = new Uint8Array(g.length);
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) { let v = 0; for (let k = Math.max(0, x - r); k <= Math.min(gw - 1, x + r) && !v; k++) v = g[y * gw + k]; t[y * gw + x] = v; }
+    for (let x = 0; x < gw; x++) for (let y = 0; y < gh; y++) { let v = 0; for (let k = Math.max(0, y - r); k <= Math.min(gh - 1, y + r) && !v; k++) v = t[k * gw + x]; o[y * gw + x] = v; }
+    return { g: o, gw, gh };
+  }
+  const area = G => { let n = 0; for (const x of G.g) n += x; return n; };
+  const iou = (A, B) => { let i = 0, u = 0; for (let k = 0; k < A.g.length; k++) { i += A.g[k] & B.g[k]; u += A.g[k] | B.g[k]; } return u ? i / u : 0; };
+  function centroid(G) { let sx = 0, sy = 0, n = 0; for (let y = 0; y < G.gh; y++) for (let x = 0; x < G.gw; x++) if (G.g[y * G.gw + x]) { sx += x + 0.5; sy += y + 0.5; n++; } return n ? [sx / n / G.gw, sy / n / G.gh] : null; }
+
+  /* ── edges that follow the picture: a guided filter with the frame's brightness as the guide ── */
+  function box(a, w, h, r) {
+    const t = new Float32Array(a.length), o = new Float32Array(a.length);
+    for (let y = 0; y < h; y++) { let acc = 0; const row = y * w; for (let x = -r; x <= r; x++) acc += a[row + clamp(x, 0, w - 1)]; for (let x = 0; x < w; x++) { t[row + x] = acc; acc += a[row + Math.min(w - 1, x + r + 1)] - a[row + Math.max(0, x - r)]; } }
+    const n = (2 * r + 1) * (2 * r + 1);
+    for (let x = 0; x < w; x++) { let acc = 0; for (let y = -r; y <= r; y++) acc += t[clamp(y, 0, h - 1) * w + x]; for (let y = 0; y < h; y++) { o[y * w + x] = acc / n; acc += t[Math.min(h - 1, y + r + 1) * w + x] - t[Math.max(0, y - r) * w + x]; } }
+    return o;
+  }
+  function guided(I, p, w, h, r, eps) {
+    const n = w * h, Ip = new Float32Array(n), II = new Float32Array(n);
+    for (let i = 0; i < n; i++) { Ip[i] = I[i] * p[i]; II[i] = I[i] * I[i]; }
+    const mI = box(I, w, h, r), mp = box(p, w, h, r), mIp = box(Ip, w, h, r), mII = box(II, w, h, r), a = new Float32Array(n), b = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const v = mII[i] - mI[i] * mI[i]; a[i] = (mIp[i] - mI[i] * mp[i]) / (v + eps); b[i] = mp[i] - a[i] * mI[i]; }
+    const ma = box(a, w, h, r), mb = box(b, w, h, r), q = new Float32Array(n);
+    for (let i = 0; i < n; i++) q[i] = ma[i] * I[i] + mb[i];
+    return q;
+  }
+  function refine(m, frame, w, h) {
+    const d = frame.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data, I = new Float32Array(w * h);
+    for (let i = 0; i < I.length; i++) I[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) / 255;
+    const q = guided(I, m, w, h, Math.max(2, Math.round(Math.max(w, h) / 110)), 0.004), o = new Uint8Array(w * h);
+    for (let i = 0; i < o.length; i++) { const t = clamp((q[i] - 0.18) / 0.64, 0, 1); o[i] = Math.round(t * t * (3 - 2 * t) * 255); }
+    return o;
+  }
+
+  /* ── the source of a layer ── */
+  async function openVideo(id) {
+    const shown = R.assetImage(id);
+    if (!shown || !shown.duration) throw new Error('The video isn’t ready yet');
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = shown.currentSrc || shown.src;
+    await new Promise((res, rej) => { if (v.readyState >= 2) return res(); v.onloadeddata = res; v.onerror = () => rej(new Error('Could not read the video')); setTimeout(res, 8000); });
+    return v;
+  }
+  const seek = (v, time) => new Promise(res => {
+    let done = false;
+    const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin); res(); };
+    v.addEventListener('seeked', fin); setTimeout(fin, 3000);
+    v.currentTime = time;
+  });
+  const sizeOf = (iw, ih, L) => iw >= ih ? [L, Math.max(2, Math.round(L * ih / iw))] : [Math.max(2, Math.round(L * iw / ih)), L];
+
+  /* ── a run: every frame of the clip (or the one photo) ── */
+  // what: { people: bool, pts: [[u, v], …] } — u, v across the source picture
+  async function analyse(el, what, { onProgress = () => {}, signal, at } = {}) {
+    if (!el || el.type !== 'image' || !el.assetId) throw new Error('Pick a photo or video layer');
+    const people = !!what.people, pts = (what.pts || []).map(p => [p[0], p[1]]);
+    if (!people && !pts.length) throw new Error('Nothing to find — turn on People or click what to light up');
+    const isVid = R.isVideoAsset(el.assetId);
+    const shown = R.assetImage(el.assetId);
+    if (!shown) throw new Error('The picture isn’t ready yet');
+    const size = R.mediaSize(shown), [aw, ah] = sizeOf(size.w, size.h, AN);
+    // the times to look at (source time, seconds)
+    let times = [0], fps = 0, t0 = 0, v = null;
+    if (isVid) {
+      const vd = el.video || {}, dur = shown.duration, end = vd.end > 0 ? Math.min(dur, vd.end) : dur, ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05));
+      if (at != null) times = [at];
+      else {
+        const len = Math.max(0.05, end - ts);
+        // every frame of the clip (≤ 30 a second), fewer for long clips (≤ 2400 frames)
+        fps = clamp(Math.min(await R.clipFps(el.assetId) || 30, 30, 2400 / len), 2, 30);
+        const n = Math.max(1, Math.round(len * fps));
+        // sampled in the middle of each frame, so a seek can't land on the frame before
+        t0 = ts + 0.5 / fps; times = Array.from({ length: n }, (_, i) => Math.min(end - 0.02, t0 + i / fps));
+      }
+      v = await openVideo(el.assetId);
+    }
+    // mask size: sharper for short clips, ≤ ~110 MB of masks for long ones
+    const n = times.length, L = clamp(Math.floor(Math.sqrt(110e6 / n / (Math.min(aw, ah) / Math.max(aw, ah)))), 160, 512);
+    const [mw, mh] = sizeOf(size.w, size.h, L);
+    const masks = new Array(n);
+    const shiftMask = (m, du, dv) => {
+      const sx = Math.round(du * aw), sy = Math.round(dv * ah), o = new Float32Array(m.length);
+      for (let y = 0; y < ah; y++) { const yy = y - sy; if (yy < 0 || yy >= ah) continue; for (let x = 0; x < aw; x++) { const xx = x - sx; if (xx >= 0 && xx < aw) o[y * aw + x] = m[yy * aw + xx]; } }
+      return o;
+    };
+    const at01 = (m, u, v) => m[Math.min(ah - 1, Math.max(0, (v * ah) | 0)) * aw + Math.min(aw - 1, Math.max(0, (u * aw) | 0))];
+    // picks are clicked on one frame (what.at, in the clip's own time): follow them forwards from there, then backwards
+    const i0 = isVid && fps && what.at != null ? clamp(Math.round((what.at - t0) * fps), 0, n - 1) : 0;
+    const order = []; for (let i = i0; i < n; i++) order.push(i); for (let i = i0 - 1; i >= 0; i--) order.push(i);
+    const looks = pts.map(() => null), cutPeople = pts.map(() => false); // each thing's colours on the frame it was clicked on
+    const fresh = () => ({ keys: pts.map(p => p.slice()), last: pts.map(() => null), lastPm: pts.map(() => null), coast: pts.map(() => 0), prevGrey: null });
+    const copy = st => ({ keys: st.keys.map(k => k && k.slice()), last: st.last.slice(), lastPm: st.lastPm.slice(), coast: st.coast.slice(), prevGrey: st.prevGrey });
+    let st = fresh(), snap = null, done = 0;
+    // one clicked thing on one frame → its mask (or null)
+    async function pickOne(c, grey, j, cut) {
+      const prev = st.last[j], old = st.keys[j];
+      // the clicked spot follows the picture itself (patch matching from the last frame), then the model is asked there
+      const key = st.prevGrey ? follow(st.prevGrey, grey, aw, ah, old) : old;
+      const dx = key[0] - old[0], dy = key[1] - old[1], was = prev && shiftGrid(prev, dx, dy);
+      // (a single point: several points at once made the model spread onto whatever touches the thing)
+      let pm = await pickMask(c, key[0], key[1]), k = key;
+      // nothing far from where it just was: a gate around the last mask (moved with the spot), roomy enough to move and grow
+      const gate = was ? grow(was, Math.max(3, Math.round(Math.sqrt(area(was)) * 0.18))) : null;
+      const gated = m => { if (cut) for (let k = 0; k < m.length; k++) m[k] *= 1 - cut[k]; if (!gate) return m; const { g, gw, gh } = gate; for (let y = 0; y < ah; y++) { const gy = Math.min(gh - 1, (y * gh / ah) | 0) * gw; for (let x = 0; x < aw; x++) if (!g[gy + Math.min(gw - 1, (x * gw / aw) | 0)]) m[y * aw + x] = 0; } return m; };
+      pm = gated(pm);
+      let G = grid(pm, aw, ah);
+      // a good mask holds the spot, keeps about its size and still looks like what was clicked (so it can't slide onto
+      // something touching it — a person sitting on the picked chair)
+      const fits = (m, g, q) => at01(m, q[0], q[1]) >= 0.5 && area(g) <= area(was) * 2.2 && area(g) >= area(was) * 0.45 && (!looks[j] || same(looks[j], hist(grey.rgba, m)) >= 0.5);
+      if (was && !fits(pm, G, k)) {
+        // other spots to ask at: deep inside where it was (moved with the spot), and its middle
+        for (const q of [nextPrompt(was, key[0], key[1], 1.5), centroid(was)].filter(Boolean)) {
+          const pm2 = gated(await pickMask(c, q[0], q[1])), G2 = grid(pm2, aw, ah);
+          if (fits(pm2, G2, q) && !fits(pm, G, k) || iou(G2, was) > iou(G, was) && fits(pm2, G2, q) === fits(pm, G, k)) { pm = pm2; G = G2; k = q; }
+        }
+        // still nothing like it: it is probably hidden or blurred for a moment — carry the last mask along with the spot
+        if (!fits(pm, G, k)) {
+          if (st.coast[j]++ > 15) { st.keys[j] = key; return null; }
+          const m2 = shiftMask(st.lastPm[j], dx, dy);
+          st.lastPm[j] = m2; st.last[j] = was; st.keys[j] = key;
+          return m2;
+        }
+      }
+      if (area(G) < 2) { st.keys[j] = key; return null; }
+      if (!looks[j]) looks[j] = hist(grey.rgba, pm);
+      st.coast[j] = 0; st.last[j] = G; st.lastPm[j] = pm;
+      // a spot drifting onto the edge is pulled back inside, staying close to where it was
+      st.keys[j] = at01(pm, k[0], k[1]) < 0.75 ? nextPrompt(G, k[0], k[1], 1.5) || k : k;
+      return pm;
+    }
+    for (const i of order) {
+      if (signal && signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+      if (i === i0 - 1 && snap) st = copy(snap);
+      if (v) await seek(v, times[i]);
+      const c = frameCanvas(v || shown, aw, ah), grey = pts.length ? greyOf(c) : null;
+      // people are found when asked for — and also when something that isn't a person was clicked, so a person
+      // touching it (sitting on the picked chair, holding the picked cup) can be cut out of its mask
+      const pp = people || (pts.length && (i === i0 || cutPeople.some(Boolean))) ? await peopleMask(c) : null;
+      if (i === i0 && pp && !people) pts.forEach((q, j) => { cutPeople[j] = at01(pp, q[0], q[1]) < 0.3; });
+      let m = people ? pp.slice() : null;
+      for (let j = 0; j < pts.length; j++) {
+        const pm = await pickOne(c, grey, j, cutPeople[j] ? pp : null);
+        if (!pm) continue;
+        if (!m) m = pm.slice(); else for (let k = 0; k < m.length; k++) if (pm[k] > m[k]) m[k] = pm[k];
+      }
+      st.prevGrey = grey;
+      if (i === i0) snap = copy(st);
+      const small = resample(m || new Float32Array(aw * ah), aw, ah, mw, mh), fc = frameCanvas(c, mw, mh);
+      masks[i] = refine(small, fc, mw, mh);
+      onProgress(++done / n);
+      if (done % 2 === 0) await new Promise(r => setTimeout(r, 0));
+    }
+    if (v) { v.removeAttribute('src'); v.load(); }
+    // steadier edges: the median of each frame and its neighbours
+    const steady = masks.length < 3 ? masks : masks.map((m, i) => {
+      if (!i || i === masks.length - 1) return m;
+      const a = masks[i - 1], c = masks[i + 1], o = new Uint8Array(m.length);
+      for (let k = 0; k < m.length; k++) { const x = a[k], y = m[k], z = c[k]; o[k] = x > y ? (y > z ? y : x > z ? z : x) : (x > z ? x : y > z ? z : y); }
+      return o;
+    });
+    let cover = 0;
+    for (const m of steady) { let s = 0; for (let k = 0; k < m.length; k += 7) s += m[k]; cover = Math.max(cover, s / (m.length / 7) / 255); }
+    const sheets = await pack(steady, mw, mh);
+    return { of: el.assetId, people, pts, at: what.at ?? null, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000 };
+  }
+  // masks → PNG sprite sheets (white, alpha = mask)
+  async function pack(masks, w, h) {
+    const cols = Math.max(1, Math.floor(SHEET / w)), rows = Math.max(1, Math.floor(SHEET / h)), per = cols * rows, ids = [];
+    for (let s = 0; s < masks.length; s += per) {
+      const list = masks.slice(s, s + per), r = Math.ceil(list.length / cols);
+      const c = document.createElement('canvas'); c.width = w * Math.min(cols, list.length); c.height = h * r;
+      const x = c.getContext('2d'), im = x.createImageData(w, h);
+      for (let k = 0; k < im.data.length; k += 4) im.data[k] = im.data[k + 1] = im.data[k + 2] = 255;
+      list.forEach((m, i) => { for (let k = 0; k < m.length; k++) im.data[k * 4 + 3] = m[k]; x.putImageData(im, (i % cols) * w, ((i / cols) | 0) * h); });
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      ids.push(S.addMedia(blob, 'image'));
+    }
+    return { ids, per, cols };
+  }
+
+  /* ── jobs (one per layer) ── */
+  const jobs = new Map();
+  S.subjectJob = id => jobs.get(id) || null;
+  // the frame on screen now, in the clip's own time
+  const nowAt = el => { const v = R.isVideoAsset(el.assetId) && R.assetImage(el.assetId); return v ? v.currentTime : null; };
+  // find the subject and keep it on the layer. quick = only the frame on screen (a preview while picking)
+  S.findSubject = async function (el, what, { quick = false } = {}) {
+    const id = el.id, old = jobs.get(id);
+    if (old) old.ctrl.abort();
+    const ctrl = new AbortController(), job = { id, p: 0, ctrl, quick, loading: !segs[what.people ? 'people' : 'pick'] };
+    jobs.set(id, job); S.emit('subject', id);
+    try {
+      const subj = await analyse(el, what, { signal: ctrl.signal, at: quick ? nowAt(el) : undefined, onProgress: p => { job.p = p; job.loading = false; S.emit('subjectprogress', id); } });
+      if (quick) subj.preview = true;
+      const cur = S.doc.elements.find(e => e.id === id);
+      if (cur) { S.changeEl(cur, e => { e.subj = subj; }); if (!quick) S.commit(); }
+      return subj;
+    } catch (e) {
+      if (e.name !== 'AbortError') throw e;
+      return null;
+    } finally {
+      if (jobs.get(id) === job) jobs.delete(id);
+      S.emit('subject', id);
+    }
+  };
+  S.cancelSubject = id => { const j = jobs.get(id); if (j) j.ctrl.abort(); };
+
+  /* ── picking on the canvas: click what should light up ── */
+  let picking = null;
+  const area0 = document.getElementById('stage-area');
+  S.isPickingSubject = () => !!picking;
+  function pickLayer() { return picking && S.doc.elements.find(e => e.id === picking.id); }
+  function drawDots() {
+    if (!picking) return;
+    const el = pickLayer(), map = el && R.videoSpaceMap(S.doc, el.id);
+    picking.dots.replaceChildren();
+    if (!map) return;
+    for (const p of picking.pts) {
+      const q = map.toCanvas(p[0], p[1]);
+      const d = document.createElement('span'); d.className = 'subj-dot';
+      d.style.left = (S.view.x + q.x * S.view.scale) + 'px'; d.style.top = (S.view.y + q.y * S.view.scale) + 'px';
+      picking.dots.append(d);
+    }
+  }
+  async function preview() {
+    const el = pickLayer();
+    if (!el) return;
+    picking.busy = true; picking.root.classList.add('busy');
+    try { await S.findSubject(el, { people: picking.people, pts: picking.pts, at: picking.at }, { quick: true }); }
+    catch (e) { S.emit('toast', e.message || 'Couldn’t find it'); }
+    if (picking) { picking.busy = false; picking.root.classList.remove('busy'); }
+  }
+  // opts: { people } — keep people found automatically too
+  S.startSubjectPick = function (el, opts = {}) {
+    if (!el || el.type !== 'image' || !area0) return;
+    S.endSubjectPick(false);
+    if (S.isPlaying && S.isPlaying()) S.pause();
+    if (S.endTrackPick) S.endTrackPick();
+    const root = document.createElement('div'); root.className = 'subj-pick';
+    const dots = document.createElement('div'); dots.className = 'subj-dots';
+    const bar = document.createElement('div'); bar.className = 'subj-bar';
+    bar.innerHTML = S.mobile ? '<span>Tap things to light them up · tap a dot to undo</span>'
+      : '<span>Click what should light up — click more things to add them, Alt-click a dot to remove it.</span>';
+    const done = document.createElement('button'); done.type = 'button'; done.className = 'btn primary'; done.textContent = 'Done';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn'; cancel.textContent = 'Cancel';
+    bar.append(cancel, done);
+    root.append(dots, bar);
+    area0.append(root);
+    const prev = el.subj ? JSON.parse(JSON.stringify(el.subj)) : null;
+    // clicks are made on the frame on screen; earlier picks were made on their own frame, so they start over
+    const at = nowAt(el), same = el.subj && el.subj.at != null && at != null && Math.abs(el.subj.at - at) < 0.02;
+    picking = { id: el.id, root, dots, at, pts: same || at == null ? ((el.subj && el.subj.pts) || []).map(p => p.slice()) : [], people: opts.people ?? !!(el.subj && el.subj.people), prev };
+    root.addEventListener('pointerdown', async e => {
+      if (e.target.closest('.subj-bar')) return;
+      e.preventDefault(); e.stopPropagation();
+      const lay = pickLayer(), map = lay && R.videoSpaceMap(S.doc, lay.id);
+      if (!map) return;
+      const p = S.docPoint(e.clientX, e.clientY), q = map.fromCanvas(p.x, p.y);
+      // the nearest dot (Alt-click, or a tap right on a dot, takes it away)
+      let bi = -1, bd = 1e9;
+      picking.pts.forEach((c, i) => { const a = map.toCanvas(c[0], c[1]), d = Math.hypot(a.x - p.x, a.y - p.y); if (d < bd) { bd = d; bi = i; } });
+      if (bi >= 0 && (e.altKey ? bd < 40 / S.view.scale : e.pointerType === 'touch' && bd < 22 / S.view.scale)) picking.pts.splice(bi, 1);
+      else {
+        if (q.u < 0 || q.v < 0 || q.u > 1 || q.v > 1) { S.emit('toast', 'Click on the photo or video itself'); return; }
+        picking.pts.push([Math.round(q.u * 1e4) / 1e4, Math.round(q.v * 1e4) / 1e4]);
+      }
+      drawDots();
+      if (picking.pts.length || picking.people) preview();
+      else S.changeEl(lay, x => { delete x.subj; });
+    });
+    cancel.addEventListener('click', () => S.endSubjectPick(false));
+    done.addEventListener('click', () => S.endSubjectPick(true));
+    drawDots();
+    S.emit('subjectpick', true);
+  };
+  // keep = run the whole clip with what was picked; otherwise put things back as they were
+  S.endSubjectPick = function (keep) {
+    if (!picking) return;
+    const p = picking; picking = null;
+    p.root.remove();
+    const el = S.doc.elements.find(e => e.id === p.id);
+    S.cancelSubject(p.id);
+    S.emit('subjectpick', false);
+    if (!el) return;
+    if (!keep) { S.changeEl(el, e => { if (p.prev) e.subj = p.prev; else delete e.subj; }); return; }
+    if (!p.pts.length && !p.people) { S.changeEl(el, e => { delete e.subj; }); S.commit(); return; }
+    S.findSubject(el, { people: p.people, pts: p.pts, at: p.at }).catch(e => S.emit('toast', e.message || 'Couldn’t follow it through the video'));
+  };
+  // a subject style on a layer whose picture is new (replaced, or a template's sample photo): find the people in it
+  // (only once per picture: not again after it failed or the user threw the result away)
+  const tried = new Set();
+  S.autoSubject = function (el, { force = false } = {}) {
+    const ST = window.StudioStyles, d = el && el.sfx && ST && ST.byId(el.sfx.id);
+    const wants = d && (d.subject || el.sfx.region === 'subject' || el.sfx.region === 'background');
+    if (!wants || el.type !== 'image' || !el.assetId || R.hasSubject(el) || jobs.has(el.id) || picking) return null;
+    const key = el.id + '|' + el.assetId;
+    if (tried.has(key) && !force) return null;
+    tried.add(key);
+    return S.findSubject(el, { people: true });
+  };
+  S.forgetSubject = function (el) { tried.add(el.id + '|' + el.assetId); S.changeEl(el, e => { delete e.subj; }); S.commit(); };
+  // look as soon as a design with such a layer opens (templates), or a layer gets a new picture
+  let lookT = 0;
+  const lookAll = () => { clearTimeout(lookT); lookT = setTimeout(() => { for (const el of S.doc.elements) { const p = S.autoSubject(el); if (p) p.catch(() => {}); } }, 600); };
+  S.on('doc', lookAll); S.on('replaced', lookAll); S.on('history', lookAll);
+  S.on('view', drawDots);
+  window.addEventListener('keydown', e => { if (picking && e.key === 'Escape') { e.stopPropagation(); S.endSubjectPick(true); } }, true);
+  S.on('selection', () => { if (picking && !S.selEls().some(e => e.id === picking.id)) S.endSubjectPick(true); });
+})();
+
+</script>
+<script>
 /* Collage Studio — panels, inspector, popovers and dialogs. */
 (function () {
   'use strict';
@@ -25675,7 +26579,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   /* ───────────────────────── icons ───────────────────────── */
 
   const ICONS = {
-    plus: 'M12 5v14M5 12h14', minus: 'M5 12h14',
+    plus: 'M12 5v14M5 12h14', minus: 'M5 12h14', user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20c.6-3.4 3.7-5.6 7.5-5.6s6.9 2.2 7.5 5.6',
     sliders: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4', drop: 'M12 3.5s6 6.4 6 10.8a6 6 0 0 1-12 0C6 9.9 12 3.5 12 3.5z',
     blend: 'M9.5 15.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM14.5 19.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z',
     move: 'M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3',
@@ -29612,7 +30516,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   const saveFavs = () => { try { localStorage.setItem('studio.styleFavs', JSON.stringify([...favs])); } catch (e) { /* ignore */ } };
 
   const ui = { sub: 'explore', q: '' };
-  const SUGGEST = ['golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'vitrine'];
+  const SUGGEST = ['flash-light', 'golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'bloom-mosh', 'vitrine'];
 
   /* ── what a style lands on ── */
   // a group picked on the timeline (S.groupTarget, timeline.js) takes the style as one picture
@@ -29634,6 +30538,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
     const cur = currentSfx();
     if (cur && cur.id === id) return;
     setSfx(Object.assign(ST.defaults(id), { seed: (cur && cur.seed) || 1 }));
+    if (ST.byId(id).subject) autoSubject();
     toast(`${ST.byId(id).name} — ${target().kind === 'doc' ? 'on the whole canvas' : target().kind === 'group' ? 'on the whole group' : 'on this layer'}`, { label: 'Undo', run: () => S.undo && S.undo() });
   }
   function restyle() {
@@ -29791,6 +30696,50 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   S.on('doc', refresh);
   S.on('history', refresh);
 
+  /* ── the subject (subject.js): what Flash Light lights up, or where any style is kept ── */
+  const media = () => { const t = target(); return t.kind === 'el' ? t.els.filter(e => e.type === 'image' && e.assetId) : []; };
+  // a subject style on a photo / video with no subject yet: find the people in it straight away
+  function autoSubject() {
+    if (!S.findSubject) return;
+    for (const el of media()) {
+      const run = S.autoSubject(el, { force: true });
+      if (!run) continue;
+      run.then(sj => {
+        if (sj && sj.cover < 0.01) toast('No people found — pick what should light up', { label: 'Pick', run: () => { const e = S.doc.elements.find(x => x.id === el.id); if (e) S.startSubjectPick(e, { people: false }); } });
+      }).catch(err => toast(err.message || 'Couldn’t look for people — check the connection'));
+    }
+  }
+  function subjectControls(d, cur) {
+    const els = media();
+    if (!els.length || !S.findSubject) return [];
+    const el = els[0], sj = R.hasSubject(el) ? el.subj : null, job = S.subjectJob(el.id), kids = [h('div.st-group', null, d.subject ? 'What lights up' : 'Subject')];
+    // a subject style showing on a picture nobody looked at yet (a template's photo, a new clip): look now
+    if (!d.subject) kids.push(row('Apply to', selectCtl('sel', 'sfx.region', [['all', 'Everything'], ['subject', 'Only the subject'], ['background', 'Only the background']], {
+      def: cur.region || 'all',
+      set: v => { S.change('sel', 'sfx.region', v === 'all' ? null : v); if (v !== 'all') autoSubject(); U.renderInspector(); },
+    })));
+    if (job) {
+      kids.push(h('p.hint', null, job.quick ? 'Finding it…' : job.loading ? 'Loading the detector…' : R.isVideoAsset(el.assetId) ? 'Following it through the video…' : 'Finding it…'),
+        full(h('div.progress.subj-progress', null, h('div', { style: { width: Math.round(job.p * 100) + '%' } }))),
+        job.quick ? null : full(h('button.btn', { type: 'button', onclick: () => S.cancelSubject(el.id) }, 'Cancel')));
+      return kids;
+    }
+    if (!d.subject && (cur.region || 'all') === 'all' && !sj) return kids;
+    const picks = sj && sj.pts ? sj.pts.length : 0, picking = S.isPickingSubject && S.isPickingSubject();
+    const what = !sj ? (d.subject ? 'Guessing the subject for now — find it for a clean result.' : 'Find the subject first.')
+      : sj.preview ? 'Picked on this frame — press Done to follow it through the video.'
+      : [sj.people ? 'People' : null, picks ? `${picks} picked thing${picks > 1 ? 's' : ''}` : null].filter(Boolean).join(' + ') + (sj.cover < 0.01 ? ' — nothing found here' : (sj.n > 1 ? ` · followed through ${sj.n} frames` : ' · found'));
+    kids.push(h('p.hint', null, what));
+    kids.push(full(h('div.btn-row', null,
+      h('button.btn.grow' + (sj && sj.people ? '.on' : ''), { type: 'button', title: 'Find every person automatically', onclick: () => S.findSubject(S.selEls()[0], { people: !(sj && sj.people) || !picks, pts: sj ? sj.pts : [], at: sj ? sj.at : null }).catch(err => toast(err.message)) }, ic('user'), 'People'),
+      h('button.btn.grow' + (picking ? '.on' : ''), { type: 'button', title: 'Click anything on the photo or video to light it up', onclick: () => S.startSubjectPick(S.selEls()[0]) }, ic('target'), picks ? 'Pick more' : 'Pick objects'),
+      sj ? h('button.btn', { type: 'button', title: 'Forget the subject', 'aria-label': 'Forget the subject', onclick: () => { S.forgetSubject(S.selEls()[0]); U.renderInspector(); } }, ic('trash')) : null)));
+    return kids;
+  }
+  S.on('subject', () => U.renderInspector());
+  S.on('subjectpick', () => U.renderInspector());
+  S.on('subjectprogress', () => { const j = S.selEls()[0] && S.subjectJob(S.selEls()[0].id), bar = document.querySelector('.subj-progress > div'); if (j && bar) bar.style.width = Math.round(j.p * 100) + '%'; });
+
   /* ── inspector: the style's own controls ── */
   // T 'grp' = the targeted group: its style lives at doc.groups[gid].sfx
   const grpBase = () => { const t = target(); return t.kind === 'group' ? `groups.${t.gid}.sfx` : 'sfx'; };
@@ -29829,12 +30778,15 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
       h('button.btn.grow', { type: 'button', title: 'New random settings for this style', onclick: restyle }, ic('replace'), 'Restyle'),
       h('button.btn.grow', { type: 'button', title: 'Another style', onclick: shuffle }, ic('shuffle'), 'Shuffle'),
       h('button.btn', { type: 'button', title: 'Remove the style', 'aria-label': 'Remove the style', onclick: () => setSfx(null) }, ic('trash')))));
+    // what a Flash style lights up comes first; for other styles, where they apply comes last
+    if (!isDoc && !isGrp && d.subject) kids.push(...subjectControls(d, cur));
     for (const [g, title] of GROUPS) {
       const ps = d.params.filter(p => p.group === g && (!p.when || p.when(P)));
       if (!ps.length) continue;
       if (title) kids.push(h('div.st-group', null, title));
       for (const p of ps) kids.push(control(T, d, p, P));
     }
+    if (!isDoc && !isGrp && !d.subject) kids.push(...subjectControls(d, cur));
     if (isGrp) kids.push(toggle('doc', grpBase() + '.keepShape', 'Keep the group’s outline', { get: () => sfxOf('grp').keepShape !== false, set: v => { S.change('doc', grpBase() + '.keepShape', v); } }));
     else if (!isDoc) kids.push(toggle(T, 'sfx.keepShape', 'Keep the layer’s outline', { get: () => sfxOf(T).keepShape !== false, set: v => { S.change(T, 'sfx.keepShape', v); } }));
     return sec('Style', kids, true, { key: 'style', collapsible: false });
