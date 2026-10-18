@@ -1,1 +1,4 @@
 dev-out/
+# the camera looks pack is built on demand (node studio/tools/camera_looks/build.js)
+studio/dist/camera-looks/
+studio/dist/camera-looks.zip

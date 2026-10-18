@@ -93,6 +93,8 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   Then: Subject FX (13 looks on the found / picked subject: ASCII Subject, Matrix Rain, Neon Outline, Hologram, Echo
   Trail, Glitch Subject, Pixel Subject, Colour Pop, Silhouette, Spotlight, Heat Vision, X-Ray, Sticker Cut-out) with a
   background treatment and "Effect on → Everything else", 6 more Image styles templates.
+  Then: the camera looks pack (`studio/tools/camera_looks/build.js` → a zip of all 52 photo looks for the owner's live camera
+  app: looks.json, maths, reference code, WebGL renderer + preview page, LUTs, check images, a brief for Claude).
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 

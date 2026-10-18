@@ -384,6 +384,13 @@ One **Text slides** family holds 69 typographic quote posters in the style of Pi
 - **Screen close-up** (Canvas → Finish → +): put any design on a "real screen" — pixel size, pixel grid, depth of field and dust. The pixels show when the camera is zoomed in; press play to see the look in the editor.
 - **Smooth cam text** template family (video, 4 orientations: story, portrait, square, landscape — plus *Your canvas* for any size): words pull into focus one after another (*you’ve* · *probably* · *seen those*), the camera whips up to the headline with motion blur and a tilt, settles and pushes in slowly, the headline changes into italic with new word sizes, and the exposure flashes at the end. Resize the canvas and it re-flows, keeping the words you typed. New pieces it uses: a **Blur in (focus)** entrance for any layer and a **Smooth cam (keyframes)** camera path.
 
+## Camera looks pack (for another app)
+
+`node studio/tools/camera_looks/build.js` packs every photo look (the Film, Colour, B&W, Print and Effects shelves) for a
+live camera app: `studio/dist/camera-looks.zip` with the looks as JSON, the exact maths, the editor's own code for them, a
+real-time WebGL version with its shaders and a live webcam preview page (`web/preview.html`), 3D LUTs (`.cube` and PNG),
+sample photos with the expected results, and `CLAUDE_BRIEF.md` — instructions for Claude to build the looks into an app.
+
 ## Finding the subject (Flash Light, *Apply to* subject / background)
 
 Runs in the browser with Google's MediaPipe Tasks (`@mediapipe/tasks-vision` from jsDelivr): the *selfie multiclass*
