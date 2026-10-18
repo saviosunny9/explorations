@@ -179,7 +179,7 @@
   /* ── registry ── */
   const LIST = [], BY = {};
   ST.CATS = [
-    ['ascii', 'ASCII & Text'], ['pixel', 'Pixel & Blocks'], ['print', 'Print & Paper'], ['geo', 'Geometric'], ['distort', 'Distort'],
+    ['dream', 'Dreamy Motion'], ['ascii', 'ASCII & Text'], ['pixel', 'Pixel & Blocks'], ['print', 'Print & Paper'], ['geo', 'Geometric'], ['distort', 'Distort'],
     ['blur', 'Blur & Focus'], ['glitch', 'Glitch & Signal'], ['light', 'Light & Color'], ['glass', 'Glass'], ['material', 'Material & Texture'],
   ];
   const R_ = (key, label, min, max, def, o = {}) => Object.assign({ key, label, type: 'range', min, max, def }, o);
@@ -1574,6 +1574,169 @@
       x.globalCompositeOperation = 'source-over';
       glow(x, e.W, e.H, e.W * 0.015, P.bloom / 100 * 0.6);
     },
+  });
+
+  /* ════════════════════════ DREAMY MOTION ════════════════════════
+     Two lens looks for moving pictures: the light smear (bright things leave long trails and ghost copies, like a slow
+     shutter dragged across a field at golden hour) and the dream glow (blown, blooming highlights, a moonlit
+     blue-violet grade, soft focus that melts towards dark edges, grain and a hand-held drift). */
+  const GRADES = {
+    golden: { lift: '#2a1606', tint: '#ffb347', hi: '#fff1d6', amt: 0.55 },
+    neutral: null,
+    cool: { lift: '#06121f', tint: '#7fb2ff', hi: '#eef6ff', amt: 0.45 },
+    dusk: { lift: '#1a0821', tint: '#ff6f91', hi: '#ffe6d6', amt: 0.5 },
+  };
+  // split-tone: shadows towards one colour, mids towards another, highlights towards a third, mixed in by amt
+  function grade(p, g) {
+    if (!g) return;
+    const lut = ramp([[0, g.lift], [0.55, g.tint], [1, g.hi]]), d = p.d;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = (lum(d[i], d[i + 1], d[i + 2]) * 255) | 0;
+      for (let j = 0; j < 3; j++) { const c = lut[v * 3 + j]; d[i + j] = lerp(d[i + j], d[i + j] < 128 ? 2 * d[i + j] * c / 255 : 255 - 2 * (255 - d[i + j]) * (255 - c) / 255, g.amt); }
+    }
+  }
+  function vignette(x, W, H, amt, col = '0,0,0') {
+    if (!(amt > 0)) return;
+    const g = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.28, W / 2, H / 2, Math.hypot(W, H) * 0.55);
+    g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${amt})`);
+    x.save(); x.fillStyle = g; x.fillRect(0, 0, W, H); x.restore();
+  }
+  function grainOver(x, W, H, amt, seed) {
+    if (!(amt > 0)) return;
+    const s = 2, w = Math.ceil(W / s), h = Math.ceil(H / s), c = canvas(w, h), cx = c.getContext('2d'), im = cx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) { const v = hash(i % w, (i / w) | 0, seed) * 255; im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+    cx.putImageData(im, 0, 0);
+    x.save(); x.globalCompositeOperation = 'overlay'; x.globalAlpha = amt; x.drawImage(c, 0, 0, W, H); x.restore();
+  }
+  // a one-sided smear: copies slid further and further along the direction, each fainter (a long shutter)
+  function smearCopies(src, w, h, D, ang, n, fade) {
+    const o = canvas(w, h), x = o.getContext('2d'), dx = Math.cos(ang), dy = Math.sin(ang);
+    for (let i = 0; i < n; i++) { const f = i / Math.max(1, n - 1); x.globalAlpha = i ? Math.min(1, (1 / (i + 1)) * (1 + fade)) : 1; x.drawImage(src, dx * D * f, dy * D * f, w, h); }
+    return o;
+  }
+  const SMEAR_P = [
+    S_('grade', 'Colour', [['golden', 'Golden hour'], ['neutral', 'As shot'], ['cool', 'Cool dusk'], ['dusk', 'Rose dusk']], 'golden'),
+    R_('length', 'Trail length', 0, 100, 55), R_('angle', 'Direction', -180, 180, 0), R_('ghosts', 'Ghost copies', 0, 5, 2),
+    R_('keep', 'Sharp picture', 0, 100, 72), R_('glow', 'Light glow', 0, 100, 75), R_('soft', 'Soft focus', 0, 100, 25),
+    R_('haze', 'Haze at the top', 0, 100, 25), R_('vig', 'Dark edges', 0, 100, 45), R_('grain', 'Grain', 0, 100, 20), R_('pan', 'Camera pan', 0, 100, 45),
+  ];
+  function lightSmear(e, x) {
+    const P = e.P, w = e.w, h = e.h, t = e.t, pn = P.pan / 100;
+    // a slow sideways pan (on a still photo too), so the trails keep sweeping across like the camera is moving
+    const moved = canvas(w, h), mx = moved.getContext('2d'), z = 1 + 0.08 * pn, ang0 = P.angle * Math.PI / 180, sh = Math.sin(t * 0.45) * w * 0.035 * pn;
+    mx.translate(w / 2 + Math.cos(ang0) * sh, h / 2 + Math.sin(ang0) * sh); mx.scale(z, z); mx.translate(-w / 2, -h / 2); mx.drawImage(e.src, 0, 0, w, h);
+    const base = pix(moved, w, h);
+    e.tone(base.d); grade(base, GRADES[P.grade]); const b0 = put(base);
+    // soft focus first: the trails come from a slightly soft picture, the sharp one sits on top
+    const soft = P.soft > 0 ? (() => { const o = canvas(w, h), ox = o.getContext('2d'); ox.filter = `blur(${P.soft / 100 * w * 0.006}px)`; ox.drawImage(b0, 0, 0); return o; })() : b0;
+    const ang = P.angle * Math.PI / 180, breathe = 1 + Math.sin(t * 1.3) * 0.12, D = P.length / 100 * w * 0.45 * breathe;
+    const trail = smearCopies(soft, w, h, D, ang, clamp(Math.round(D / 2.5), 3, 48), 0.6);
+    const o = canvas(w, h), ox = o.getContext('2d');
+    ox.drawImage(trail, 0, 0);
+    // ghost copies: whole faint doubles further along, drifting with time
+    for (let k = 1; k <= P.ghosts; k++) {
+      const f = k / (P.ghosts + 1) * (1 + 0.18 * Math.sin(t * 0.9 + k * 1.7)), gd = D * 0.9 * f + w * 0.02 * k;
+      ox.globalAlpha = 0.32 / k; ox.globalCompositeOperation = 'screen';
+      ox.drawImage(soft, Math.cos(ang) * gd, Math.sin(ang) * gd + Math.sin(t * 0.7 + k) * h * 0.004, w, h);
+    }
+    ox.globalCompositeOperation = 'source-over';
+    ox.globalAlpha = P.keep / 100; ox.drawImage(soft, 0, 0); ox.globalAlpha = 1;
+    // light glow: the bright parts stretched along the trail and screened back on
+    if (P.glow > 0) {
+      const hp = pix(soft, w, h), d = hp.d;
+      for (let i = 0; i < d.length; i += 4) { const k = smooth(0.3, 0.75, lum(d[i], d[i + 1], d[i + 2])); d[i] *= k; d[i + 1] *= k; d[i + 2] *= k; }
+      // bright things streak; the darks stay dark because the streaks are screened on, never averaged in
+      const hs = smearCopies(put(hp), w, h, D * 1.6, ang, 28, 1.6), gl = canvas(w, h), gx = gl.getContext('2d');
+      gx.filter = `blur(${w * 0.006}px) saturate(1.3)`; gx.drawImage(hs, 0, 0);
+      ox.globalCompositeOperation = 'screen'; ox.globalAlpha = P.glow / 100; ox.drawImage(gl, 0, 0); ox.globalAlpha = 1; ox.globalCompositeOperation = 'source-over';
+    }
+    x.drawImage(o, 0, 0, e.W, e.H);
+    if (P.haze > 0) { const g = x.createLinearGradient(0, 0, 0, e.H * 0.45); g.addColorStop(0, `rgba(250,248,244,${P.haze / 100 * 0.95})`); g.addColorStop(0.55, `rgba(235,232,228,${P.haze / 100 * 0.35})`); g.addColorStop(1, 'rgba(235,232,228,0)'); x.fillStyle = g; x.fillRect(0, 0, e.W, e.H * 0.45); }
+    vignette(x, e.W, e.H, P.vig / 100 * 0.75);
+    grainOver(x, e.W, e.H, P.grain / 100 * 0.35, e.seed + Math.floor(t * 24));
+  }
+  def('light-smear', {
+    name: 'Light Smear', cat: 'dream', tags: 'Organic · Color', icon: '⇶', kind: 'filter', anim: true,
+    params: SMEAR_P, defaults: { grade: 'neutral', haze: 0, ghosts: 1 },
+    fn: lightSmear,
+  });
+  def('golden-drift', {
+    name: 'Golden Drift', cat: 'dream', tags: 'Organic · Retro', icon: '☼', kind: 'filter', anim: true,
+    params: SMEAR_P, defaults: { grade: 'golden', length: 60, ghosts: 2, haze: 30 },
+    fn: lightSmear,
+  });
+  const DREAMS = {
+    moon: [[0, '#040b1e'], [0.22, '#132a6e'], [0.45, '#2f63d6'], [0.68, '#86aaf2'], [0.85, '#e6e4ff'], [1, '#ffffff']],
+    teal: [[0, '#02121a'], [0.3, '#0b4d63'], [0.55, '#2aa6b8'], [0.8, '#b9f0ee'], [1, '#ffffff']],
+    rose: [[0, '#1a0618'], [0.3, '#6b1f5c'], [0.55, '#d0628f'], [0.8, '#ffd3dc'], [1, '#fffaf6']],
+    amber: [[0, '#140802'], [0.3, '#5c2a08'], [0.55, '#d97a1e'], [0.8, '#ffe0a8'], [1, '#fffaf0']],
+  };
+  const DREAM_P = [
+    S_('palette', 'Colour', [['moon', 'Moonlight'], ['teal', 'Teal night'], ['rose', 'Rose'], ['amber', 'Amber']], 'moon'),
+    R_('bloom', 'Bloom', 0, 100, 70), R_('soft', 'Soft focus', 0, 100, 55), R_('blowout', 'Blown highlights', 0, 100, 55),
+    R_('colour', 'Grade strength', 0, 100, 75), R_('edges', 'Dreamy edges', 0, 100, 60), R_('grain', 'Grain', 0, 100, 35),
+    R_('sway', 'Hand-held drift', 0, 100, 45), R_('flares', 'Light specks', 0, 100, 30),
+  ];
+  function dreamGlow(e, x) {
+    const P = e.P, w = e.w, h = e.h, t = e.t, sw = P.sway / 100;
+    // the camera floats a little: slow drift and breathing zoom
+    const z = 1 + 0.04 * sw + Math.sin(t * 0.7) * 0.015 * sw, ox0 = Math.sin(t * 0.53) * w * 0.012 * sw, oy0 = Math.cos(t * 0.41) * h * 0.01 * sw;
+    const moved = canvas(w, h), mx = moved.getContext('2d');
+    mx.translate(w / 2 + ox0, h / 2 + oy0); mx.scale(z, z); mx.translate(-w / 2, -h / 2); mx.drawImage(e.src, 0, 0, w, h);
+    const p = pix(moved, w, h), d = p.d, lut = ramp(DREAMS[P.palette] || DREAMS.moon), k = P.colour / 100, bo = P.blowout / 100;
+    e.tone(d);
+    for (let i = 0; i < d.length; i += 4) {
+      let L = lum(d[i], d[i + 1], d[i + 2]);
+      L = clamp(L + bo * 0.35 * smooth(0.35, 0.9, L), 0, 1);
+      const v = (L * 255) | 0;
+      // mostly the grade's own colours, a trace of the picture's (greens go teal, skin stays a little warm)
+      const g0 = L * 255;
+      for (let j = 0; j < 3; j++) d[i + j] = lerp(clamp(lerp(g0, d[i + j], 0.3) * (1 + bo * 0.5 * L), 0, 255), lut[v * 3 + j], k);
+    }
+    const graded = put(p), soft = canvas(w, h), sx = soft.getContext('2d');
+    sx.filter = `blur(${P.soft / 100 * w * 0.012}px)`; sx.drawImage(graded, 0, 0);
+    const o = canvas(w, h), oc = o.getContext('2d');
+    oc.drawImage(soft, 0, 0);
+    // even softer and darker towards the edges, like a cheap lens wide open
+    if (P.edges > 0) {
+      const eb = canvas(w, h), ex = eb.getContext('2d');
+      ex.filter = `blur(${w * 0.03 * P.edges / 100}px) brightness(${1 - P.edges / 100 * 0.35})`; ex.drawImage(graded, 0, 0); ex.filter = 'none';
+      const m = canvas(w, h), mk = m.getContext('2d'), g = mk.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.22, w / 2, h / 2, Math.hypot(w, h) * 0.52);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)'); mk.fillStyle = g; mk.fillRect(0, 0, w, h);
+      ex.globalCompositeOperation = 'destination-in'; ex.drawImage(m, 0, 0);
+      oc.drawImage(eb, 0, 0);
+    }
+    // bloom: the bright parts blurred wide and screened back twice, breathing a little
+    if (P.bloom > 0) {
+      const hp = pix(soft, w, h), hd = hp.d;
+      for (let i = 0; i < hd.length; i += 4) { const kk = smooth(0.4, 0.95, lum(hd[i], hd[i + 1], hd[i + 2])); hd[i] *= kk; hd[i + 1] *= kk; hd[i + 2] *= kk; }
+      const hl = put(hp), gl = canvas(w, h), gx = gl.getContext('2d'), br = 1 + Math.sin(t * 1.1) * 0.12 * sw;
+      gx.filter = `blur(${w * 0.04}px)`; gx.drawImage(hl, 0, 0); gx.filter = `blur(${w * 0.012}px)`; gx.drawImage(hl, 0, 0);
+      oc.globalCompositeOperation = 'screen'; oc.globalAlpha = clamp(P.bloom / 100 * 1.1 * br, 0, 1); oc.drawImage(gl, 0, 0); oc.drawImage(gl, 0, 0); oc.globalAlpha = 1; oc.globalCompositeOperation = 'source-over';
+    }
+    x.drawImage(o, 0, 0, e.W, e.H);
+    const edgeCol = { moon: '8,16,64', teal: '2,20,30', rose: '40,6,36', amber: '30,10,2' }[P.palette] || '24,8,70';
+    vignette(x, e.W, e.H, P.edges / 100 * 0.85, edgeCol);
+    // drifting specks of light, like dust catching the lamp
+    if (P.flares > 0) {
+      const r = rng(e.seed), n = Math.round(P.flares / 100 * 14);
+      x.save(); x.globalCompositeOperation = 'screen';
+      for (let i = 0; i < n; i++) {
+        const X = fract(r() + t * 0.01 * (r() - 0.5)) * e.W, Y = fract(r() + t * 0.008 * (r() - 0.3)) * e.H, s = (2 + r() * 5) * e.k, a = 0.4 + 0.5 * Math.sin(t * (1 + r() * 2) + r() * 6) ** 2;
+        const g = x.createRadialGradient(X, Y, 0, X, Y, s * 2.5); g.addColorStop(0, `rgba(235,240,255,${a})`); g.addColorStop(1, 'rgba(235,240,255,0)');
+        x.fillStyle = g; x.fillRect(X - s * 3, Y - s * 3, s * 6, s * 6);
+      }
+      x.restore();
+    }
+    grainOver(x, e.W, e.H, P.grain / 100 * 0.45, e.seed + Math.floor(t * 24));
+  }
+  def('dream-glow', {
+    name: 'Dream Glow', cat: 'dream', tags: 'Organic · Color', icon: '❂', kind: 'filter', anim: true,
+    params: DREAM_P, fn: dreamGlow,
+  });
+  def('night-bloom', {
+    name: 'Night Bloom', cat: 'dream', tags: 'Retro · Color', icon: '✺', kind: 'filter', anim: true,
+    params: DREAM_P, defaults: { palette: 'teal', bloom: 80, blowout: 40, edges: 70, flares: 50 }, fn: dreamGlow,
   });
 
   /* ════════════════════════ GLASS ════════════════════════ */

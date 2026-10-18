@@ -11,7 +11,7 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `stickers.js`, `stickers-game.js` | 170 recolourable SVG stickers, including glossy game-UI icons and crystals |
 | `nature.js` | Procedural garden painters (lawn hills, flower beds, bushes, hedges, trees, clouds, sky) and 9 garden backdrops |
 | `render.js` | Canvas renderer for every element type, used by both the editor and export |
-| `styles.js` | 105 realtime image styles (ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
+| `styles.js` | 109 realtime image styles (dreamy motion, ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
 | `styles-ui.js` | The Styles panel, the Style section of the inspector and the action bar under the canvas |
 | `app.js` | Editor core: stage, selection, snapping & guides, transforms, text editing, crop, history, import |
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
@@ -39,7 +39,7 @@ Open the same link on a phone and the editor switches to a phone layout on its o
 - Menus, colour pickers and dialogs (export, canvas size…) slide up from the bottom. Handles are bigger for fingers.
 - Turn the phone sideways and the sheets sit beside the canvas instead of under it.
 
-## Styles (105 realtime looks)
+## Styles (109 realtime looks)
 
 The editor opens on **Styles** (first button on the left). Pick a style and it is applied at once: to the selected
 layer(s) — a photo, a video, text, a sticker — or, with nothing selected, to the **whole canvas** (the line *Applies to*
@@ -47,6 +47,13 @@ under the tabs says which). Every thumbnail is the real style run on a small cop
 your own photo in each look. **Explore** lists them by family; **Favorites** keeps the ones you star (★ on a tile);
 the search finds names and tags (Mono, Retro, Glitch…).
 
+- **Dreamy Motion** (made for videos — they drift and breathe as the clip plays): **Light Smear** / **Golden Drift** —
+  bright things leave long light trails and faint ghost copies, like a slow shutter dragged across a field at golden
+  hour (colour: Golden hour, As shot, Cool dusk, Rose dusk; trail length and direction, ghost copies, how much of the
+  sharp picture stays, light glow, soft focus, haze at the top, dark edges, grain, a slow camera pan so the trails sweep
+  even on a still photo). **Dream Glow** / **Night Bloom** —
+  blown, blooming highlights, a moonlit blue (or teal, rose, amber) grade, soft focus melting into dark dreamy edges,
+  grain, a hand-held drift and specks of light.
 - **ASCII & Text**: Characters (17 character sets — Standard, Classic ASCII, Blocks, Braille, Binary, Katakana… — or your
   own), ASCII Studio, Block, Dots, Mixed, Braille (real 2×4 dot characters).
 - **Pixel & Blocks**: Pixel Art (Pico-8, NES, Game Boy… palettes, outline, dither), Mosaic, LEGO (real brick colours, studs),
@@ -78,7 +85,7 @@ keeps a cut-out or text shaped like itself. Styles work on videos frame by frame
 The bar under the canvas: tools, then **Upload**, **Inspire** (a sample photo to try styles on), **Restyle**,
 **Shuffle**, **Library** (your photos) and **Export**.
 
-The **Image styles** template family (14) shows one look each on a demo photo — ASCII portrait, 1-bit dither, Pixel art,
+The **Image styles** template family (16) shows one look each on a demo photo — Golden drift (video), Dream glow (video), ASCII portrait, 1-bit dither, Pixel art,
 Brick mosaic, Risograph print, Halftone poster, Cyanotype, Fluted glass, CRT screen (video), Thermal camera, Datamosh
 (video), Kaleidoscope (video), Liquid chrome, Edge glow — swap in your own photo or video.
 

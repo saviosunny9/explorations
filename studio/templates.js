@@ -1240,6 +1240,8 @@
     ...(() => {
       const ST = window.StudioStyles;
       const LOOKS = [
+        ['st-golden', 'Golden drift', 'film-grass', 'golden-drift', {}, 'Golden Drift', true],
+        ['st-dream', 'Dream glow', 'film-portrait', 'dream-glow', {}, 'Dream Glow', true],
         ['st-ascii', 'ASCII portrait', 'ed-curls', 'characters', { size: 9 }, 'Characters'],
         ['st-dither', '1-bit dither', 'ed-suit', 'dither', { algo: 'atkinson', pixel: 3 }, 'Dither'],
         ['st-pixel', 'Pixel art', 'ed-smile', 'pixel-art', { size: 10 }, 'Pixel Art'],
@@ -2446,7 +2448,7 @@
 
   // families of variations show as one card in the panel and open into all their styles
   const GROUPS = {
-    'Image styles': ['st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-datamosh', 'st-kaleido', 'st-chrome', 'st-edge'],
+    'Image styles': ['st-golden', 'st-dream', 'st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-datamosh', 'st-kaleido', 'st-chrome', 'st-edge'],
     'Vox explainer': [], 'Moving grids': [], 'Photo piles': [], 'Strips & panels': [],
     'Text slides': ['ts-created', 'ts-goal', 'ts-earth', 'ts-crisis', 'ts-brands', 'ts-made', 'ts-align', 'ts-dress', 'ts-meant', 'ts-new', 'ts-visuals', 'ts-average', 'ts-cool', 'ts-iamart', 'ts-redact', 'ts-rest', 'ts-chase', 'ts-chapter', 'ts-do', 'ts-action', 'ts-where', 'ts-norest', 'ts-scribble', 'ts-feeling', 'ts-museum', 'ts-story', 'ts-justdo', 'ts-notend', 'ts-consume', 'ts-love', 'ts-now', 'ts-austen', 'ts-son', 'ts-sleep', 'ts-laziest', 'ts-gofor', 'ts-normalize', 'ts-purpose', 'ts-passion', 'ts-artflip', 'ts-exactly', 'ts-identity', 'ts-ability', 'ts-tryagain', 'ts-authentic', 'ts-happen', 'ts-memories', 'ts-now2', 'ts-hands', 'ts-messy', 'ts-start', 'ts-rushed', 'ts-develop', 'ts-addicted', 'ts-makeit', 'ts-dothis', 'ts-mostcreative', 'ts-busy', 'ts-lesscare', 'ts-chapter2', 'ts-overthink', 'ts-athletes', 'ts-curated', 'ts-outside', 'ts-done', 'ts-whatmakes', 'ts-support', 'ts-takerisk', 'ts-thinkbig'],
     'Photo effects': ['px-scribble', 'px-strips', 'px-censor', 'px-mosaic', 'px-mirror', 'px-eyes', 'px-childhood', 'px-note', 'px-words', 'px-brandfade', 'px-faceswap', 'px-ghost', 'px-phone', 'px-signed', 'px-redbar', 'px-taped', 'px-redprint', 'px-backdrop', 'px-gridpaper', 'px-letter', 'px-quote', 'px-fieldnotes', 'px-belonged', 'px-touch', 'px-margins', 'px-worthy', 'px-sketchbook'],

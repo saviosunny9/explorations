@@ -37,7 +37,7 @@ requests unless asked.
 | `index.html` | Shell: top bar, left rail, panel, stage, inspector, dock, home overlay, script order. |
 | `render.js` | `window.StudioRender` (R). Pure canvas-2D renderer used by the editor, thumbnails and export. Every element type, filters, frames, text layout, animation, camera, video sync. |
 | `app.js` | `window.Studio` (S). Editor core: document state, Konva stage, selection, drag/resize, snapping, crop, path / spot editing, history, autosave + projects (IndexedDB), import, keyboard. |
-| `styles.js` | `window.StudioStyles` (ST): 105 realtime image styles in 10 families (`ST.CATS`), each `{ id, name, cat, tags, kind: 'cells' \| 'filter', anim, animIf, params, fn }`; `ST.apply(src, sfx, { t, mask, lim })` returns a restyled canvas. |
+| `styles.js` | `window.StudioStyles` (ST): 109 realtime image styles in 11 families (`ST.CATS`), each `{ id, name, cat, tags, kind: 'cells' \| 'filter', anim, animIf, params, fn }`; `ST.apply(src, sfx, { t, mask, lim })` returns a restyled canvas. |
 | `styles-ui.js` | Styles panel (`S.ui.registerPanel('styles')`), the inspector's Style section (`S.ui.addSection`), the action bar (Upload / Inspire / Restyle / Shuffle / Library / Export). |
 | `ui.js` | All DOM UI: panels (Templates, Elements, Text, Photos, Canvas, Layers), inspector per element type, home page, export dialog, timeline, menus, toasts. |
 | `vox.js` | `window.STUDIO_VOX`: Vox explainer scenes (21 kinds incl. 2.5D parallax), looks and templates, built from `doc.vox` (loaded before templates.js). |
@@ -145,6 +145,11 @@ are the bundled photos from `flashes.js`, `film-` from `filmphotos.js`, `ed-` fr
   `ST.moves(sfx)` (anim and not switched off; `animIf` for Characters / Mixed = only with *Randomize*) feeds `R.hasAnim`
   and `R.hasFilmMotion`; `ST.defaults(id)`, `ST.params(sfx)`, `ST.restyle(sfx)`. A new style: `def(id, { … })` in its
   family block; the panel, inspector, search and Shuffle pick it up.
+  Dreamy Motion (first family, from screen recordings): `lightSmear` (Light Smear / Golden Drift — split-tone `GRADES`,
+  one-sided `smearCopies` trail, drifting ghost copies, highlights streaked and *screened* on so darks stay dark, top haze,
+  vignette, grain) and `dreamGlow` (Dream Glow / Night Bloom — floating camera, desaturate then grade through `DREAMS`
+  ramps, blown highlights, soft focus, blurrier darker edges, double screened bloom, light specks, grain). Two tiles per
+  engine = the same `fn` with different `defaults`.
 - Layer blurs for non-photo layers: `el.tblur` holds the photo blur keys (motion, ghost, zoomBlur, spinBlur, blur, tiltShift,
   motionAngle, blurX/Y, tiltY/Size, blurArea, blurPts, blurFeather). `layerBlur` in `drawLayered` runs the photo blur
   functions on the cached bitmap, rescaled from the bitmap (with its bleed) to the layer's box; `R.layerBlurPad` widens
@@ -280,10 +285,10 @@ Playwright `devices['iPhone 13']`, `'Pixel 7'`, `'iPhone 13 landscape'`; multi-t
 A template is `{ id, name, tags, width, height, video?, build: () => doc }`. Helpers: `txt`, `img`,
 `stk`, `shp`, `rib`, `nat`, `cam`. Text can be placed by centre (`cx`, `cy`); widths are measured on
 load. Put a new family's ids in `GROUPS` (order = display order); `video: true` adds the badge and hover
-preview. Families so far: Image styles (14, one realtime style each, first in `GROUPS`), Typing screen (layout `typescreen`, 4 orientations), Type effects (7: word build, select sweep, word wall, blur shuffle), Screen close-up (4: phrase typing, comment thread), Smooth cam text (layout `smoothcam`, 4 orientations, words carried across re-flows by `key`), Text effects (8, incl. three Depth vision), eight moving-layout families (Scrolling wall, Card trail, Grid build, Photo drop, Fan stack, Strip conveyor, Zoom wall, Slide-in panels — 4 orientations each), Text slides (69), Photo effects (27, incl. eight handwritten journal layouts), Paper & ID (10), Film looks (16), Film camera (10), Stop motion, Speed flashes, Studio portrait, Newspaper
+preview. Families so far: Image styles (16, one realtime style each, first in `GROUPS`), Typing screen (layout `typescreen`, 4 orientations), Type effects (7: word build, select sweep, word wall, blur shuffle), Screen close-up (4: phrase typing, comment thread), Smooth cam text (layout `smoothcam`, 4 orientations, words carried across re-flows by `key`), Text effects (8, incl. three Depth vision), eight moving-layout families (Scrolling wall, Card trail, Grid build, Photo drop, Fan stack, Strip conveyor, Zoom wall, Slide-in panels — 4 orientations each), Text slides (69), Photo effects (27, incl. eight handwritten journal layouts), Paper & ID (10), Film looks (16), Film camera (10), Stop motion, Speed flashes, Studio portrait, Newspaper
 reveal, Typing, Match cut, Kinetic headline, Sticky notes, Rolling numbers, Word by word, Letter
 bounce, Life-sim garden, Ribbon poster, Motion blur, Camera view, Meet the team, Grid-paper notes,
-Polaroid POV, Wall calendar, Notebook tip — about 379 templates (104 of them Vox explainer). Removed on request (Oct 12): Everyday things, Film club ticket, Café chalkboard,
+Polaroid POV, Wall calendar, Notebook tip — about 381 templates (104 of them Vox explainer). Removed on request (Oct 12): Everyday things, Film club ticket, Café chalkboard,
 Happy birthday, Y2K vibes, This week, Review card, Coming soon, Halftone duo, Postfólio, Tools I use, Creative partner,
 Meet the agent, the Outfit line-up family, Quote card, Retro event, Photo dump, Mood board, New post story, Save the date and Big sale; their fonts are kept as Text styles and their stickers stay in Elements. Film templates build
 filters with `LOOK('<preset>', overrides)` so they stay in step with the presets.
