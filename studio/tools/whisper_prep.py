@@ -32,6 +32,11 @@ def get(url, dest):
 def main(out):
     raw = os.path.join(out, '.raw')
     get(TF + 'transformers.min.js', os.path.join(out, 'vendor', 'transformers.min.js'))
+    # the artifact publisher refuses a literal U+FFFD: transformers only has it inside string literals, so escape it
+    tfp = os.path.join(out, 'vendor', 'transformers.min.js')
+    src = open(tfp, encoding='utf-8').read()
+    if '\ufffd' in src:
+        open(tfp, 'w', encoding='utf-8').write(src.replace('\ufffd', '\\uFFFD'))
     get(TF + 'ort-wasm-simd-threaded.jsep.mjs', os.path.join(out, 'vendor', 'ort-wasm-simd-threaded.jsep.mjs'))
     for f in SMALL:
         get(HF + f, os.path.join(out, 'models', 'hf', MODEL, f))
