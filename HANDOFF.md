@@ -90,6 +90,9 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   segmentation + click-to-pick, followed through every video frame, saved as mask sheets; any style can be kept to the
   subject or the background) and Datamosh (5 looks — real frame-to-frame motion moshing, bloom mosh, mosh blocks, pixel
   drag, block dropout), 7 new Image styles templates.
+  Then: Subject FX (13 looks on the found / picked subject: ASCII Subject, Matrix Rain, Neon Outline, Hologram, Echo
+  Trail, Glitch Subject, Pixel Subject, Colour Pop, Silhouette, Spotlight, Heat Vision, X-Ray, Sticker Cut-out) with a
+  background treatment and "Effect on → Everything else", 6 more Image styles templates.
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 

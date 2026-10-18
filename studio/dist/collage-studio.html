@@ -14067,7 +14067,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   /* ── registry ── */
   const LIST = [], BY = {};
   ST.CATS = [
-    ['dream', 'Dreamy Motion'], ['flash', 'Flash Light'], ['mosh', 'Datamosh'], ['ascii', 'ASCII & Text'], ['pixel', 'Pixel & Blocks'], ['print', 'Print & Paper'], ['geo', 'Geometric'], ['distort', 'Distort'],
+    ['dream', 'Dreamy Motion'], ['flash', 'Flash Light'], ['subj', 'Subject FX'], ['mosh', 'Datamosh'], ['ascii', 'ASCII & Text'], ['pixel', 'Pixel & Blocks'], ['print', 'Print & Paper'], ['geo', 'Geometric'], ['distort', 'Distort'],
     ['blur', 'Blur & Focus'], ['glitch', 'Glitch & Signal'], ['light', 'Light & Color'], ['glass', 'Glass'], ['material', 'Material & Texture'],
   ];
   const R_ = (key, label, min, max, def, o = {}) => Object.assign({ key, label, type: 'range', min, max, def }, o);
@@ -15719,6 +15719,355 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     name: 'Neon Flash', cat: 'flash', tags: 'Light · Color', icon: '✦', kind: 'filter', anim: true, subject: true, noTone: true,
     params: FLASH_P, defaults: { color: '#7cf3ff', fill: 88, detail: 20, glow: 82, rim: 85, dim: 70, grade: 'dark', flicker: 12, grain: 22 }, fn: flashLight,
   });
+
+  /* ════════════════════════ SUBJECT FX ════════════════════════
+     Effects made from the subject itself — its shape, its outline, its movement — with the rest of the picture treated
+     on its own (as it is, darker, black & white, blurred, black, a colour). The subject comes from subject.js (o.subject,
+     people or picked things, followed through the video); without one it is guessed. Most can also be turned around
+     (Effect on → Everything else). */
+  // the subject at working size (M, 0..1) and at full size as an alpha mask (mc); flipped for "everything else"
+  function subjectOf(e) {
+    const flip = e.P.apply === 'background', M = subjectMap(e), w = e.w, h = e.h;
+    if (flip) for (let i = 0; i < M.length; i++) M[i] = 1 - M[i];
+    let mc;
+    if (e.o.subject && !flip) mc = e.o.subject;
+    else if (e.o.subject) { mc = canvas(e.W, e.H); const x = mc.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, e.W, e.H); x.globalCompositeOperation = 'destination-out'; x.drawImage(e.o.subject, 0, 0, e.W, e.H); }
+    else { const s = canvas(w, h), x = s.getContext('2d'), im = x.createImageData(w, h); for (let i = 0; i < M.length; i++) { im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = 255; im.data[i * 4 + 3] = M[i] * 255; } x.putImageData(im, 0, 0); mc = canvas(e.W, e.H); mc.getContext('2d').drawImage(s, 0, 0, e.W, e.H); }
+    // where it is: centre and size (for the spotlight)
+    let sx = 0, sy = 0, sn = 0, x0 = w, y0 = h, x1 = 0, y1 = 0;
+    for (let y = 0; y < h; y += 2) for (let q = 0; q < w; q += 2) { const m = M[y * w + q]; if (m > 0.5) { sx += q * m; sy += y * m; sn += m; if (q < x0) x0 = q; if (q > x1) x1 = q; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+    return { M, mc, cx: sn ? sx / sn / w : 0.5, cy: sn ? sy / sn / h : 0.5, bw: sn ? (x1 - x0) / w : 0.4, bh: sn ? (y1 - y0) / h : 0.6, any: sn > 0 };
+  }
+  // the rest of the picture, treated
+  function backdrop(e, x, mode, amt = 60, col = '#0b0b0f') {
+    const W = e.W, H = e.H, a = amt / 100;
+    if (mode === 'black' || mode === 'color') { x.fillStyle = mode === 'black' ? '#000' : col; x.fillRect(0, 0, W, H); return; }
+    x.save();
+    if (mode === 'mono' && 'filter' in x) x.filter = 'grayscale(1) contrast(1.08)';
+    if (mode === 'blur' && 'filter' in x) x.filter = `blur(${Math.max(1, a * 26 * e.k)}px)`;
+    x.drawImage(e.src, 0, 0, W, H);
+    x.restore();
+    if (mode === 'dim' || mode === 'blur') { x.fillStyle = `rgba(0,0,0,${mode === 'dim' ? a * 0.88 : a * 0.35})`; x.fillRect(0, 0, W, H); }
+  }
+  // a full-size picture kept to the subject's shape
+  function cut(fx, mc) { const c = canvas(fx.width, fx.height), x = c.getContext('2d'); x.drawImage(fx, 0, 0); x.globalCompositeOperation = 'destination-in'; x.drawImage(mc, 0, 0, c.width, c.height); return c; }
+  const toCanvas = (p, W, H) => { const c = canvas(W, H), x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.drawImage(put(p), 0, 0, W, H); return c; };
+  // a soft glow of a picture screened back over itself
+  function glowOver(x, c, r, a) { if (a <= 0 || !('filter' in x)) return; x.save(); x.globalCompositeOperation = 'screen'; x.globalAlpha = Math.min(1, a); x.filter = `blur(${r}px)`; x.drawImage(c, 0, 0); x.drawImage(c, 0, 0); x.restore(); }
+  const BGS = [['keep', 'As it is'], ['dim', 'Darker'], ['mono', 'Black & white'], ['blur', 'Blurred'], ['black', 'Black'], ['color', 'A colour']];
+  const BG_P = (def, amt = 60) => [
+    S_('bg', 'Background', BGS, def), R_('bgAmt', 'How much', 0, 100, amt, { when: P => P.bg === 'dim' || P.bg === 'blur' }), C_('bgColor', 'Colour', '#0b0b0f', { when: P => P.bg === 'color' }),
+  ];
+  const APPLY = S_('apply', 'Effect on', [['subject', 'The subject'], ['background', 'Everything else']], 'subject');
+  const SFX = (o) => Object.assign({ cat: 'subj', kind: 'filter', subject: true, noTone: true }, o);
+
+  /* ASCII: the subject rebuilt from characters — still, flickering, raining down (matrix) or scrambling in */
+  function asciiSubject(e, x) {
+    const P = e.P, S = subjectOf(e), W = e.W, H = e.H;
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    const sz = Math.max(3, P.size * e.k), g = cells(e, sz * 0.62, sz), chars = P.chars || SETS[P.set] || SETS.standard, list = [...chars], n = list.length;
+    const at = atlas(chars, g.cw, g.ch), t = e.t, fg = canvas(W, H), fx = fg.getContext('2d');
+    const mAt = (c, r) => S.M[Math.min(e.h - 1, ((r + 0.5) / g.rows * e.h) | 0) * e.w + Math.min(e.w - 1, ((c + 0.5) / g.cols * e.w) | 0)];
+    const heads = [];
+    for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+      const i = r * g.cols + c, m = mAt(c, r);
+      if (m < 0.45) continue;
+      let L = g.L[i], a = 1, k = Math.round((1 - L) * (n - 1));
+      if (P.motion === 'flicker') { if (hash(c, r, e.seed + Math.floor(t * 14)) < 0.18) k = Math.floor(hash(r, c, Math.floor(t * 14)) * (n - 1)); }
+      else if (P.motion === 'rain') {
+        // falling columns: a bright head with a fading tail, each column at its own speed
+        const sp = 0.5 + hash(c, 1, e.seed) * 1.2, len = 6 + hash(c, 2, e.seed) * 14, span = g.rows + len;
+        const head = fract(t * sp * 0.35 + hash(c, 3, e.seed)) * span, d = head - r;
+        a = d < 0 || d > len ? 0.12 : 1 - d / len;
+        if (d >= 0 && d < 1) heads.push([c, r]);
+        k = Math.floor(hash(c, r, e.seed + Math.floor(t * 10 + hash(c, r, 9) * 10)) * (n - 1));
+      } else if (P.motion === 'scramble') {
+        // each cell settles on its real character at its own moment, scrambling before that
+        const due = (hash(c, r, e.seed) * 0.7 + r / g.rows * 0.3) * 2.2, cyc = fract(t / 4.4) * 4.4;
+        if (cyc < due) { k = Math.floor(hash(c, r, Math.floor(t * 18)) * (n - 1)); a = cyc < due - 0.6 ? 0.25 : 0.8; }
+      }
+      if (list[k] === ' ') { if (P.motion === 'rain' && a > 0.2) k = Math.max(0, n - 2); else continue; }
+      fx.globalAlpha = a * Math.min(1, (m - 0.45) * 4);
+      fx.drawImage(at, k * at.cw, 0, at.cw, at.ch, c * g.cw, r * g.ch, g.cw, g.ch);
+    }
+    fx.globalAlpha = 1;
+    colorize(fx, g, P.colorMode === 'mono' ? P.ink : null);
+    if (heads.length) { fx.fillStyle = '#fff'; fx.globalCompositeOperation = 'source-atop'; for (const [c, r] of heads) fx.fillRect(c * g.cw, r * g.ch, g.cw, g.ch); fx.globalCompositeOperation = 'source-over'; }
+    glowOver(fx, fg, sz * 0.9, P.glow / 100);
+    x.drawImage(fg, 0, 0);
+  }
+  const ASCII_P = [
+    S_('motion', 'Animation', [['flicker', 'Flicker'], ['rain', 'Rain (matrix)'], ['scramble', 'Scramble in'], ['still', 'Still']], 'flicker'),
+    R_('size', 'Character size', 3, 60, 10), S_('set', 'Characters', setOpts, 'standard'), X_('chars', 'Own characters', ''),
+    S_('colorMode', 'Colour', [['image', 'From the picture'], ['mono', 'One colour']], 'image'), C_('ink', 'Ink', '#7dff9a', { when: P => P.colorMode === 'mono' }),
+    R_('glow', 'Glow', 0, 100, 35), ...BG_P('black'), APPLY,
+  ];
+  def('subj-ascii', SFX({ name: 'ASCII Subject', tags: 'Subject · ASCII', icon: '@', anim: true, animIf: P => P.motion !== 'still', params: ASCII_P, fn: asciiSubject }));
+  def('subj-matrix', SFX({ name: 'Matrix Rain', tags: 'Subject · ASCII', icon: '⋮', anim: true, params: ASCII_P, defaults: { motion: 'rain', set: 'katakana', colorMode: 'mono', ink: '#57ff7a', glow: 60, size: 12, bg: 'dim', bgAmt: 85 }, fn: asciiSubject }));
+
+  /* Neon outline: glowing rings around the subject — pulsing, marching dashes, rainbow */
+  function neonOutline(e, x) {
+    const P = e.P, S = subjectOf(e), w = e.w, h = e.h, kk = e.k * e.ws, t = e.t;
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    if (P.fill === 'dark') { x.save(); x.globalAlpha = 0.85; x.drawImage(cut((() => { const c = canvas(e.W, e.H), cx = c.getContext('2d'); cx.fillStyle = '#000'; cx.fillRect(0, 0, e.W, e.H); return c; })(), S.mc), 0, 0); x.restore(); }
+    const G = blur3(S.M, w, h, Math.max(1, P.gap * kk * 0.6)), p = pix(e.src, w, h), d = p.d, C = hex(P.color), C2 = hex(P.color2), wid = Math.max(0.8, P.width * kk * 0.22);
+    const pulse = P.pulse ? 0.65 + 0.35 * Math.sin(t * 5) : 1, rings = Math.max(1, Math.round(P.rings));
+    const LV = [], LD = [];
+    for (let k = 0; k < rings; k++) { LV.push(0.5 * Math.pow(0.42, k)); LD.push(1.6 / wid / (0.16 * Math.pow(0.42, k) + 1e-4)); }
+    const lo = LV[rings - 1] * 0.05;
+    for (let i = 0; i < w * h; i++) {
+      const gv = G[i], o = i * 4;
+      if (gv < lo || gv > 0.995) { d[o + 3] = 0; continue; }
+      const X = i % w, Y = (i / w) | 0;
+      let v = 0, kr = 0;
+      for (let k = 0; k < rings; k++) {
+        const r = 1 - Math.abs(gv - LV[k]) * LD[k];
+        if (r > v) { v = r; kr = k; }
+      }
+      if (v <= 0) { d[o + 3] = 0; continue; }
+      if (P.dash > 0 && v > 0) { const ang = Math.atan2(Y / h - S.cy, (X / w - S.cx) * w / h); if (fract(ang / TAU * P.dash + t * 0.5 * (kr % 2 ? -1 : 1)) > 0.55) v = 0; }
+      const f = P.rainbow ? hsl2rgb(fract(Math.atan2(Y / h - S.cy, X / w - S.cx) / TAU + t * 0.15 + kr * 0.12), 1, 0.6) : kr % 2 ? C2 : C;
+      d[o] = f[0]; d[o + 1] = f[1]; d[o + 2] = f[2]; d[o + 3] = v * 255 * pulse;
+    }
+    const c = toCanvas(p, e.W, e.H);
+    glowOver(x, c, 12 * e.k * (P.glow / 50), P.glow / 60 * pulse);
+    x.drawImage(c, 0, 0);
+  }
+  def('subj-outline', SFX({
+    name: 'Neon Outline', tags: 'Subject · Glow', icon: '◎', anim: true, animIf: P => P.pulse || P.dash > 0 || P.rainbow,
+    params: [R_('rings', 'Lines', 1, 4, 2), R_('width', 'Line width', 1, 40, 14), R_('gap', 'Space between', 2, 60, 18), C_('color', 'Colour', '#ff3df2'), C_('color2', 'Second colour', '#3df2ff'),
+      T_('rainbow', 'Rainbow'), R_('glow', 'Glow', 0, 100, 75), R_('dash', 'Dashes', 0, 40, 0), T_('pulse', 'Pulse', true),
+      S_('fill', 'Inside', [['keep', 'The subject'], ['dark', 'Dark']], 'keep'), ...BG_P('dim', 55)],
+    fn: neonOutline,
+  }));
+
+  /* Hologram: see-through cyan light with moving scan lines, flicker and slipping rows */
+  function hologram(e, x) {
+    const P = e.P, S = subjectOf(e), w = e.w, h = e.h, t = e.t, p = pix(e.src, w, h), d = p.d, C = hex(P.color), r = rng(e.seed + Math.floor(t * 20));
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    const fl = 1 - P.flicker / 100 * 0.5 * (vnoise(t * 11, 0, e.seed) > 0.7 ? 1 : vnoise(t * 3, 2, e.seed) * 0.5), lines = Math.max(2, P.lines * e.k * e.ws * 0.25);
+    const src = d.slice(), slip = new Int16Array(h);
+    for (let y = 0; y < h; y++) slip[y] = hash(Math.floor(y / 6), Math.floor(t * 8), e.seed) < P.glitch / 400 ? Math.round((r() - 0.5) * w * 0.08) : 0;
+    for (let y = 0; y < h; y++) {
+      const sc = 0.6 + 0.4 * Math.sin((y / lines - t * 3) * TAU * 0.5) ** 2, band = fract(y / h - t * 0.25) < 0.04 ? 1.6 : 1;
+      for (let q = 0; q < w; q++) {
+        const i = y * w + q, j = y * w + clamp(q + slip[y], 0, w - 1), o = i * 4, oj = j * 4;
+        const L = (src[oj] * 0.299 + src[oj + 1] * 0.587 + src[oj + 2] * 0.114) / 255, v = (0.35 + L * 0.9) * sc * band * fl;
+        d[o] = C[0] * v; d[o + 1] = C[1] * v; d[o + 2] = C[2] * v; d[o + 3] = 255 * S.M[j] * P.opacity / 100;
+      }
+    }
+    const c = toCanvas(p, e.W, e.H);
+    // a touch of colour fringing
+    x.save(); x.globalCompositeOperation = 'screen'; x.globalAlpha = 0.35; x.drawImage(tintCopy(c, '#ff2a6d'), -3 * e.k, 0); x.restore();
+    glowOver(x, c, 10 * e.k, P.glow / 100);
+    x.drawImage(c, 0, 0);
+  }
+  def('subj-hologram', SFX({
+    name: 'Hologram', tags: 'Subject · Sci-fi', icon: '⌬', anim: true,
+    params: [C_('color', 'Colour', '#4de8ff'), R_('opacity', 'Solid', 10, 100, 78), R_('lines', 'Scan lines', 2, 60, 14), R_('flicker', 'Flicker', 0, 100, 40), R_('glitch', 'Slipping rows', 0, 100, 35), R_('glow', 'Glow', 0, 100, 55), ...BG_P('dim', 75), APPLY],
+    fn: hologram,
+  }));
+
+  /* Echo trail: afterimages of the subject following it as it moves (on a photo: copies stepping away) */
+  const ECHO = new Map();
+  function echoTrail(e, x) {
+    const P = e.P, S = subjectOf(e), W = e.W, H = e.H, now = cut(e.src, S.mc), n = Math.round(P.copies);
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    // keep small copies of the subject from earlier frames (per layer, in order; a jump starts over)
+    const o = e.o, key = o.sid ? o.sid + '|echo' : null;
+    let hist = null;
+    if (key && o.tr != null) {
+      let st = ECHO.get(key);
+      if (!st || o.tr < st.t - 1e-4 || o.tr - st.t > 0.6 || st.W !== W) { st = { t: o.tr, W, list: [] }; ECHO.set(key, st); if (ECHO.size > 6) ECHO.delete(ECHO.keys().next().value); }
+      if (o.tr !== st.last) { const s = Math.min(1, 480 / Math.max(W, H)), c = canvas(W * s, H * s); c.getContext('2d').drawImage(now, 0, 0, c.width, c.height); st.list.push({ t: o.tr, c }); st.last = o.tr; }
+      const span = P.length / 100 * 1.6;
+      st.list = st.list.filter(q => o.tr - q.t <= span + 0.05); st.t = o.tr;
+      hist = st.list;
+    }
+    const tints = P.tint === 'rainbow' ? null : P.tint === 'color' ? P.color : null;
+    const draw = (c, a, k, dx = 0, dy = 0) => {
+      let im = c;
+      if (P.tint === 'rainbow') { const f = hsl2rgb(k / Math.max(1, n) * 0.85 + e.t * 0.1, 1, 0.55); im = tintCopy(c, rgbStr(f[0], f[1], f[2])); }
+      else if (tints) im = tintCopy(c, tints);
+      x.save(); x.globalAlpha = a; x.globalCompositeOperation = P.blend; x.drawImage(im, dx, dy, W, H); x.restore();
+    };
+    const span = P.length / 100 * 1.6;
+    if (hist && hist.length > 1) {
+      // n copies spread over the trail, oldest faintest
+      for (let k = n; k >= 1; k--) {
+        const want = o.tr - span * k / n; let best = null;
+        for (const q of hist) if (!best || Math.abs(q.t - want) < Math.abs(best.t - want)) best = q;
+        if (best && o.tr - best.t > 0.02) draw(best.c, (1 - k / (n + 1)) * P.fade / 100, k);
+      }
+    } else {
+      // a still picture: copies stepping away in a direction
+      const a = P.angle * Math.PI / 180, step = P.length / 100 * 0.06 * Math.min(W, H) / Math.max(1, n) * 3;
+      for (let k = n; k >= 1; k--) draw(now, (1 - k / (n + 1)) * P.fade / 100, k, Math.cos(a) * step * k, Math.sin(a) * step * k);
+    }
+    x.drawImage(now, 0, 0);
+  }
+  def('subj-echo', SFX({
+    name: 'Echo Trail', tags: 'Subject · Motion', icon: '❖', anim: true,
+    params: [R_('copies', 'Copies', 1, 12, 6), R_('length', 'Trail length', 5, 100, 45), R_('fade', 'Strength', 5, 100, 70),
+      S_('tint', 'Colour', [['none', 'Their own'], ['rainbow', 'Rainbow'], ['color', 'One colour']], 'rainbow'), C_('color', 'Trail colour', '#ff4fd8', { when: P => P.tint === 'color' }),
+      S_('blend', 'Blend', [['source-over', 'Normal'], ['screen', 'Light'], ['lighter', 'Glow'], ['multiply', 'Dark']], 'screen'), R_('angle', 'Direction (photos)', -180, 180, 180), ...BG_P('dim', 45)],
+    fn: echoTrail,
+  }));
+
+  /* Glitch: the subject cut into slipping slices with split colour, a new break every beat */
+  function glitchSubject(e, x) {
+    const P = e.P, S = subjectOf(e), W = e.W, H = e.H, beat = Math.floor(e.t * P.beat), r = rng(e.seed * 13 + beat), A = P.amount / 100;
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    const sub = cut(e.src, S.mc);
+    if (P.ghost) { x.save(); x.globalAlpha = 0.35; x.drawImage(sub, 0, 0); x.restore(); }
+    const sh = P.split / 100 * 14 * e.k;
+    const layer = canvas(W, H), lx = layer.getContext('2d');
+    let y = 0;
+    while (y < H) {
+      const bh = Math.max(2, (0.01 + r() * 0.07) * H), on = r() < A * 0.8, dx = on ? (r() - 0.5) * W * 0.18 * A : 0;
+      lx.drawImage(sub, 0, y, W, bh, dx, y, W, bh); y += bh;
+    }
+    x.save(); x.globalCompositeOperation = 'screen';
+    x.drawImage(tintCopy(layer, '#ff0000'), -sh, 0); x.drawImage(tintCopy(layer, '#00ff00'), 0, 0); x.drawImage(tintCopy(layer, '#0000ff'), sh, 0);
+    x.restore();
+    // a few blocks of the subject thrown out of place
+    for (let k = 0; k < Math.round(A * 10); k++) { const bw = W * (0.04 + r() * 0.12), bh = H * (0.01 + r() * 0.04), sx = S.cx * W + (r() - 0.5) * S.bw * W, sy = S.cy * H + (r() - 0.5) * S.bh * H; x.drawImage(sub, sx, sy, bw, bh, sx + (r() - 0.5) * W * 0.2, sy, bw, bh); }
+  }
+  def('subj-glitch', SFX({
+    name: 'Glitch Subject', tags: 'Subject · Glitch', icon: '▚', anim: true,
+    params: [R_('amount', 'Amount', 0, 100, 55), R_('split', 'Colour split', 0, 100, 45), R_('beat', 'Changes a second', 1, 24, 8), T_('ghost', 'Faint copy underneath', true), ...BG_P('keep')],
+    fn: glitchSubject,
+  }));
+
+  /* Pixels: the subject as a mosaic, as dots, or dissolving into blocks that float away */
+  function pixelSubject(e, x) {
+    const P = e.P, S = subjectOf(e), W = e.W, H = e.H, s = Math.max(2, P.size * e.k);
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    const cols = Math.ceil(W / s), rows = Math.ceil(H / s), p = pix(e.src, cols, rows), d = p.d;
+    const mAt = (c, r) => S.M[Math.min(e.h - 1, ((r + 0.5) / rows * e.h) | 0) * e.w + Math.min(e.w - 1, ((c + 0.5) / cols * e.w) | 0)];
+    const fg = canvas(W, H), fx = fg.getContext('2d');
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const m = mAt(c, r); if (m < 0.4) continue;
+      const o = (r * cols + c) * 4; fx.fillStyle = rgbStr(d[o], d[o + 1], d[o + 2]);
+      if (P.mode === 'dots') { const L = lum(d[o], d[o + 1], d[o + 2]); fx.beginPath(); fx.arc(c * s + s / 2, r * s + s / 2, s * 0.5 * (0.35 + 0.65 * (P.invert ? 1 - L : L)), 0, TAU); fx.fill(); }
+      else if (P.mode === 'dissolve') {
+        // blocks lift off and fade, top first, then come back (a loop of about 4 s)
+        const ph = fract(e.t / 4), due = hash(c, r, e.seed) * 0.5 + (1 - r / rows) * 0.25, k = clamp((ph - due) * 4, 0, 1), back = ph > 0.85 ? (ph - 0.85) / 0.15 : 0;
+        const lift = k * (1 - back), dy = -lift * s * 6 * (1 + hash(r, c, 5)), dx = (hash(c, r, 7) - 0.5) * lift * s * 3;
+        fx.globalAlpha = 1 - lift * 0.95; fx.fillRect(c * s + dx, r * s + dy, s * (1 - lift * 0.4), s * (1 - lift * 0.4)); fx.globalAlpha = 1;
+      } else fx.fillRect(c * s, r * s, s + 0.5, s + 0.5);
+    }
+    x.drawImage(fg, 0, 0);
+  }
+  def('subj-pixel', SFX({
+    name: 'Pixel Subject', tags: 'Subject · Pixel', icon: '▦', anim: true, animIf: P => P.mode === 'dissolve',
+    params: [S_('mode', 'Look', [['mosaic', 'Mosaic'], ['dots', 'Dots'], ['dissolve', 'Dissolve (moves)']], 'mosaic'), R_('size', 'Block size', 2, 80, 16), T_('invert', 'Bigger dots for darks', false, { when: P => P.mode === 'dots' }), ...BG_P('keep'), APPLY],
+    fn: pixelSubject,
+  }));
+
+  /* Colour pop: the subject in colour (pushed a little), everything else black & white or another treatment */
+  function colourPop(e, x) {
+    const P = e.P, S = subjectOf(e);
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    const c = canvas(e.W, e.H), cx = c.getContext('2d');
+    if ('filter' in cx) cx.filter = `saturate(${1 + P.boost / 100 * 1.2}) contrast(${1 + P.boost / 100 * 0.15})`;
+    cx.drawImage(e.src, 0, 0);
+    x.drawImage(cut(c, S.mc), 0, 0);
+  }
+  def('subj-pop', SFX({ name: 'Colour Pop', tags: 'Subject · Color', icon: '◐', params: [R_('boost', 'Colour boost', 0, 100, 35), ...BG_P('mono'), APPLY], fn: colourPop }));
+
+  /* Silhouette: the subject as one flat colour (or a gradient), with an optional outline */
+  function silhouette(e, x) {
+    const P = e.P, S = subjectOf(e), W = e.W, H = e.H;
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    const f = canvas(W, H), fx = f.getContext('2d');
+    if (P.grad) { const g = fx.createLinearGradient(0, (S.cy - S.bh / 2) * H, 0, (S.cy + S.bh / 2) * H); g.addColorStop(0, P.color); g.addColorStop(1, P.color2); fx.fillStyle = g; } else fx.fillStyle = P.color;
+    fx.fillRect(0, 0, W, H);
+    const shape = cut(f, S.mc);
+    if (P.outline > 0) {
+      const o = canvas(W, H), ox = o.getContext('2d'), r = P.outline * e.k * 0.5;
+      for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; ox.drawImage(S.mc, Math.cos(a) * r, Math.sin(a) * r, W, H); }
+      ox.globalCompositeOperation = 'source-in'; ox.fillStyle = P.lineColor; ox.fillRect(0, 0, W, H);
+      x.drawImage(o, 0, 0);
+    }
+    x.drawImage(shape, 0, 0);
+  }
+  def('subj-silhouette', SFX({
+    name: 'Silhouette', tags: 'Subject · Graphic', icon: '◼',
+    params: [C_('color', 'Colour', '#111111'), T_('grad', 'Gradient'), C_('color2', 'Second colour', '#ff4f8b', { when: P => P.grad }), R_('outline', 'Outline', 0, 40, 0), C_('lineColor', 'Outline colour', '#ffffff', { when: P => P.outline > 0 }), ...BG_P('keep')],
+    fn: silhouette,
+  }));
+
+  /* Spotlight: the scene in the dark with a pool of light that follows the subject around */
+  function spotlight(e, x) {
+    const P = e.P, S = subjectOf(e), W = e.W, H = e.H, t = e.t;
+    x.drawImage(e.src, 0, 0, W, H);
+    const cx = (S.cx + (P.wander ? Math.sin(t * 0.9) * 0.02 : 0)) * W, cy = S.cy * H, R = Math.max(S.bw * W, S.bh * H) * (0.45 + P.size / 100 * 0.8);
+    const dark = canvas(W, H), dx = dark.getContext('2d'), C = hex(P.color), g = dx.createRadialGradient(cx, cy, R * 0.15, cx, cy, R);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(P.soft / 100 * 0.9 + 0.05, `rgba(0,0,0,${P.dark / 100 * 0.5})`); g.addColorStop(1, `rgba(0,0,0,${P.dark / 100 * 0.94})`);
+    dx.fillStyle = g; dx.fillRect(0, 0, W, H);
+    // the subject itself stays lit
+    dx.globalCompositeOperation = 'destination-out'; dx.globalAlpha = 0.8; dx.drawImage(S.mc, 0, 0, W, H);
+    x.drawImage(dark, 0, 0);
+    // warm light on the subject
+    x.save(); x.globalCompositeOperation = 'soft-light'; x.globalAlpha = P.warm / 100; x.drawImage(cut(tintCopy(e.src, rgbStr(C[0], C[1], C[2])), S.mc), 0, 0); x.restore();
+    const halo = x.createRadialGradient(cx, cy, 0, cx, cy, R); halo.addColorStop(0, rgbStr(C[0], C[1], C[2], 0.18 * P.warm / 100)); halo.addColorStop(1, rgbStr(C[0], C[1], C[2], 0));
+    x.save(); x.globalCompositeOperation = 'screen'; x.fillStyle = halo; x.fillRect(0, 0, W, H); x.restore();
+  }
+  def('subj-spotlight', SFX({
+    name: 'Spotlight', tags: 'Subject · Light', icon: '◉', anim: true, animIf: P => P.wander,
+    params: [R_('dark', 'Darkness', 0, 100, 82), R_('size', 'Light size', 0, 100, 45), R_('soft', 'Softness', 0, 100, 50), C_('color', 'Light colour', '#ffd9a0'), R_('warm', 'Light on them', 0, 100, 45), T_('wander', 'Hand-held wobble', true)],
+    fn: spotlight,
+  }));
+
+  /* Heat vision: the subject glowing in a thermal ramp, the cold world in deep blue */
+  const IRON = [[0, '#0a0030'], [0.25, '#6a00a8'], [0.5, '#e8264a'], [0.75, '#ff9b1a'], [1, '#fff8c0']];
+  const COLD = [[0, '#020418'], [0.5, '#0b2a6f'], [1, '#2e7bd6']];
+  function heatSubject(e, x) {
+    const P = e.P, S = subjectOf(e), w = e.w, h = e.h, p = pix(e.src, w, h), d = p.d, L = lumOf(p), hot = ramp(IRON), cold = ramp(COLD), heat = blur3(S.M, w, h, Math.max(1, 10 * e.k * e.ws));
+    const sh = P.shimmer ? e.t : 0;
+    for (let i = 0; i < w * h; i++) {
+      const o = i * 4, m = S.M[i], v = clamp(0.35 + L[i] * 0.5 + heat[i] * 0.3 + (sh ? (vnoise(i % w / 30, (i / w) / 30 - sh, e.seed) - 0.5) * 0.15 : 0), 0, 1), cv = clamp(L[i] * 0.8 * (1 - P.cold / 140), 0, 1);
+      const ht = (v * 255) | 0, ct = (cv * 255) | 0, k = clamp(m + heat[i] * 0.35, 0, 1);
+      for (let j = 0; j < 3; j++) d[o + j] = lerp(cold[ct * 3 + j], hot[ht * 3 + j], k);
+    }
+    x.drawImage(put(p), 0, 0, e.W, e.H);
+  }
+  def('subj-heat', SFX({ name: 'Heat Vision', tags: 'Subject · Thermal', icon: '♨', anim: true, animIf: P => P.shimmer, params: [R_('cold', 'Cold world', 0, 100, 40), T_('shimmer', 'Shimmer', true)], fn: heatSubject }));
+
+  /* X-ray: the subject inverted to glowing blue bones of light, edges bright */
+  function xray(e, x) {
+    const P = e.P, S = subjectOf(e), w = e.w, h = e.h, p = pix(e.src, w, h), d = p.d, L = lumOf(p), E = sobel(L, w, h).mag, C = hex(P.color);
+    for (let i = 0; i < w * h; i++) {
+      const o = i * 4, m = S.M[i], v = clamp((1 - L[i]) * 0.75 + E[i] * P.edges / 100 * 1.6, 0, 1.2);
+      for (let j = 0; j < 3; j++) d[o + j] = lerp(d[o + j] * (1 - P.dark / 110), C[j] * v + v * 40, m);
+    }
+    const c = toCanvas(p, e.W, e.H);
+    x.drawImage(c, 0, 0);
+    glowOver(x, cut(c, S.mc), 8 * e.k, P.glow / 100);
+  }
+  def('subj-xray', SFX({ name: 'X-Ray', tags: 'Subject · Sci-fi', icon: '☢', params: [C_('color', 'Colour', '#8fd0ff'), R_('edges', 'Edges', 0, 100, 60), R_('glow', 'Glow', 0, 100, 50), R_('dark', 'Darken the rest', 0, 100, 80), APPLY], fn: xray }));
+
+  /* Sticker: the subject as a cut-out sticker with a thick border and shadow, optionally jiggling to the beat */
+  function sticker(e, x) {
+    const P = e.P, S = subjectOf(e), W = e.W, H = e.H, beat = Math.floor(e.t * P.beat);
+    backdrop(e, x, P.bg, P.bgAmt, P.bgColor);
+    const r = P.border * e.k * 0.6, b = canvas(W, H), bx = b.getContext('2d');
+    for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; bx.drawImage(S.mc, Math.cos(a) * r, Math.sin(a) * r, W, H); }
+    bx.globalCompositeOperation = 'source-in'; bx.fillStyle = P.color; bx.fillRect(0, 0, W, H);
+    bx.globalCompositeOperation = 'source-over'; bx.drawImage(cut(e.src, S.mc), 0, 0);
+    const jig = P.jiggle ? 1 : 0, rr = rng(e.seed + beat), ang = jig * (rr() - 0.5) * 0.09, dx = jig * (rr() - 0.5) * W * 0.012, dy = jig * (rr() - 0.5) * H * 0.012;
+    x.save();
+    x.translate(S.cx * W + dx, S.cy * H + dy); x.rotate(ang); x.scale(1 + P.lift / 100 * 0.06, 1 + P.lift / 100 * 0.06); x.translate(-S.cx * W, -S.cy * H);
+    if ('filter' in x && P.shadow > 0) { x.save(); x.filter = `blur(${8 * e.k}px)`; x.globalAlpha = P.shadow / 100 * 0.7; x.drawImage(tintCopy(b, '#000'), 6 * e.k, 10 * e.k); x.restore(); }
+    x.drawImage(b, 0, 0);
+    x.restore();
+  }
+  def('subj-sticker', SFX({
+    name: 'Sticker Cut-out', tags: 'Subject · Collage', icon: '✂', anim: true, animIf: P => P.jiggle,
+    params: [R_('border', 'Border', 0, 60, 18), C_('color', 'Border colour', '#ffffff'), R_('shadow', 'Shadow', 0, 100, 55), R_('lift', 'Lift', 0, 100, 30), T_('jiggle', 'Jiggle to the beat', true), R_('beat', 'Jiggles a second', 1, 12, 4, { when: P => P.jiggle }), ...BG_P('blur', 55)],
+    fn: sticker,
+  }));
 
   /* ════════════════════════ DATAMOSH ════════════════════════
      The real thing for video: each frame's motion (block matching between this frame and the last) is applied to the
@@ -19515,6 +19864,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         ['st-flash', 'Flash light', 'ed-stool', 'flash-light', {}, 'Flash Light', true],
         ['st-flash-night', 'Night flash', 'film-friends', 'flash-night', {}, 'Night Flash', true],
         ['st-flash-neon', 'Neon flash', 'ed-suit', 'flash-neon', {}, 'Neon Flash', true],
+        ['st-subj-ascii', 'ASCII subject', 'film-portrait', 'subj-ascii', {}, 'ASCII Subject', true],
+        ['st-matrix', 'Matrix rain', 'ed-suit', 'subj-matrix', {}, 'Matrix Rain', true],
+        ['st-outline', 'Neon outline', 'film-friends', 'subj-outline', {}, 'Neon Outline', true],
+        ['st-hologram', 'Hologram', 'ed-think', 'subj-hologram', {}, 'Hologram', true],
+        ['st-sticker', 'Sticker cut-out', 'ed-smile', 'subj-sticker', {}, 'Sticker Cut-out', true],
+        ['st-pop', 'Colour pop', 'film-kiss', 'subj-pop', {}, 'Colour Pop'],
         ['st-datamosh', 'Datamosh', 'film-road', 'datamosh', {}, 'Datamosh', true],
         ['st-bloom-mosh', 'Bloom mosh', 'film-portrait', 'bloom-mosh', {}, 'Bloom Mosh', true],
         ['st-mosh-blocks', 'Mosh blocks', 'ed-eye', 'mosh-blocks', {}, 'Mosh Blocks', true],
@@ -20715,7 +21070,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // families of variations show as one card in the panel and open into all their styles
   const GROUPS = {
-    'Image styles': ['st-golden', 'st-dream', 'st-flash', 'st-flash-night', 'st-flash-neon', 'st-datamosh', 'st-bloom-mosh', 'st-mosh-blocks', 'st-pixel-drag', 'st-dropout', 'st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-kaleido', 'st-chrome', 'st-edge'],
+    'Image styles': ['st-golden', 'st-dream', 'st-flash', 'st-flash-night', 'st-flash-neon', 'st-subj-ascii', 'st-matrix', 'st-outline', 'st-hologram', 'st-sticker', 'st-pop', 'st-datamosh', 'st-bloom-mosh', 'st-mosh-blocks', 'st-pixel-drag', 'st-dropout', 'st-ascii', 'st-dither', 'st-pixel', 'st-lego', 'st-riso', 'st-halftone', 'st-cyanotype', 'st-fluted', 'st-crt', 'st-thermal', 'st-kaleido', 'st-chrome', 'st-edge'],
     'Vox explainer': [], 'Moving grids': [], 'Photo piles': [], 'Strips & panels': [],
     'Text slides': ['ts-created', 'ts-goal', 'ts-earth', 'ts-crisis', 'ts-brands', 'ts-made', 'ts-align', 'ts-dress', 'ts-meant', 'ts-new', 'ts-visuals', 'ts-average', 'ts-cool', 'ts-iamart', 'ts-redact', 'ts-rest', 'ts-chase', 'ts-chapter', 'ts-do', 'ts-action', 'ts-where', 'ts-norest', 'ts-scribble', 'ts-feeling', 'ts-museum', 'ts-story', 'ts-justdo', 'ts-notend', 'ts-consume', 'ts-love', 'ts-now', 'ts-austen', 'ts-son', 'ts-sleep', 'ts-laziest', 'ts-gofor', 'ts-normalize', 'ts-purpose', 'ts-passion', 'ts-artflip', 'ts-exactly', 'ts-identity', 'ts-ability', 'ts-tryagain', 'ts-authentic', 'ts-happen', 'ts-memories', 'ts-now2', 'ts-hands', 'ts-messy', 'ts-start', 'ts-rushed', 'ts-develop', 'ts-addicted', 'ts-makeit', 'ts-dothis', 'ts-mostcreative', 'ts-busy', 'ts-lesscare', 'ts-chapter2', 'ts-overthink', 'ts-athletes', 'ts-curated', 'ts-outside', 'ts-done', 'ts-whatmakes', 'ts-support', 'ts-takerisk', 'ts-thinkbig'],
     'Photo effects': ['px-scribble', 'px-strips', 'px-censor', 'px-mosaic', 'px-mirror', 'px-eyes', 'px-childhood', 'px-note', 'px-words', 'px-brandfade', 'px-faceswap', 'px-ghost', 'px-phone', 'px-signed', 'px-redbar', 'px-taped', 'px-redprint', 'px-backdrop', 'px-gridpaper', 'px-letter', 'px-quote', 'px-fieldnotes', 'px-belonged', 'px-touch', 'px-margins', 'px-worthy', 'px-sketchbook'],
@@ -30516,7 +30871,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   const saveFavs = () => { try { localStorage.setItem('studio.styleFavs', JSON.stringify([...favs])); } catch (e) { /* ignore */ } };
 
   const ui = { sub: 'explore', q: '' };
-  const SUGGEST = ['flash-light', 'golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'bloom-mosh', 'vitrine'];
+  const SUGGEST = ['flash-light', 'subj-ascii', 'subj-outline', 'golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'bloom-mosh', 'vitrine'];
 
   /* ── what a style lands on ── */
   // a group picked on the timeline (S.groupTarget, timeline.js) takes the style as one picture
@@ -30712,7 +31067,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   function subjectControls(d, cur) {
     const els = media();
     if (!els.length || !S.findSubject) return [];
-    const el = els[0], sj = R.hasSubject(el) ? el.subj : null, job = S.subjectJob(el.id), kids = [h('div.st-group', null, d.subject ? 'What lights up' : 'Subject')];
+    const el = els[0], sj = R.hasSubject(el) ? el.subj : null, job = S.subjectJob(el.id), kids = [h('div.st-group', null, d.cat === 'flash' ? 'What lights up' : 'Subject')];
     // a subject style showing on a picture nobody looked at yet (a template's photo, a new clip): look now
     if (!d.subject) kids.push(row('Apply to', selectCtl('sel', 'sfx.region', [['all', 'Everything'], ['subject', 'Only the subject'], ['background', 'Only the background']], {
       def: cur.region || 'all',
@@ -30778,7 +31133,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
       h('button.btn.grow', { type: 'button', title: 'New random settings for this style', onclick: restyle }, ic('replace'), 'Restyle'),
       h('button.btn.grow', { type: 'button', title: 'Another style', onclick: shuffle }, ic('shuffle'), 'Shuffle'),
       h('button.btn', { type: 'button', title: 'Remove the style', 'aria-label': 'Remove the style', onclick: () => setSfx(null) }, ic('trash')))));
-    // what a Flash style lights up comes first; for other styles, where they apply comes last
+    // what a Flash / Subject FX style works on comes first; for other styles, where they apply comes last
     if (!isDoc && !isGrp && d.subject) kids.push(...subjectControls(d, cur));
     for (const [g, title] of GROUPS) {
       const ps = d.params.filter(p => p.group === g && (!p.when || p.when(P)));

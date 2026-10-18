@@ -12,7 +12,7 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `nature.js` | Procedural garden painters (lawn hills, flower beds, bushes, hedges, trees, clouds, sky) and 9 garden backdrops |
 | `papers.js` | 12 real paper scans (ambientCG CC0, Wikimedia Commons public domain / CC0) used for every paper texture |
 | `render.js` | Canvas renderer for every element type, used by both the editor and export |
-| `styles.js` | 118 realtime image styles (dreamy motion, flash light, datamosh, ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
+| `styles.js` | 131 realtime image styles (dreamy motion, flash light, subject FX, datamosh, ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
 | `subject.js` | Finds the subject of a photo or video (people automatically, or anything you click) and follows it through every frame |
 | `styles-ui.js` | The Styles panel, the Style section of the inspector and the action bar under the canvas |
 | `app.js` | Editor core: stage, selection, snapping & guides, transforms, text editing, crop, history, import |
@@ -34,7 +34,7 @@ Work is autosaved to the browser (IndexedDB). Use **Menu → Download project fi
 Start one from the home page (**Video editor** — pick or drop several videos and photos at once) or open the **Timeline** in the bar under any canvas. The new design takes the shape of the first clip, 1920 px on the long side.
 
 - **The timeline** sits under the canvas (drag its top edge to make it taller): the **Video** track holds the clips one after another, **Text & layers** above it shows anything timed, **Sound** below holds music and voiceovers with their waveforms. Click or drag on the ruler to move the playhead; the canvas shows that moment and you can edit right there. Zoom with the slider or ⌘/Ctrl-scroll, *Fit* shows the whole video.
-- **Clips**: drag a clip to put it somewhere else, drag its edges to trim (everything after it moves up — no gaps), press **S** (or ⌘B) or the scissors to split at the playhead, ⌘D / the copy button to duplicate, ⌫ to delete. Photos show for 3 s (drag the edge or set *Shows for*). Each clip keeps everything a photo or video layer has: speed (5–400 %, smooth slow motion), **Play backwards**, crop and position (*Fill* or *Fit* the frame), filters and film looks, the 118 Styles, blur, animation — plus **Auto fix**, which evens out exposure, contrast and colour from the clip itself. *Take out of the video track* turns a clip into a free layer over the video (picture in picture); a free photo or video gets *Put in the video track*.
+- **Clips**: drag a clip to put it somewhere else, drag its edges to trim (everything after it moves up — no gaps), press **S** (or ⌘B) or the scissors to split at the playhead, ⌘D / the copy button to duplicate, ⌫ to delete. Photos show for 3 s (drag the edge or set *Shows for*). Each clip keeps everything a photo or video layer has: speed (5–400 %, smooth slow motion), **Play backwards**, crop and position (*Fill* or *Fit* the frame), filters and film looks, the 131 Styles, blur, animation — plus **Auto fix**, which evens out exposure, contrast and colour from the clip itself. *Take out of the video track* turns a clip into a free layer over the video (picture in picture); a free photo or video gets *Put in the video track*.
 - **Transitions**: the small square between two clips — Cut, Dissolve, Dip to black, Flash, Slide, Push, Whip pan, Wipe, Circle, Zoom, Blur, Spin and Glitch, with their length (0.1–3 s), a direction for the moving ones, *Apply to all clips* and *Preview*. A transition overlaps the two clips by its length.
 - **Layers over the video**: tracks above the video track hold anything that plays over it — videos and photos (picture in picture: the *Layer* button or the **+** on *New layer* adds them at the playhead), titles, stickers and shapes. Drag a bar along to move it in time, its edges to trim (a video's left edge trims the clip itself), or up and down to another track — a higher track draws on top. Drop files onto a layer track to add them there.
 - **Text**: the *Text* button adds a title at the playhead for 3 s; drag its bar to move it, its edges to change when it comes and goes. Any layer with timing shows here.
@@ -98,7 +98,7 @@ Open the same link on a phone and the editor switches to a phone layout on its o
 - Menus, colour pickers and dialogs (export, canvas size…) slide up from the bottom. Handles are bigger for fingers.
 - Turn the phone sideways and the sheets sit beside the canvas instead of under it.
 
-## Styles (118 realtime looks)
+## Styles (131 realtime looks)
 
 The editor opens on **Styles** (first button on the left). Pick a style and it is applied at once: to the selected
 layer(s) — a photo, a video, text, a sticker — or, with nothing selected, to the **whole canvas** (the line *Applies to*
@@ -123,6 +123,20 @@ the search finds names and tags (Mono, Retro, Glitch…).
   people finder on or off, **Pick objects** lets you click anything on the canvas — a stool, a car, a dog, a cup — and
   it lights up at once; click more things to add them, Alt-click a dot to take one away, then **Done** follows them all
   through the video. The bin forgets the subject. A new photo or video in the layer is looked at again by itself.
+- **Subject FX** (effects made from the subject itself — found the same way as for Flash Light: people straight away,
+  **Pick objects** for anything else, followed through every frame of a video): **ASCII Subject** (the subject rebuilt
+  from characters — flickering, raining down, scrambling in or still; 15 character sets or your own, colours from the
+  picture or one ink, glow), **Matrix Rain** (green katakana rain falling only inside the subject), **Neon Outline**
+  (1–4 glowing lines around the subject — two colours or rainbow, pulse, marching dashes), **Hologram** (see-through
+  cyan light, moving scan lines, flicker, slipping rows), **Echo Trail** (afterimages following the subject as it moves —
+  rainbow, one colour or its own; on a photo the copies step away), **Glitch Subject** (slipping slices and split colour
+  on the subject only), **Pixel Subject** (mosaic, dots, or dissolving into blocks that float away), **Colour Pop** (the
+  subject in colour, the rest black & white), **Silhouette** (a flat colour or gradient shape, optional outline),
+  **Spotlight** (the scene in the dark with a pool of light that follows the subject), **Heat Vision** (the subject hot,
+  the world cold blue), **X-Ray** and **Sticker Cut-out** (a thick white border and shadow, jiggling to the beat).
+  Most have a **Background** choice (as it is, darker, black & white, blurred, black or a colour), and ASCII, Hologram,
+  Pixel, Colour Pop and X-Ray can be turned around with **Effect on → Everything else** (say, an ASCII world around a
+  real person).
 - **Datamosh** (real datamoshing on videos: each frame's motion is pushed through the *previous* broken picture instead
   of the clean one, as if the key frames were cut out of the file, so things melt and smear into each other):
   **Datamosh** (melt, block size, new detail, drift so it never sits still, a clean frame every few seconds, heal,
@@ -163,8 +177,9 @@ keeps a cut-out or text shaped like itself. Styles work on videos frame by frame
 The bar under the canvas: tools, then **Upload**, **Inspire** (a sample photo to try styles on), **Restyle**,
 **Shuffle**, **Library** (your photos) and **Export**.
 
-The **Image styles** template family (23) shows one look each on a demo photo — Golden drift (video), Dream glow (video),
-Flash light, Night flash, Neon flash, Datamosh, Bloom mosh, Mosh blocks, Pixel drag, Block dropout (all video), ASCII
+The **Image styles** template family (29) shows one look each on a demo photo — Golden drift (video), Dream glow (video),
+Flash light, Night flash, Neon flash, ASCII subject, Matrix rain, Neon outline, Hologram, Sticker cut-out (all video),
+Colour pop, Datamosh, Bloom mosh, Mosh blocks, Pixel drag, Block dropout (all video), ASCII
 portrait, 1-bit dither, Pixel art, Brick mosaic, Risograph print, Halftone poster, Cyanotype, Fluted glass, CRT screen
 (video), Thermal camera, Kaleidoscope (video), Liquid chrome, Edge glow — swap in your own photo or video.
 

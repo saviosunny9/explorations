@@ -38,7 +38,7 @@ requests unless asked.
 | `papers.js` | `window.StudioPapers`: 12 real paper scans as multiply maps (`{ id, name, kind: 'clean' \| 'aged', credit, src }`, `DEFAULT` 'natural'), made by `tools/papers_prep.py` from ambientCG (CC0) and Wikimedia Commons (PD / CC0). |
 | `render.js` | `window.StudioRender` (R). Pure canvas-2D renderer used by the editor, thumbnails and export. Every element type, filters, frames, text layout, animation, camera, video sync. |
 | `app.js` | `window.Studio` (S). Editor core: document state, Konva stage, selection, drag/resize, snapping, crop, path / spot editing, history, autosave + projects (IndexedDB), import, keyboard. |
-| `styles.js` | `window.StudioStyles` (ST): 118 realtime image styles in 13 families (`ST.CATS`), each `{ id, name, cat, tags, kind: 'cells' \| 'filter', anim, animIf, params, fn }`; `ST.apply(src, sfx, { t, mask, lim })` returns a restyled canvas. |
+| `styles.js` | `window.StudioStyles` (ST): 131 realtime image styles in 14 families (`ST.CATS`), each `{ id, name, cat, tags, kind: 'cells' \| 'filter', anim, animIf, params, fn }`; `ST.apply(src, sfx, { t, mask, lim })` returns a restyled canvas. |
 | `styles-ui.js` | Styles panel (`S.ui.registerPanel('styles')`), the inspector's Style section (`S.ui.addSection`), the action bar (Upload / Inspire / Restyle / Shuffle / Library / Export). |
 | `ui.js` | All DOM UI: panels (Templates, Elements, Text, Photos, Canvas, Layers), inspector per element type, home page, export dialog, timeline, menus, toasts. |
 | `vox.js` | `window.STUDIO_VOX`: Vox explainer scenes (21 kinds incl. 2.5D parallax), looks and templates, built from `doc.vox` (loaded before templates.js). |
@@ -171,6 +171,14 @@ are the bundled photos from `flashes.js`, `film-` from `filmphotos.js`, `ed-` fr
   everything, background dimmed + graded, flicker / strobe; without a mask `guessSubject` = border-median difference × centre
   prior, Otsu); for any other style `sfx.region` 'subject' | 'background' composites the styled picture through the mask
   (`region()` in `ST.apply`). ST.apply also gets `o.sid` (layer id) and `o.tr` (real time) for temporal styles.
+  Subject FX family (`cat: 'subj'`, `SFX({...})` sets `subject: true`): `subjectOf(e)` → `{ M (work size, flipped for
+  `apply: 'background'`), mc (full-size alpha mask), cx, cy, bw, bh }`, `backdrop(e, x, bg, amt, col)` paints the rest
+  (keep / dim / mono / blur / black / color via `BG_P`), `cut(fx, mc)` keeps a picture to the subject, `glowOver` screens a
+  blurred copy. Looks: `asciiSubject` (ASCII Subject / Matrix Rain — `cells` + `atlas` per cell with alpha, motion flicker /
+  rain heads / scramble / still, `colorize`), `neonOutline` (level sets of a blurred mask = rings, dashes by angle round the
+  centre), `hologram`, `echoTrail` (per-layer `ECHO` history of small subject cut-outs; stills step copies by `angle`),
+  `glitchSubject`, `pixelSubject`, `colourPop`, `silhouette`, `spotlight` (radial dark pool at the mask's centre),
+  `heatSubject` (`IRON` / `COLD` ramps), `xray` (inverted luma + sobel), `sticker` (dilated mask border, shadow, jiggle).
   Datamosh family: `moshMelt` keeps per-layer state in `MOSH` (`moshState(e, tag)`: reset on a size change, time going back
   or a jump > 0.6 s; a cold start begins from the simulated still mosh): `motion()` = 8 px block matching on a 128 px grey
   frame (±6 px, zero-motion bias) → each work block (block size × k) copies the previous *moshed* buffer from its exaggerated
@@ -320,7 +328,7 @@ Playwright `devices['iPhone 13']`, `'Pixel 7'`, `'iPhone 13 landscape'`; multi-t
 A template is `{ id, name, tags, width, height, video?, build: () => doc }`. `CATEGORIES` (end of templates.js, exported as `STUDIO_TEMPLATE_CATS`) sorts every family into a category (photo / video / text / collage / explainer) and a kind (`subs`); each template gets `t.cat` and `t.sub` (ungrouped templates: family key `''` → Collage › Posts & planners). **A new family must be added to a sub there** (otherwise it warns and lands in Posts & planners). ui.js `catBar(state, redraw)` (category chips with family counts, kind chips, Any / Still / Video) + `tplSections(list, state, q, famCard, oneCard, o)` (sections per category or kind) drive both the Templates panel (`tplState`) and the home page (`hs`). Helpers: `txt`, `img`,
 `stk`, `shp`, `rib`, `nat`, `cam`. Text can be placed by centre (`cx`, `cy`); widths are measured on
 load. Put a new family's ids in `GROUPS` (order = display order); `video: true` adds the badge and hover
-preview. Families so far: Image styles (23, one realtime style each, first in `GROUPS`), Typing screen (layout `typescreen`, 4 orientations), Type effects (7: word build, select sweep, word wall, blur shuffle), Screen close-up (4: phrase typing, comment thread), Smooth cam text (layout `smoothcam`, 4 orientations, words carried across re-flows by `key`), Text effects (8, incl. three Depth vision), eight moving-layout families (Scrolling wall, Card trail, Grid build, Photo drop, Fan stack, Strip conveyor, Zoom wall, Slide-in panels — 4 orientations each), Text slides (69), Photo effects (27, incl. eight handwritten journal layouts), Paper & ID (10), Film looks (16), Film camera (10), Stop motion, Speed flashes, Studio portrait, Newspaper
+preview. Families so far: Image styles (29, one realtime style each, first in `GROUPS`), Typing screen (layout `typescreen`, 4 orientations), Type effects (7: word build, select sweep, word wall, blur shuffle), Screen close-up (4: phrase typing, comment thread), Smooth cam text (layout `smoothcam`, 4 orientations, words carried across re-flows by `key`), Text effects (8, incl. three Depth vision), eight moving-layout families (Scrolling wall, Card trail, Grid build, Photo drop, Fan stack, Strip conveyor, Zoom wall, Slide-in panels — 4 orientations each), Text slides (69), Photo effects (27, incl. eight handwritten journal layouts), Paper & ID (10), Film looks (16), Film camera (10), Stop motion, Speed flashes, Studio portrait, Newspaper
 reveal, Typing, Match cut, Kinetic headline, Sticky notes, Rolling numbers, Word by word, Letter
 bounce, Life-sim garden, Ribbon poster, Motion blur, Camera view, Meet the team, Grid-paper notes,
 Polaroid POV, Wall calendar, Notebook tip — about 381 templates (104 of them Vox explainer). Removed on request (Oct 12): Everyday things, Film club ticket, Café chalkboard,

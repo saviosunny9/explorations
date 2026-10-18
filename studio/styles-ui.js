@@ -13,7 +13,7 @@
   const saveFavs = () => { try { localStorage.setItem('studio.styleFavs', JSON.stringify([...favs])); } catch (e) { /* ignore */ } };
 
   const ui = { sub: 'explore', q: '' };
-  const SUGGEST = ['flash-light', 'golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'bloom-mosh', 'vitrine'];
+  const SUGGEST = ['flash-light', 'subj-ascii', 'subj-outline', 'golden-drift', 'dream-glow', 'characters', 'crt', 'risograph', 'cyanotype', 'heat-tint', 'petrol-sheen', 'honeycomb', 'crumpled', 'blueprint', 'dither', 'lego', 'fluted-glass', 'pixel-art', 'halftone', 'thermal', 'edge-glow', 'datamosh', 'bloom-mosh', 'vitrine'];
 
   /* ── what a style lands on ── */
   // a group picked on the timeline (S.groupTarget, timeline.js) takes the style as one picture
@@ -209,7 +209,7 @@
   function subjectControls(d, cur) {
     const els = media();
     if (!els.length || !S.findSubject) return [];
-    const el = els[0], sj = R.hasSubject(el) ? el.subj : null, job = S.subjectJob(el.id), kids = [h('div.st-group', null, d.subject ? 'What lights up' : 'Subject')];
+    const el = els[0], sj = R.hasSubject(el) ? el.subj : null, job = S.subjectJob(el.id), kids = [h('div.st-group', null, d.cat === 'flash' ? 'What lights up' : 'Subject')];
     // a subject style showing on a picture nobody looked at yet (a template's photo, a new clip): look now
     if (!d.subject) kids.push(row('Apply to', selectCtl('sel', 'sfx.region', [['all', 'Everything'], ['subject', 'Only the subject'], ['background', 'Only the background']], {
       def: cur.region || 'all',
@@ -275,7 +275,7 @@
       h('button.btn.grow', { type: 'button', title: 'New random settings for this style', onclick: restyle }, ic('replace'), 'Restyle'),
       h('button.btn.grow', { type: 'button', title: 'Another style', onclick: shuffle }, ic('shuffle'), 'Shuffle'),
       h('button.btn', { type: 'button', title: 'Remove the style', 'aria-label': 'Remove the style', onclick: () => setSfx(null) }, ic('trash')))));
-    // what a Flash style lights up comes first; for other styles, where they apply comes last
+    // what a Flash / Subject FX style works on comes first; for other styles, where they apply comes last
     if (!isDoc && !isGrp && d.subject) kids.push(...subjectControls(d, cur));
     for (const [g, title] of GROUPS) {
       const ps = d.params.filter(p => p.group === g && (!p.when || p.when(P)));
