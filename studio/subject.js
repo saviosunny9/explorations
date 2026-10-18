@@ -89,7 +89,9 @@ onmessage = async e => {
       const make = delegate => v.PoseLandmarker.createFromOptions(files, { baseOptions: { modelAssetBuffer: new Uint8Array(d.bytes), delegate }, runningMode: 'IMAGE', numPoses: 4, outputSegmentationMasks: true, minPoseDetectionConfidence: 0.4, minPosePresenceConfidence: 0.4 });
       const test = new OffscreenCanvas(256, 256), tx = test.getContext('2d'); tx.fillStyle = '#888'; tx.fillRect(0, 0, 256, 256);
       const run = m => { const r = m.detect(test); for (const k of r.segmentationMasks || []) k.close(); };
-      try { const g = await make('GPU'); run(g); const t0 = performance.now(); run(g); run(g); if ((performance.now() - t0) / 2 < 90) lm = g; else g.close(); } catch (err) { /* no WebGL here */ }
+      // the graphics path whenever there is one, even a slow one: the processor path aborts on some pictures (a MediaPipe
+      // bug in its mask conversion — 'Check failed: 1 == ChannelSize()')
+      try { const g = await make('GPU'); run(g); lm = g; } catch (err) { /* no WebGL here */ }
       if (!lm) lm = await make('CPU');
       postMessage({ type: 'ready' });
     } else {
@@ -144,8 +146,10 @@ onmessage = async e => {
       setTimeout(() => { if (pose.waits.has(id)) { pose.waits.delete(id); res('stuck'); } }, 4000);
     });
     if (d === 'stuck' || !d || d.type === 'err') {
-      // a picture it chokes on: start it again (a few times a run at most)
-      if (d === 'stuck' || !d) { poseStop(); if (crop) { if (++pose.cropFails >= 2) pose.noCrops = true; } else if (++pose.fails >= 3) pose.off = true; }
+      // a picture it chokes on (stuck, or the runtime aborted): this picture goes without, the worker starts again —
+      // and if it keeps happening, close-ups stop being asked, then the whole model
+      poseStop();
+      if (crop) { if (++pose.cropFails >= 6) pose.noCrops = true; } else if (++pose.fails >= 6) pose.off = true;
       return null;
     }
     if (!d.masks.length) return { a: new Float32Array(4), w: 2, h: 2, none: true };
