@@ -3761,7 +3761,7 @@
     return out;
   }
   R.flashSources = flashSources;
-  R.isTimeVarying = el => el.type === 'flashes' || R.isSeq(el) || (el.type === 'image' && R.isVideoAsset(el.assetId)) || !!(el.typing && el.typing.wipe);
+  R.isTimeVarying = el => el.type === 'flashes' || el.type === 'captions' || R.isSeq(el) || (el.type === 'image' && R.isVideoAsset(el.assetId)) || !!(el.typing && el.typing.wipe);
   const permCache = new Map();
   function flashPerm(seed, n) {
     const key = seed + ':' + n;
@@ -3873,6 +3873,7 @@
       case 'camera': drawCamera(ctx, el, env); break;
       case 'nature': if (window.StudioNature) window.StudioNature.draw(ctx, el); break;
       case 'flashes': drawFlashes(ctx, el, env); break;
+      case 'captions': if (window.StudioCaptions) window.StudioCaptions.draw(ctx, el, env); break;
     }
   }
 
@@ -3901,7 +3902,7 @@
     if (p < 2.5 / d) return n * (p -= 2.25 / d) * p + 0.9375;
     return n * (p -= 2.625 / d) * p + 0.984375;
   };
-  R.hasAnim = el => el.type === 'flashes' || !!(el.sfx && styleOn(el.sfx) && window.StudioStyles.moves(el.sfx)) || R.isSeq(el) || !!(el.track && el.track.pts && el.track.pts.length) || !!(el.tfx && el.tfx.style && el.tfx.style !== 'none' && (el.tfx.style === 'vision' ? el.tfx.move !== false : el.tfx.move)) || !!((el.anim && ((el.anim.loop && el.anim.loop !== 'none') || (el.anim.enter && el.anim.enter !== 'none'))) || R.hasTiming(el) || (el.typing && el.typing.caret !== false && el.typing.blink !== false));
+  R.hasAnim = el => el.type === 'flashes' || el.type === 'captions' || !!(el.sfx && styleOn(el.sfx) && window.StudioStyles.moves(el.sfx)) || R.isSeq(el) || !!(el.track && el.track.pts && el.track.pts.length) || !!(el.tfx && el.tfx.style && el.tfx.style !== 'none' && (el.tfx.style === 'vision' ? el.tfx.move !== false : el.tfx.move)) || !!((el.anim && ((el.anim.loop && el.anim.loop !== 'none') || (el.anim.enter && el.anim.enter !== 'none'))) || R.hasTiming(el) || (el.typing && el.typing.caret !== false && el.typing.blink !== false));
   R.hasTiming = el => !!(el.time && ((el.time.start || 0) > 0 || el.time.end != null || (el.time.cycle && el.time.cycle.count > 1)));
   // cuts: a layer can be shown only for part of the video, or take turns with others
   R.visibleAt = function (el, t) {
@@ -4678,6 +4679,8 @@
     subjCache.set(el.id, { key, c });
     return c;
   };
+  // a layer's subject mask in its own box, scaled by k (for captions set behind the person)
+  R.subjectMaskLocal = (el, env, k) => subjectLayerMask(el, env || {}, Math.max(1, Math.round(el.width * k)), Math.max(1, Math.round(el.height * k)), k, 0);
   R.subjectReady = el => !el.subj || !el.subj.sheets || el.subj.sheets.every(id => !assets[id] || !!assetImage(id));
   // the layer's subject mask laid over its cached bitmap (same scale and bleed), for ST.apply
   function subjectLayerMask(el, env, W, H, s, b) {
@@ -5398,6 +5401,7 @@
       if (el.type === 'ribbon' && el.text) out.push([el.fontFamily || 'Space Mono', el.fontWeight || 700, !!el.italic]);
       if (el.type === 'camera') { if (el.style === 'camcorder') out.push([el.fontFamily || 'VT323', 400, false]); else out.push([el.fontFamily || 'Inter', 600, false], [el.fontFamily || 'Inter', 700, false]); }
       if (el.type === 'badge') { out.push([el.ringFont || 'Bricolage Grotesque', el.ringWeight || 600, false]); if (el.center === 'text') out.push([el.centerFont || el.ringFont || 'Bricolage Grotesque', el.centerWeight || 700, !!el.centerItalic]); }
+      if (el.type === 'captions' && el.cap && window.StudioCaptions) out.push(...window.StudioCaptions.fontsOf(el));
     }
     return out.filter(f => Fonts.BY_NAME[f[0]]).map(([f, w, i]) => [f, Fonts.nearestWeight(f, w), i]);
   }

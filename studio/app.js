@@ -77,6 +77,8 @@
       pack: 'hustle', images: [], rate: 8, blur: 60, angle: 0, drift: 50, zoom: 30, overlap: 0, strobe: 0, gaps: 0,
       tone: 'color', tint: '#ff5a1f', contrast: 10, saturation: 0, seed: 0, still: 0,
     },
+    // auto subtitles / kinetic word captions (captions.js): the cues, their style and changes to single words
+    captions: { cap: { src: { kind: 'mix' }, cues: [], style: {}, edits: {} } },
     checklist: {
       items: '[x] Morning walk\n[ ] Water the plants\n[ ] Call grandma\n[ ] Finish moodboard', fontFamily: 'Caveat', fontSize: 48,
       fontWeight: 500, italic: false, fill: '#1d1b18', lineHeight: 1.55, boxStyle: 'square', boxColor: '#1d1b18', checkColor: '#e4572e',
@@ -168,6 +170,7 @@
       case 'ribbon': return el.line ? 'Curved line' : (el.text ? 'Ribbon · ' + el.text.slice(0, 18) : 'Ribbon');
       case 'camera': return (R.CAMERA_STYLES[el.style] || 'Camera') + ' overlay';
       case 'nature': { const N = window.StudioNature; return (N && N.KINDS[el.kind] && N.KINDS[el.kind].label) || 'Nature'; }
+      case 'captions': return 'Captions' + (el.cap && el.cap.style && el.cap.style.template === 'classic' ? ' · subtitles' : '');
       case 'flashes': { const P = window.StudioFlashes && window.StudioFlashes.PACKS[el.pack]; return 'Speed flashes' + (P ? ' · ' + P.label : el.pack === 'mine' ? ' · your photos' : ''); }
     }
     return el.type;
@@ -447,7 +450,14 @@
         ctx.restore();
       },
       // a layer that's cut out at this moment (another clip's turn) doesn't catch clicks
-      hitFunc: (c, shape) => { const e = elMap.get(id); if (e && e.time && !R.visibleAt(e, R.playTime)) return; c.beginPath(); c.rect(0, 0, shape.width(), shape.height()); c.closePath(); c.fillStrokeShape(shape); },
+      hitFunc: (c, shape) => {
+        const e = elMap.get(id); if (e && e.time && !R.visibleAt(e, R.playTime)) return;
+        c.beginPath();
+        // captions cover the whole frame: only the words on screen catch clicks, so the video under them stays reachable
+        if (e && e.type === 'captions' && window.StudioCaptions) { for (const b of window.StudioCaptions.boxesAt(e, R.playTime, doc)) c.rect(b.x, b.y, b.w, b.h); }
+        else c.rect(0, 0, shape.width(), shape.height());
+        c.closePath(); c.fillStrokeShape(shape);
+      },
     });
     n.on('mouseenter', () => { if (!dragging && !sel.includes(id)) showHover(n); area.style.cursor = elMap.get(id)?.locked ? 'default' : 'move'; });
     n.on('mouseleave', () => { hoverRect.visible(false); uiLayer.batchDraw(); area.style.cursor = ''; });
@@ -1136,9 +1146,9 @@
       return;
     }
     if (evt.button === 2) return;
-    // editing always happens on the still layout, not mid-animation
-    if (R.playTime != null) S.stopPreview();
-    const t = e.target;
+    // editing always happens on the still layout, not mid-animation — except captions, whose words belong to a moment
+    const t = e.target, te = t && t.id && elMap.get(t.id());
+    if (R.playTime != null) { if (te && te.type === 'captions') S.pause(); else S.stopPreview(); }
     if (trackPick) { if (!(t.getParent && t.getParent() === pickGroup && t.draggable())) pickDown(); return; }
     if (S.tool === 'erase') { eraseStart(evt, t); return; }
     if (spotEdit) {

@@ -45,6 +45,7 @@
     btn('music', 'Add music or a sound file at the playhead', () => musicInput.click(), 'Music'),
     recBtn,
     btn('type', 'Add a title at the playhead', () => addTitle(), 'Text'),
+    btn('captions', 'Auto captions and subtitles from the sound', () => S.openCaptions && S.openCaptions(), 'Captions'),
     h('div.vtl-grow'),
     btn('minus', 'Zoom out', () => setZoom(+zoomIn.value - 12)), zoomIn, btn('plus', 'Zoom in', () => setZoom(+zoomIn.value + 12)),
     btn('fit', 'Fit the whole video', () => { fitZoom = true; render(); }),

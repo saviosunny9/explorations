@@ -67,7 +67,7 @@
     mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3M8 21h8',
     scissors: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
     volume: 'M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13', mute: 'M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6',
-    timeline: 'M3 5h18M3 19h18M5 9h6v6H5zM13 9h6v6h-6z', reverse: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+    timeline: 'M3 5h18M3 19h18M5 9h6v6H5zM13 9h6v6h-6z', captions: 'M3 5h18v14H3zM6 12h5M13 12h5M6 15.5h8M16 15.5h2', reverse: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
     speed: 'M12 21a9 9 0 1 1 9-9M12 12l4-4', clip: 'M4 6h16v12H4zM9 9.5v5l4.5-2.5z', fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
     path: 'M3 17c3-7 6-9 9-5s6 3 9-5', sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   };
@@ -539,9 +539,10 @@
       const el = els[0];
       parts.push(inspHead(el));
       for (const f of hooks.el) parts.push(f(el));
-      const fn = { text: textInspector, image: imageInspector, sticker: stickerInspector, shape: shapeInspector, calendar: calendarInspector, badge: badgeInspector, checklist: checklistInspector, ribbon: ribbonInspector, camera: cameraInspector, nature: natureInspector, flashes: flashesInspector }[el.type];
+      const fn = { text: textInspector, image: imageInspector, sticker: stickerInspector, shape: shapeInspector, calendar: calendarInspector, badge: badgeInspector, checklist: checklistInspector, ribbon: ribbonInspector, camera: cameraInspector, nature: natureInspector, flashes: flashesInspector, captions: e => (S.captionsInspector ? S.captionsInspector(e) : []) }[el.type];
       if (fn) parts.push(...fn(el));
-      parts.push(effectsSection(el), motionSection(el), arrangeSection(el));
+      // captions time themselves to the sound: no entrance / loop of their own
+      parts.push(effectsSection(el), el.type === 'captions' ? null : motionSection(el), arrangeSection(el));
     }
     const top = insp.scrollTop;
     insp.replaceChildren(...parts.flat().filter(Boolean));
@@ -2856,6 +2857,7 @@
         h('button.add-text-btn', { type: 'button', onclick: () => addText({ text: 'Add a heading', fontFamily: 'Instrument Serif', fontSize: Math.round(W * 0.11) }) }, h('span', { style: { fontFamily: '"Instrument Serif"', fontSize: '26px' } }, 'Heading')),
         h('button.add-text-btn', { type: 'button', onclick: () => addText({ text: 'Add a subheading', fontFamily: 'Bricolage Grotesque', fontWeight: 600, fontSize: Math.round(W * 0.05) }) }, h('span', { style: { fontFamily: '"Bricolage Grotesque"', fontWeight: 600, fontSize: '17px' } }, 'Subheading')),
         h('button.add-text-btn', { type: 'button', onclick: () => addText({ text: 'Add a little body text', fontFamily: 'Instrument Sans', fontSize: Math.round(W * 0.032), lineHeight: 1.35 }) }, h('span', { style: { fontFamily: '"Instrument Sans"', fontSize: '13px' } }, 'Body text'))),
+      S.captionsShelf ? S.captionsShelf() : null,
       shelf('Styles', presets, { grid: 'preset-grid', limit: 8 }),
       paths ? shelf('Text on a path', [...paths.items, badge], { grid: 'wide-grid', limit: 4 }) : null,
       h('div.shelf', null,
@@ -3829,7 +3831,7 @@
     Blur: ['drop', 'Blur'], Frame: ['square', 'Frame'], Typography: ['type', 'Font'], Background: ['square', 'Style'], Text: ['edit', 'Text'],
     Effects: ['sparkle', 'Effects'], Motion: ['play', 'Motion'], Position: ['move', 'Position'], Arrange: ['layers', 'Arrange'], Playback: ['film', 'Playback'],
     'Stop motion': ['film', 'Frames'], Shape: ['shapes', 'Shape'], Colours: ['palette', 'Colours'], Underneath: ['image', 'Under'], Photos: ['image', 'Photos'],
-    'Opacity & blend': ['blend', 'Blend'],
+    'Opacity & blend': ['blend', 'Blend'], Captions: ['captions', 'Captions'], Type: ['type', 'Type'], Words: ['edit', 'Words'],
   };
   function mSections() {
     const out = [];
@@ -3890,7 +3892,7 @@
       }
       for (const x of secs) {
         if (x.key === 'video-text' && one && el.type === 'text') continue;
-        const [icon, lab] = M_SEC[x.title] || ['more', x.title];
+        const [icon, lab] = M_SEC[x.title] || (/^Word · /.test(x.title || '') ? ['edit', 'Word'] : ['more', x.title]);
         items.push(B(icon, lab, () => mOpen(x.key), mTool === x.key));
       }
       items.push(B('copy', 'Duplicate', () => S.duplicate()), B('trash', 'Delete', () => S.removeSelected(), false, '.danger'));
@@ -3919,7 +3921,7 @@
     registerPanel(name, title, fn) { extraPanels[name] = fn; TAB_TITLES[name] = title; if (tab === name) renderPanel(); },
     // the inspector shows fn()'s sections instead of the canvas while nothing on the canvas is selected and fn returns some
     setInspectorOverride(fn) { inspectorOverride = fn; },
-    speedControls, soundControls, addTemplateLayers,
+    speedControls, soundControls, addTemplateLayers, fontCtl, weightCtl, textCtl, modal, closeModal, download, colorPopover,
     addSection(kind, fn) { hooks[kind].push(fn); renderInspector(); },
   };
 

@@ -25,6 +25,10 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `sounds-ui.js` | The Sounds panel (library by category, your sounds, previews, sound for every transition / entrance) |
 | `timeline.js` | The video timeline under the canvas (clips, text, sound lanes) and the Clip / Sound inspector sections |
 | `ui.js` | Panels, inspector, popovers, dialogs |
+| `captions.js` | Auto captions: 10 caption layouts (kinetic word captions and subtitles), their animation, effects and drawing; .srt in / out |
+| `captions-asr.js` | Hearing the words: Whisper in the browser or Gemini (your key), then word timing against the sound |
+| `align-model.js` | The small word-timing model (CC-BY-NC 4.0, non-commercial — see below) |
+| `captions-ui.js` | The Auto captions dialog, the captions inspector (looks, type, transcript, single words) |
 | `templates.js` | About 379 templates plus text, paper, planner, photo-layout and background presets |
 
 Work is autosaved to the browser (IndexedDB). Use **Menu → Download project file** to keep a portable `.studio.json` — or a `.studio.zip` once the design holds videos, sound or full-size photos (the files ride inside it as they are).
@@ -44,6 +48,41 @@ Start one from the home page (**Video editor** — pick or drop several videos a
 - **Scrolling**: the mouse wheel / trackpad scrolls the timeline up and down, Shift + wheel or a sideways swipe scrolls along it, and ⌘ / Ctrl + wheel zooms it — the canvas stays where it is.
 - **Sound tracks**: as many as you need; drag a sound up or down to another track, mute a whole track from its label, drop files or library sounds where they should play.
 - **Export** mixes all of it into the video: AAC sound in MP4 (Opus where the browser has no AAC encoder), Opus in WebM, and a `sound.wav` next to PNG frame sequences. A *Sound* switch leaves it out. Changing a clip's speed changes the pitch of its sound, the same in the preview and the file.
+
+## Auto captions and subtitles
+
+Turn what's said in a video, a voiceover or a song into captions, each word timed to the moment it's spoken.
+
+- **Where**: *Captions* on the timeline toolbar, the *Auto captions* card in the Text panel, *Captions* in a video's
+  inspector, or the canvas inspector's *Captions* section.
+- **Listen to**: all the sound in the design, one video (its captions follow that clip's trim, speed and loops) or one
+  sound track.
+- **Words by**:
+  - *This computer* (free, private): Whisper runs in the browser. *Fast* is a 95 MB download the first time; *Best* is
+    330 MB. It uses the graphics chip when it can.
+  - *Gemini*: better for many languages, songs and translations. It needs your own API key from aistudio.google.com,
+    which stays in this browser and is never saved in projects or project files. The sound is sent to Google. Pick
+    *Translate to* for a second language.
+- **Language**: let it find the language, or pick one (English, Telugu, Hindi, Tamil, Spanish, French and more).
+- Either way, every word is then timed against the sound by a small alignment model (most words land within 0.1 s).
+- **18 looks** (the gallery in the inspector):
+  - *Poster*, *Behind you* (some words tuck behind the person — it finds them in the video first), *Stack*,
+    *Focus pop*, *Sides*, *Cascade*;
+  - *Karaoke* (the whole line shows, the word being said lights up), *Lower third*, *Headline*, *Punch*;
+  - *Neon*, *Soft focus*, *Typewriter*, *Bold yellow*;
+  - four subtitle styles: box, outline, shadow and yellow.
+- **Change the look**: layout, entrance (blur in, fade, rise, pop, type, cut), size, *Shuffle* (where words land and
+  which go behind), *Some words go behind the person*, font, weight, accent font, colours, effect (soft shadow, drop
+  shadow, glow, soft blur, outline, haze) with its amount and colour, letter spacing, and the layer's blend mode.
+  - For subtitles: size, height, alignment, background (none, shadow, outline, box) and box colour / opacity.
+  - *Show*: as spoken, in English, or the translation; subtitles can add the other one as a *Second line*.
+- **Words**: the transcript, one line per box. Click a time to jump there, fix a word and its line is timed again by
+  itself, × removes a line. *Again* transcribes once more, *Re-time* times every word again, *.srt* saves a subtitle
+  file and *Open* loads one (an .srt also works from the Auto captions dialog).
+- **One word**: click a word on the canvas to change just that word — size, position, colour, font, entrance, and
+  whether it sits in front of or behind the person. *Reset word* puts it back.
+- Captions are one layer over the whole canvas; only the words on screen catch clicks, so the video under them stays
+  easy to select. They export with the video and travel in projects and project files.
 
 ## Sounds (music and sound effects)
 
@@ -418,6 +457,13 @@ Select a photo and choose **Remove background** (or **Cut out to layer** to keep
 - **Your fonts**: upload `.otf`, `.ttf`, `.woff`, `.woff2` files or a `.zip` from the font picker or the Text tab. They are registered with the FontFace API, kept in this browser only, and packed into saved project files. Commercial fonts are deliberately not bundled in this repo.
 - **Outfits** (`outfits-girls.js`, `outfits-boys.js`): neck-down outfit bodies plus shoes, bags and accessories. Adding one also adds an oversized face slot; a selfie dropped into it is cut out and trimmed to the head automatically for the "big head" look. They're in **Elements → Outfits · Girls / Outfits · Boys / Shoes & Bags**.
 - **Text → Styles** keeps the type looks of retired templates (Happy birthday, Café chalkboard, Coming soon, Y2K vibes, Outfit line-up, Halftone duo, Tools I use, Creative partner, Meet the agent…): *Birthday 3D*, *Chalk heading*, *Italic display*, *Wide spaced*, *Light caps*, *Bubble sticker*, *Stitched label*, *Marker blocks*, *Wide heavy*, *Chalk note* and more. Their stickers, shapes, calendars and checklists are all in Elements.
+
+## Captions credits
+
+The word-timing weights in `align-model.js` come from the S film app's handoff and were distilled from Meta's MMS
+forced aligner, so they carry its **CC-BY-NC 4.0** licence: fine for personal and non-commercial use. Replace them
+before any commercial release. Whisper (MIT) is downloaded from Hugging Face (`onnx-community/whisper-*_timestamped`)
+through transformers.js (Apache 2.0).
 
 ## Sound credits
 

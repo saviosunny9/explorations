@@ -1351,6 +1351,41 @@ body.mobile .snd-add { opacity: 1; }
 .vtl-gopen i { width: 12px; height: 12px; }
 .vtl-gopen:hover { background: rgba(255, 255, 255, .3); }
 
+/* captions (captions-ui.js): the Auto captions dialog, the style gallery, the transcript */
+.modal:has(.cap-dialog) { width: min(620px, 100%); }
+.cap-dialog { display: flex; flex-direction: column; gap: 8px; }
+.cap-dialog .lead { margin: 0 0 6px; }
+.cap-dialog .hint a { color: var(--ink); }
+.cap-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; max-height: 330px; overflow: auto; padding: 1px; }
+.cap-tiles.small { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); max-height: 236px; overflow: auto; padding: 1px; }
+.cap-tile { display: flex; flex-direction: column; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); color: var(--ink-2); font-size: 11px; text-align: left; cursor: pointer; }
+.cap-tile canvas { width: 100% !important; height: auto !important; border-radius: 2px; display: block; }
+.cap-tile span { padding: 0 2px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cap-tile:hover { border-color: var(--line-strong); color: var(--ink); }
+.cap-tile.on { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 1px var(--accent); }
+.cap-status { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 2px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+.cap-bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; position: relative; }
+.cap-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); transition: width .2s; }
+.cap-status.busy .cap-bar i { width: 30% !important; animation: cap-slide 1.2s ease-in-out infinite; }
+@keyframes cap-slide { from { left: -30%; } to { left: 100%; } }
+.cap-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.cap-actions .btn, .sec .btn.small { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; font-size: 11.5px; }
+.btn.ghost { background: none; border-color: transparent; color: var(--ink-2); }
+.btn.ghost:hover { color: var(--ink); border-color: var(--line); }
+.cap-cues { display: flex; flex-direction: column; gap: 4px; max-height: 360px; overflow: auto; }
+.cap-cue-row { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: start; }
+.cap-time { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); background: none; border: 0; padding: 7px 0 0; cursor: pointer; min-width: 38px; text-align: left; }
+.cap-time:hover { color: var(--ink); }
+.cap-cue { resize: none; min-height: 28px; overflow: hidden; line-height: 1.35; }
+.cap-x { opacity: .4; }
+.cap-cue-row:hover .cap-x { opacity: 1; }
+.cap-card { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 14px 12px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(160deg, #3c4854, #15191d); color: #fff; text-align: left; cursor: pointer; }
+.cap-card:hover { border-color: var(--line-strong); }
+.cap-card-demo { font: 700 22px/1 "Inter Tight", var(--ui-font); letter-spacing: -.01em; text-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.cap-card-demo i { font: italic 400 24px/1 "Instrument Serif", serif; color: #ffe14d; }
+.cap-card-demo span { font-weight: 500; font-size: 15px; opacity: .85; }
+.cap-card-txt { font-size: 11px; color: rgba(255,255,255,.7); }
+
 /* subject picking (subject.js): click what should light up */
 .subj-pick { position: absolute; inset: 0; z-index: 30; cursor: crosshair; }
 .subj-pick.busy { cursor: progress; }

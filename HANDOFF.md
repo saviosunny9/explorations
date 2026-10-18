@@ -95,6 +95,10 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   background treatment and "Effect on → Everything else", 6 more Image styles templates.
   Then: the camera looks pack (`studio/tools/camera_looks/build.js` → a zip of all 52 photo looks for the owner's live camera
   app: looks.json, maths, reference code, WebGL renderer + preview page, LUTs, check images, a brief for Claude).
+  Then: auto captions & subtitles (from the owner's S film app handoff): transcription on the computer (Whisper in the
+  browser) or with Gemini (the owner's key, translations), every word timed by the handoff's alignment model, 10 caption
+  layouts / 18 looks (kinetic word captions incl. words behind the person, karaoke, subtitles with a second language),
+  transcript editing with automatic re-timing, single-word edits, .srt in / out.
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 
@@ -132,6 +136,13 @@ coffee tastes OFF!", "TO MAKE USING MONEY" → "TO MAKE MONEY SIMPLE". Earlier s
   (`models/rmbg.part0–4.txt`, `models/ultraface.txt`), but those aren't published yet: huggingface.co was blocked
   from the cloud environment when the project moved. Until they are, background removal there depends on the
   browser reaching Hugging Face directly. Republishing only the page keeps any files already published.
+- Captions: Whisper and the aligner were tested in headless Chromium on the processor (JFK and a TED clip; the aligner put
+  words within ~0.1 s of the speech, closer than Whisper's own word times). The WebGPU path and the Gemini path with a real
+  key are untested here (Gemini's reply handling was tested with a mocked stream). Finding the person for *Behind you*
+  took ~6 min for an 11 s clip on the headless processor; real Chrome with a GPU is much faster.
+- The word-timing weights (`align-model.js`) are CC-BY-NC 4.0 (from MMS): not for commercial use as they are.
+- The online copy carries its own copy of the Fast speech model and runtime (`tools/whisper_prep.py`, ~160 MB of the
+  256 MB per-version budget), tested with jsDelivr and Hugging Face blocked; *Best* there needs Hugging Face.
 
 ## Testing
 
