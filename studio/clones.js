@@ -119,18 +119,17 @@
   /* ── drawing ── */
   const tmp = new Map();
   function scratch(key, w, h) { let c = tmp.get(key); if (!c) { c = document.createElement('canvas'); tmp.set(key, c); } if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return c; }
-  // the mask a little looser or tighter (grow −3…3) and softer, at the mask's own size
+  // the mask made solid — a person isn't see-through, but the models are often only half sure about legs and arms, and a
+  // half-sure leg would show the background through it — then a little looser or tighter (grow −3…3) and softer, at the
+  // mask's own size
   function edgeMask(m, grow, soft, key) {
-    if (!grow && !soft) return m;
     const c = scratch('edge' + key, m.width, m.height), x = c.getContext('2d', { willReadFrequently: true });
     x.clearRect(0, 0, c.width, c.height);
-    const r = Math.abs(grow) * 0.8 + soft * 0.5;
+    const r = Math.abs(grow) * 0.6 + soft * 0.5;
     x.filter = r > 0.05 ? `blur(${r.toFixed(2)}px)` : 'none'; x.drawImage(m, 0, 0); x.filter = 'none';
-    if (grow) {
-      const d = x.getImageData(0, 0, c.width, c.height), a = d.data, lo = grow > 0 ? 0.02 : 0.5, hi = grow > 0 ? 0.5 : 0.98;
-      for (let i = 3; i < a.length; i += 4) { const t = clamp((a[i] / 255 - lo) / (hi - lo), 0, 1); a[i] = t * t * (3 - 2 * t) * 255; }
-      x.putImageData(d, 0, 0);
-    }
+    const d = x.getImageData(0, 0, c.width, c.height), a = d.data, lo = clamp(0.14 - grow * 0.05, 0.01, 0.6), hi = clamp(0.5 - grow * 0.07, lo + 0.1, 0.95);
+    for (let i = 3; i < a.length; i += 4) { const t = clamp((a[i] / 255 - lo) / (hi - lo), 0, 1); a[i] = t * t * (3 - 2 * t) * 255; }
+    x.putImageData(d, 0, 0);
     return c;
   }
   // a picture drawn through a homography (u, v → u, v): one affine when it's that close, else a mesh of triangles
