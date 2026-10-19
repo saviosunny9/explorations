@@ -379,13 +379,14 @@
   // track a picked region of a video ('bg' or a video layer id); returns el.track for the layer pinned to it.
   // region = { mode: 'point' | 'object' | 'edge' | 'plane', pts: [canvas points] } — point: [centre, edge of the circle],
   // edge: [start, end], object and plane: 4 corners. Without a region, the spot under the layer's centre is used.
-  S.trackLayer = async function (el, { src, region, onProgress = () => {}, signal } = {}) {
+  S.trackLayer = async function (el, { src, region, at, onProgress = () => {}, signal } = {}) {
     const doc = S.doc, map = R.videoSpaceMap(doc, src);
     if (!map) throw new Error('No video to track');
     const v = await openClip(map);
     const vd = map.vd || {}, dur = v.duration, end = vd.end > 0 ? Math.min(dur, vd.end) : dur, ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05));
     const fps = Math.min(30, Math.max(10, await R.clipFps(map.assetId))), dt = 1 / fps;
-    const m0 = R.videoTarget(vd, null, v, map.start);
+    // the region is picked on the still frame — or on the frame given (masks are drawn on the frame on screen)
+    const m0 = at != null ? clamp(at, ts, end) : R.videoTarget(vd, null, v, map.start);
     const vw = v.videoWidth, vh = v.videoHeight;
     const cv = document.createElement('canvas'); cv.width = vw; cv.height = vh;
     if (!region) {

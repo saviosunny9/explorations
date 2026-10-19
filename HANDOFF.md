@@ -105,6 +105,11 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   tested on DAVIS clips with ground truth and a synthetic 'many places' clip with known takes, masks and shake.
   Exported clone frames are checked against the exact composite of that clip (mean ≈ 3 / 255): a composite made while a
   clone's video was still seeking is never cached (it had stuck stale frames into the result).
+  Then (from the owner's room clip, three takes, tripod, lamps changing between takes): only two of three takes were found
+  (same-spot test by centre distance — now box overlap), and the camera track 'moved' up to 10 px on a still shot (now
+  snapped to still), which shifted the copies; copies' edges are light-matched and difference-gated. Split screen (zones
+  per take, quick scan, no people finder) and layer masks (masks.js: subject / object / pen / box / ellipse / brush,
+  feather, invert, shapes that follow motion, guided + matted subject edges).
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 

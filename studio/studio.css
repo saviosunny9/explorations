@@ -1411,3 +1411,37 @@ body.mobile .snd-add { opacity: 1; }
 .subj-pick.busy .subj-bar span::after { content: ' · finding…'; opacity: .7; }
 body.mobile .subj-bar { top: 6px; left: 8px; right: 8px; transform: none; max-width: none; padding: 4px 4px 4px 10px; font-size: 11px; line-height: 1.25; }
 body.mobile .subj-bar .btn { padding: 0 10px; min-height: 30px; }
+
+/* ── layer masks (masks.js) ── */
+.mask-edit { position: absolute; inset: 0; z-index: 30; cursor: crosshair; touch-action: none; }
+.mask-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.mask-pt { fill: #fff; stroke: var(--sel, #4d9fff); stroke-width: 2; }
+.mask-pt.first { fill: var(--sel, #4d9fff); stroke: #fff !important; }
+.mask-mid { fill: rgba(77,159,255,.55); stroke: #fff; stroke-width: 1; }
+.mask-label { fill: #fff; font: 600 13px var(--ui-font); paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 3px; }
+.mask-bar { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; max-width: calc(100% - 24px);
+  padding: 5px 6px; background: var(--surface-2, #111); border: 1px solid var(--line, rgba(255,255,255,.12)); color: var(--ink, #fff); font-size: 12px; cursor: default; }
+.mask-tools, .mask-ops { display: flex; gap: 2px; }
+.mask-tool, .mask-op { display: grid; place-items: center; min-width: 30px; height: 28px; padding: 0 8px; border: 1px solid transparent; background: none; color: var(--ink-2, #bbb); cursor: pointer; font: inherit; }
+.mask-tool:hover, .mask-op:hover { color: var(--ink, #fff); background: var(--surface-3, rgba(255,255,255,.06)); }
+.mask-tool.on, .mask-op.on { color: var(--ink, #fff); border-color: var(--line-strong, rgba(255,255,255,.3)); background: var(--surface-3, rgba(255,255,255,.08)); }
+.mask-size { width: 80px; }
+.mask-hint { flex: 1; min-width: 0; color: var(--ink-3, #999); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mask-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.mask-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); color: var(--ink); cursor: pointer; text-align: left; }
+.mask-tile:hover { border-color: var(--line-strong); }
+.mask-tile b { font-weight: 600; font-size: 12px; }
+.mask-tile span { font-size: 10.5px; color: var(--ink-3); line-height: 1.3; }
+.mask-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+.mask-row { display: grid; grid-template-columns: 18px 1fr auto auto auto auto; gap: 4px; align-items: center; min-height: 28px; }
+.mask-row.off { opacity: .45; }
+.mask-k { color: var(--ink-3); display: grid; place-items: center; }
+.mask-k svg { width: 14px; height: 14px; }
+.mask-name { text-align: left; background: none; border: 0; color: var(--ink); font: inherit; font-size: 12px; padding: 0; cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+span.mask-name { cursor: default; }
+.mask-opb { width: 26px; height: 24px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: 600 14px var(--mono); cursor: pointer; }
+.mask-opb.cut { color: #ff6b6b; }
+.mask-track { display: block; width: 60px; height: 3px; background: var(--line); position: relative; overflow: hidden; }
+.mask-track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); }
+body.mobile .mask-bar { top: 6px; left: 8px; right: 8px; transform: none; max-width: none; flex-wrap: wrap; }
+body.mobile .mask-hint { display: none; }

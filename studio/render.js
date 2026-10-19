@@ -3118,6 +3118,8 @@
     if (img && !env.editor && isVideoAsset(el.assetId)) img = R.interpFrame(el.assetId, el.video, (el.time && el.time.start) || 0, 'time' in env ? env.time : null) || img;
     // clones (clones.js): the frame with the subject's other moments laid into it
     if (img && el.clones && el.clones.on && R.cloneFrame) img = R.cloneFrame(el, img, env) || img;
+    // layer masks (masks.js): the picture cut to shapes and / or its subject
+    if (img && el.mask && el.mask.on && R.maskFrame) img = R.maskFrame(el, img, env) || img;
     if (el.outline && el.outline.on && el.outline.width > 0 && img && (f.style || 'none') === 'none') {
       const src = filteredSource(el.assetId, img, el.filters);
       drawOutlined(ctx, el, 'img:' + el.assetId + JSON.stringify(el.filters || {}) + JSON.stringify(el.crop || {}) + (el.flipX ? 1 : 0), (c, w, h) => drawCover(c, src, { x: 0, y: 0, w, h }, el));
@@ -4131,6 +4133,8 @@
   }
   const hpt = (H, x, y) => { const w = H[6] * x + H[7] * y + H[8]; return { x: (H[0] * x + H[1] * y + H[2]) / w, y: (H[3] * x + H[4] * y + H[5]) / w }; };
   R.hpt = hpt;
+  R.quadH = quadH;
+  R.trackSampleAt = trackSample;
   // how a tracked layer is moved at time t: a canvas-space matrix (or a perspective H for planes) and its speed
   R.trackXform = function (el, t, doc) {
     const tr = el.track;

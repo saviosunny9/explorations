@@ -3831,7 +3831,7 @@
     Blur: ['drop', 'Blur'], Frame: ['square', 'Frame'], Typography: ['type', 'Font'], Background: ['square', 'Style'], Text: ['edit', 'Text'],
     Effects: ['sparkle', 'Effects'], Motion: ['play', 'Motion'], Position: ['move', 'Position'], Arrange: ['layers', 'Arrange'], Playback: ['film', 'Playback'],
     'Stop motion': ['film', 'Frames'], Shape: ['shapes', 'Shape'], Colours: ['palette', 'Colours'], Underneath: ['image', 'Under'], Photos: ['image', 'Photos'],
-    'Opacity & blend': ['blend', 'Blend'], Captions: ['captions', 'Captions'], Type: ['type', 'Type'], Words: ['edit', 'Words'], Clones: ['copy', 'Clones'],
+    'Opacity & blend': ['blend', 'Blend'], Captions: ['captions', 'Captions'], Type: ['type', 'Type'], Words: ['edit', 'Words'], Clones: ['copy', 'Clones'], Mask: ['path', 'Mask'],
   };
   function mSections() {
     const out = [];

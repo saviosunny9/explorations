@@ -177,6 +177,13 @@
           if (mask) { const qi = Math.round(q[1] * s) * w + Math.round(q[0] * s); if (mask[qi] > 0.3) continue; }
           src.push(p); dst.push(q);
         }
+        // a camera that hasn't moved since the key frame: most corners are where they were (the median of how far
+        // they went is under half a pixel). Keep it exactly still — a fitted homography is never quite the identity, and
+        // its small errors grow towards the corners (a tripod shot once 'moved' 10 px there, and the clones with it)
+        if (lv === 0 && src.length >= 12) {
+          const dd = src.map((p, k) => Math.hypot(dst[k][0] - p[0], dst[k][1] - p[1])).sort((a, b) => a - b);
+          if (dd[dd.length >> 1] < 0.4 && dd[Math.floor(dd.length * 0.7)] < 0.9) { res = { G: I3(), inliers: dd.filter(d => d < 1.4).length, n: kf.pts.length, still: true }; break; }
+        }
         const fit = robust(src, dst, lv === 0 ? 1.4 : 1.0, FL.w, FL.h);
         if (!fit) { if (lv === 2) continue; break; }
         const Hl = fit.H;

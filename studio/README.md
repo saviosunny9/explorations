@@ -15,7 +15,8 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `styles.js` | 131 realtime image styles (dreamy motion, flash light, subject FX, datamosh, ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
 | `subject.js` | Finds the subject of a photo or video (people automatically, or anything you click) and follows it through every frame |
 | `camtrack.js` | Follows the camera through a clip (for clones that stay put when the camera moves) |
-| `clones.js` | Clones: the same person in several places at once (Many places, Trail, Freeze trail) |
+| `clones.js` | Clones: the same person in several places at once (Many places, Split screen, Trail, Freeze trail) |
+| `masks.js` | Masks: cut a photo or video to the person, something you click, or shapes you draw (pen, box, ellipse, brush); shapes can follow something moving |
 | `styles-ui.js` | The Styles panel, the Style section of the inspector and the action bar under the canvas |
 | `app.js` | Editor core: stage, selection, snapping & guides, transforms, text editing, crop, history, import |
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
@@ -440,6 +441,14 @@ Select a video and open **Clones** in the inspector:
   then the desk…). The editor finds where you stood still, plays every spot at once, and trims the video to the shortest
   take (or the longest — shorter takes then *hold* their last frame or *loop*). The takes are listed with where each starts
   in the clip; change a start, hide or remove one, or add a take from where the clip is now.
+- **Split screen**: the same takes, but each one plays inside its own part of the frame (a strip, split halfway between
+  where you stood in neighbouring takes) instead of cut round you — the way it's done by hand with stacked copies of the
+  clip, each cut to where the person stands. Nothing of anyone is ever lost and it's quick (a short look at the clip, no
+  people finder), so it suits a camera on a tripod. *Edit zones* shows the numbered zones on the canvas: drag a zone or
+  its corners, click the middle of an edge for another corner. *Seams* softens where the zones meet; *Reset zones* works
+  them out again. Switch any time with *Cut: Person / Split screen*.
+- Two takes are the same spot only when the boxes round you mostly overlap, so sitting on the sofa and standing beside it
+  count as two places even when you fill the frame.
 - Switching to Trail or Freeze trail (or taking clones off) gives the whole clip back.
 - **Trail**: copies follow a moment behind you — how many, the gap between them and how much they fade.
 - **Freeze trail**: a frozen copy is left behind each time you've moved about a body width on; each appears when the video
@@ -448,13 +457,42 @@ Select a video and open **Clones** in the inspector:
   included — or the newest copy goes on top.
 - **More**: *Edge* makes the cut tighter or looser, *Softness* feathers it, and *Keep the copies still as the camera moves*
   holds every copy in place when the camera wasn't on a tripod (the camera is followed through the clip).
+- Cut round the person, each copy's edge is matched to the frame it goes into: its light is evened up with the frame
+  (a lamp or the camera's exposure changing between takes no longer leaves a lighter or darker band round the copy),
+  pixels that look the same as what's already there are left out (so the edge falls on the real outline), and just
+  outside the mask whatever clearly differs — a hand, hair, a shadow — is brought in.
+- A camera on a tripod is kept exactly still (a fitted camera move is never quite zero, and its small errors used to
+  shift the copies by a few pixels).
 - The person is found in every frame of the whole clip once (it takes a while: a few minutes for a 10 s clip on a laptop
   without a graphics card), and saved with the design.
 - Clones play in the editor and export with the video. The sound is the video's own. On a test clip with known answers
   (a person at three spots, a hand-held shake) the exported frames match the exact composite to within about 3 levels
   in 255 on average.
 
-## Finding the subject (Flash Light, *Apply to* subject / background, Clones)
+## Masks (show only part of a photo or video)
+
+Select a photo or video and open **Mask** in the inspector:
+
+- **Subject**: the person, found automatically (the same finder as below — on a video, in every frame). *Pick* adds or
+  takes away things by clicking them on the canvas.
+- **Object**: click what to keep (a cup, a car, a dog); on a video it's followed through the clip.
+- **Draw**: shapes on the canvas — **Pen** (click points round it; click the first point or double-click to close),
+  **Rectangle** and **Ellipse** (drag; Shift for a square / circle), **Brush** (paint; Alt paints the other way).
+  **Add** shapes show the picture, **Cut** shapes cut it away (also per shape with its + / − button). The select tool
+  moves a shape or its points; click the middle of an edge to add a point, Alt-click a point to take it away, Delete
+  removes the selected shape. While drawing, the rest of the picture shows faintly.
+- **Follow** (the target button on a shape, videos only): the shape follows whatever is under it — moved, turned and
+  scaled with it (on a test clip with a known hand-held shake, within 2.5 px at 1280 px). Click again to keep it still.
+- **Show**: *Inside* or *Outside* the mask. **Feather** softens the edge; *More → Edge* grows or shrinks it, *Smooth
+  curves* rounds pen shapes.
+- Subject edges are worked out small and then laid onto the picture's own outline at full size (a guided filter, then
+  matting against the colours of the person and the background just around them), so curls and fingers come out clean
+  without a light rim.
+- Masks work with everything else: styles, looks, outlines (the die-cut follows the mask), clones, export.
+- The by-hand split-screen trick works too: put the same clip on the timeline more than once (each one starting at a
+  different take) and give each a mask round where you stand.
+
+## Finding the subject (Flash Light, *Apply to* subject / background, Clones, Masks)
 
 Runs in the browser with Google's MediaPipe Tasks (`@mediapipe/tasks-vision` from jsDelivr):
 - **People**: the *pose landmarker*'s body mask finds whole people, and the *selfie multiclass* segmenter adds hair and
