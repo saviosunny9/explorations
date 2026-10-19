@@ -53,6 +53,8 @@
       if (prev) prev.clip._out = ov ? { type: tr.type, dur: ov, dir: tr.dir } : null;
       t = start + len; prevLen = len; prev = el;
     });
+    // a photo or video layer over the video that runs on past the last clip makes the video that much longer
+    for (const e of doc.elements) if (!e.clip && e.type === 'image' && e.assetId && e.time && e.time.end > t && !e.hidden) t = e.time.end;
     const D = Math.min(S.MAX_LEN, round(t));
     if (Math.abs(doc.anim.duration - D) > 0.001) doc.anim.duration = Math.max(0.2, D);
     return true;

@@ -254,8 +254,14 @@ onmessage = async e => {
     let seed = pf && !pf.none ? resample(pf.a, pf.w, pf.h, w, h) : null;
     const limbs = document.createElement('canvas'); limbs.width = w; limbs.height = h;
     const lx = limbs.getContext('2d', { willReadFrequently: true }); lx.strokeStyle = '#fff';
-    let anyLimb = false;
-    if (pf && pf.joints && pf.joints.length) { limbsInto(lx, pf.joints, (u, v) => [u * w, v * h]); anyLimb = true; }
+    let anyLimb = false, whole = null;
+    if (pf && pf.joints && pf.joints.length) {
+      limbsInto(lx, pf.joints, (u, v) => [u * w, v * h]); anyLimb = true;
+      // the bodies found in the whole frame, on their own (a crop round a sofa arm can make the pose model see a body)
+      whole = document.createElement('canvas'); whole.width = w; whole.height = h;
+      const wx = whole.getContext('2d', { willReadFrequently: true }); wx.strokeStyle = '#fff';
+      limbsInto(wx, pf.joints, (u, v) => [u * w, v * h]);
+    }
     if (wide || !seed) { const mc = await peopleMask(c); if (!seed) seed = mc; else for (let i = 0; i < seed.length; i++) if (mc[i] > seed[i]) seed[i] = mc[i]; }
     const crops = cropsOf(blobsOf(seed, w, h).concat(prev || []), w, h), o = seed.slice();
     for (const b of crops) for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) o[y * w + x] = 0;
@@ -272,8 +278,31 @@ onmessage = async e => {
         const i = y * w + x; if (val > o[i]) o[i] = val;
       }
     }
-    if (anyLimb) { const d = lx.getImageData(0, 0, w, h).data; for (let i = 0; i < o.length; i++) { const v = d[i * 4 + 3] / 255 * 0.65; if (v > o[i]) o[i] = v; } }
+    if (anyLimb) {
+      const d = lx.getImageData(0, 0, w, h).data;
+      for (let i = 0; i < o.length; i++) { const v = d[i * 4 + 3] / 255 * 0.65; if (v > o[i]) o[i] = v; }
+      if (whole) dropStrays(o, w, h, whole.getContext('2d').getImageData(0, 0, w, h).data);
+    }
     return o;
+  }
+  /* the segmenters now and then call a dark thing near someone a person too (a pair of shoes on the floor, a bag): a
+     blob that no body joint of the pose model falls in, and that is much smaller than the people found, isn't one */
+  function dropStrays(o, w, h, limbs) {
+    const lab = new Int32Array(w * h), comps = [];
+    for (let i = 0; i < w * h; i++) {
+      if (lab[i] || o[i] < 0.35) continue;
+      const id = comps.length + 1, st = [i], px = []; lab[i] = id; let limb = 0;
+      while (st.length) {
+        const q = st.pop(), x = q % w; px.push(q); if (limbs[q * 4 + 3] > 0) limb++;
+        if (x > 0 && !lab[q - 1] && o[q - 1] >= 0.35) { lab[q - 1] = id; st.push(q - 1); }
+        if (x < w - 1 && !lab[q + 1] && o[q + 1] >= 0.35) { lab[q + 1] = id; st.push(q + 1); }
+        if (q >= w && !lab[q - w] && o[q - w] >= 0.35) { lab[q - w] = id; st.push(q - w); }
+        if (q < w * (h - 1) && !lab[q + w] && o[q + w] >= 0.35) { lab[q + w] = id; st.push(q + w); }
+      }
+      comps.push({ px, limb });
+    }
+    const big = comps.reduce((m, c) => Math.max(m, c.px.length), 0);
+    for (const c of comps) if (!c.limb && c.px.length < big * 0.3) for (const q of c.px) o[q] = Math.min(o[q], 0.2);
   }
   async function pickMask(c, u, v) {
     const seg = await model('pick'), out = seg.segment(c, { keypoint: { x: clamp(u, 0.001, 0.999), y: clamp(v, 0.001, 0.999) } });

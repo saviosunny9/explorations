@@ -317,9 +317,15 @@
         const want = cloneTime(el, s, it);
         if (want == null) continue;
         src = e.v; time = env.editor ? e.v.currentTime : want;
+        // a trail never reaches back across a cut in the clip (the person jumped somewhere else): it would leave a
+        // ghost of the last take where nobody is now
+        if (it.edge === 'hide' && jumpBetween(sj, time, s)) continue;
       } else {
         // a frozen copy appears once the video reaches it, with a quick fade
         if (cl.reveal !== false && t != null) { if (s < it.at - 0.01) continue; op *= clamp((s - it.at + 0.01) / 0.15, 0, 1); }
+        // and makes way while the person on screen stands where it is (after a cut, or stopping on the spot)
+        const ov = overlap(refBox(sj, it.at), refBox(sj, s));
+        if (ov > 0.1) op *= clamp(1 - (ov - 0.1) / 0.1, 0, 1);
         src = still(el, it.at); time = it.at;
         if (!src) continue;
       }
@@ -411,15 +417,52 @@
   S.findCloneTakes = el => (ready(el) ? findTakes(el.subj) : []);
   // the moments of 'Freeze trail': a new copy each time the subject has moved about a body width on
   function freezeMoments(sj, gap) {
-    const tr = track(sj), out = [];
+    const tr = track(sj), out = [], kept = [], js = jumps(sj);
     let last = null;
     for (const p of tr) {
       if (!p) continue;
-      if (!last || Math.hypot(p.x - last.x, p.y - last.y) >= Math.max(p.w, 0.04) * (gap || 1.1)) { out.push(+p.t.toFixed(3)); last = p; }
+      // not right at a cut (half the frames there belong to the other take)
+      if (js.some(j => Math.abs(p.t - j) < 0.25)) continue;
+      if (last && Math.hypot(p.x - last.x, p.y - last.y) < Math.max(p.w, 0.04) * (gap || 1.1)) continue;
+      // nor where an earlier copy already stands
+      const b = [p.x - p.w / 2, p.y - p.h / 2, p.x + p.w / 2, p.y + p.h / 2];
+      if (kept.some(k => overlap(k, b) > 0.3)) { last = p; continue; }
+      out.push(+p.t.toFixed(3)); kept.push(b); last = p;
       if (out.length >= MAX) break;
     }
     return out;
   }
+  // the subject's box at a moment, in the reference view
+  function refBox(sj, time) {
+    const b = boxAt(sj, time);
+    if (!b) return null;
+    const f = frameAt(sj, time), Hf = sj.cam && sj.cam.moving && sj.cam.H[f];
+    if (!Hf) return b;
+    const cs = [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]].map(q => CT.apply(Hf, q[0], q[1]));
+    return [Math.min(...cs.map(q => q[0])), Math.min(...cs.map(q => q[1])), Math.max(...cs.map(q => q[0])), Math.max(...cs.map(q => q[1]))];
+  }
+  // how much two boxes overlap (intersection over union)
+  function overlap(a, b) {
+    if (!a || !b) return 0;
+    const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])), iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1])), I = ix * iy;
+    return I / Math.max(1e-6, (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - I);
+  }
+  /* cuts in the clip: moments where the subject jumps further in one frame than anyone moves (several takes joined
+     into one file, the usual way 'many places' footage arrives) */
+  const jumpCache = new WeakMap();
+  function jumps(sj) {
+    if (jumpCache.has(sj)) return jumpCache.get(sj);
+    const tr = track(sj), out = [];
+    let prev = null;
+    for (const p of tr) {
+      if (!p) continue;
+      if (prev && p.t - prev.t < 0.2 && Math.hypot(p.x - prev.x, p.y - prev.y) > Math.max(0.06, 0.45 * Math.max(p.w, prev.w))) out.push((p.t + prev.t) / 2);
+      prev = p;
+    }
+    jumpCache.set(sj, out);
+    return out;
+  }
+  const jumpBetween = (sj, a, b) => { const lo = Math.min(a, b), hi = Math.max(a, b); return jumps(sj).some(j => j > lo && j <= hi); };
   // run the subject finder over the whole clip (with the camera) if it hasn't been yet
   /* a quick look for split screen (no people finder): frames every ~0.2 s, small; the empty room is the median of
      them (each frame's light levelled to it first — lamps and auto exposure change between takes), and whatever

@@ -410,6 +410,7 @@
     e.preventDefault(); e.stopPropagation();
     closePop();
     const x0 = e.clientX, y0 = e.clientY;
+    o.y0 = y0;
     let moved = false;
     // Shift / ⌘ click adds a layer or clip to the selection (or takes it out); the settings then change all of them
     if ((e.shiftKey || e.metaKey || e.ctrlKey) && (o.kind === 'clip' || o.kind === 'ov' || o.kind === 'grp')) {
@@ -445,6 +446,8 @@
       const dx = ev.clientX - x0;
       if (!moved && Math.abs(dx) < 4 && Math.abs(ev.clientY - y0) < 6) return;
       moved = true;
+      // near the top or bottom of the tracks: scroll them, so a track out of view can be reached
+      if (!o.side) { const sb = scroll.getBoundingClientRect(); if (ev.clientY < sb.top + 26) scroll.scrollTop -= 12; else if (ev.clientY > sb.bottom - 18) scroll.scrollTop += 12; }
       dragMove(o, dx / pps, ev);
     };
     const up = ev => {
@@ -467,11 +470,15 @@
     if (o.kind === 'clip') {
       const el = o.el, v0 = o.v0;
       if (!o.side) {
-        // reorder: the block follows the pointer, the others stay until it's dropped
-        o.b.style.transform = `translateX(${dt * pps}px)`;
+        // reorder: the block follows the pointer, the others stay until it's dropped; dragged up onto a layer track (or
+        // above the top one, for a new track) it leaves the video track there
+        const tg = dropTarget(ev.clientY), up = tg && tg.kind === 'ov';
+        o.tgt = up ? tg : null;
+        o.b.style.transform = `translate(${dt * pps}px, ${up ? ev.clientY - o.y0 : 0}px)`;
         o.b.classList.add('lift');
         const mid = el.time.start + (el.time.end - el.time.start) / 2 + dt;
         o.to = S.clips().filter(c => c !== el && c.time.start + (c.time.end - c.time.start) / 2 < mid).length;
+        markDrop(up ? tg : null);
         return;
       }
       S.changeEl(el, e => {
@@ -487,7 +494,7 @@
       // show the frame at the cut
       S.seek(o.side === 'l' ? el.time.start + 0.001 : el.time.end - 0.02);
     } else if (o.kind === 'grp') {
-      const g0 = o.g0, lane = o.side ? null : laneAt(ev.clientY, 'ov');
+      const tg = o.side ? null : dropTarget(ev.clientY), g0 = o.g0, lane = tg && tg.kind === 'ov' ? tg.lane : null;
       S.changeGroup(g0.id, g => {
         if (!o.side) {
           const k = Math.max(dt, -g0.start, -g0.origin), d0 = g.start - g0.start;
@@ -511,7 +518,9 @@
       // a video layer's left edge trims the clip too, so the picture stays where it was in time
       if (vid && o.side === 'l') s = Math.max(s, s0 - (vd0.trim || 0) / (vd0.speed || 1));
       if (vid && o.side === 'r' && vd0.loop === false) { const src = S.clipSrcLen(Object.assign({ clip: null }, o.el)) || R.assetVideo(o.el.assetId).v.duration || 9999; en = Math.min(en, s0 + ((vd0.end > 0 ? vd0.end : src) - (vd0.trim || 0)) / (vd0.speed || 1)); }
-      const lane = o.side ? null : laneAt(ev.clientY, 'ov');
+      // onto another track, above the top one (a new track), or down into the video track (it becomes a clip there)
+      const tg = o.side ? null : dropTarget(ev.clientY), lane = tg && tg.kind === 'ov' ? tg.lane : null;
+      o.toMain = !!(tg && tg.kind === 'main' && o.el.type === 'image' && o.el.assetId && !o.el.grp);
       const a0 = o.v0.anim;
       S.changeEl(o.el, e => {
         // a moved layer's entrance moves with it
@@ -522,28 +531,81 @@
         if (lane != null) e.lane = lane;
       }, true);
       S.seek(o.side === 'r' ? en - 0.02 : s + 0.001);
+      render(true);
+      markDrop(o.toMain ? { kind: 'main', t: s } : lane != null ? tg : null, o);
+      return;
     } else if (o.kind === 'snd') {
       const a0 = o.a0, len0 = A.trackLen(a0), end0 = a0.end > 0 ? a0.end : a0.dur || len0 + (a0.trim || 0);
       const p = {};
-      if (!o.side) { p.start = Math.max(0, (a0.start || 0) + dt); const lane = laneAt(ev.clientY, 'au'); if (lane != null) p.lane = lane; }
+      if (!o.side) { p.start = Math.max(0, (a0.start || 0) + dt); const tg = dropTarget(ev.clientY); if (tg && tg.kind === 'au') p.lane = tg.lane; }
       else if (o.side === 'l') { const k = clamp(dt, -(a0.trim || 0), len0 - 0.1); p.trim = (a0.trim || 0) + k; p.start = Math.max(0, (a0.start || 0) + k); }
       else p.end = clamp(end0 + dt, (a0.trim || 0) + 0.1, a0.dur || end0 + dt);
       S.changeSound(a0.id, p, true);
     }
     render(true);
   }
-  function dragEnd(o) {
+  function dragEnd(o, dt) {
+    markDrop(null);
     if (o.kind === 'clip' && !o.side) {
       o.b.style.transform = ''; o.b.classList.remove('lift');
+      if (o.tgt) { clipToLayer(o.el, o.el.time.start + (dt || 0), o.tgt.lane); return; }
       if (o.to != null && o.to !== S.clips().indexOf(o.el)) S.moveClip(o.el, o.to); else render();
       return;
     }
+    if (o.kind === 'ov' && o.toMain) { layerToClip(o.el); return; }
     if (o.kind === 'ov' && o.el.lane !== (o.lane0 ?? o.el.lane)) restack([o.el], o.el.lane || 0);
     if (o.kind === 'grp' && o.g.lane !== o.lane0 && o.g.lane != null) restack(S.groupMembers(o.g.id), o.g.lane);
     S.commit();
     S.emit('doc');
   }
 
+  // where a drag would land: { kind: 'ov' | 'main' | 'au', lane } — above the top track is the empty one up there (a new
+  // track), below the last sound track the empty one down there
+  function dropTarget(clientY) {
+    const rows = [...lanes.querySelectorAll('.vtl-row')];
+    if (!rows.length) return null;
+    const first = rows[0], last = rows[rows.length - 1];
+    if (clientY < first.getBoundingClientRect().top) return first.dataset.kind === 'ov' ? { kind: 'ov', lane: +first.dataset.lane, row: first } : null;
+    if (clientY >= last.getBoundingClientRect().bottom) return last.dataset.kind === 'au' ? { kind: 'au', lane: +last.dataset.lane, row: last } : null;
+    for (const r of rows) {
+      const b = r.getBoundingClientRect();
+      if (clientY >= b.top && clientY < b.bottom) return { kind: r.dataset.kind, lane: r.dataset.lane != null ? +r.dataset.lane : null, row: r };
+    }
+    return null;
+  }
+  // show where it will land: the track lit up; on the video track, a line where the clip goes in
+  function markDrop(tg) {
+    for (const r of lanes.querySelectorAll('.vtl-row.drop')) r.classList.remove('drop');
+    for (const m of lanes.querySelectorAll('.vtl-insert')) m.remove();
+    if (!tg) return;
+    const row = tg.kind === 'main' ? lanes.querySelector('.vtl-row.main') : [...lanes.querySelectorAll('.vtl-row')].find(r => r.dataset.kind === tg.kind && +r.dataset.lane === tg.lane);
+    if (!row) return;
+    row.classList.add('drop');
+    if (tg.kind === 'main') {
+      const list = S.clips(), i = list.filter(c => c.time.start + (c.time.end - c.time.start) / 2 < tg.t).length, at = i < list.length ? list[i].time.start : list.length ? list[list.length - 1].time.end : 0;
+      row.querySelector('.vtl-track').append(h('div.vtl-insert', { style: { left: at * pps + 'px' } }));
+    }
+  }
+  // a clip taken off the video track onto a layer track: it keeps its moment and its length, full frame over the video
+  // (stacked copies of a clip, each cut with a mask, are the hand-made split screen)
+  function clipToLayer(el, start, lane) {
+    const len = el.time.end - el.time.start, s = Math.max(0, Math.round(start * 100) / 100);
+    S.changeEl(el, e => { delete e.clip; e.time = { start: s, end: Math.round((s + len) * 100) / 100 }; e.lane = lane; if (e.video) e.video = Object.assign({}, e.video, { loop: false }); }, true);
+    restack([el], lane);
+    S.commit();
+    S.emit('doc');
+    S.select([el.id]);
+    toast('Now a layer over the video — drag it back down to put it in the video track again');
+  }
+  // a photo or video layer dragged down into the video track: a clip, where it was dropped
+  function layerToClip(el) {
+    const t = (el.time && el.time.start) || 0, idx = S.clips().filter(c => c.time.start + (c.time.end - c.time.start) / 2 < t).length;
+    S.changeEl(el, e => { delete e.lane; }, true);
+    S.makeClip(el, true);
+    const e2 = S.elById(el.id);
+    if (e2 && idx < S.clips().length - 1) S.moveClip(e2, idx);
+    S.select([el.id]);
+  }
   // the track under the pointer (null when it's another kind of track)
   function laneAt(clientY, kind) {
     for (const r of lanes.querySelectorAll('.vtl-row')) {

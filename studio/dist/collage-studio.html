@@ -1455,6 +1455,9 @@ span.mask-name { cursor: default; }
 .mask-track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); }
 body.mobile .mask-bar { top: 6px; left: 8px; right: 8px; transform: none; max-width: none; flex-wrap: wrap; }
 body.mobile .mask-hint { display: none; }
+.vtl-row.drop { background: rgba(77,159,255,.10); box-shadow: inset 0 0 0 1px rgba(77,159,255,.55); }
+.vtl-insert { position: absolute; top: 2px; bottom: 2px; width: 3px; margin-left: -1px; background: var(--sel, #4d9fff); border-radius: 2px; z-index: 5; pointer-events: none; }
+.vtl-clip.lift { z-index: 20; }
 
 </style>
 </head>
@@ -25668,6 +25671,8 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
       if (prev) prev.clip._out = ov ? { type: tr.type, dur: ov, dir: tr.dir } : null;
       t = start + len; prevLen = len; prev = el;
     });
+    // a photo or video layer over the video that runs on past the last clip makes the video that much longer
+    for (const e of doc.elements) if (!e.clip && e.type === 'image' && e.assetId && e.time && e.time.end > t && !e.hidden) t = e.time.end;
     const D = Math.min(S.MAX_LEN, round(t));
     if (Math.abs(doc.anim.duration - D) > 0.001) doc.anim.duration = Math.max(0.2, D);
     return true;
@@ -27662,8 +27667,14 @@ onmessage = async e => {
     let seed = pf && !pf.none ? resample(pf.a, pf.w, pf.h, w, h) : null;
     const limbs = document.createElement('canvas'); limbs.width = w; limbs.height = h;
     const lx = limbs.getContext('2d', { willReadFrequently: true }); lx.strokeStyle = '#fff';
-    let anyLimb = false;
-    if (pf && pf.joints && pf.joints.length) { limbsInto(lx, pf.joints, (u, v) => [u * w, v * h]); anyLimb = true; }
+    let anyLimb = false, whole = null;
+    if (pf && pf.joints && pf.joints.length) {
+      limbsInto(lx, pf.joints, (u, v) => [u * w, v * h]); anyLimb = true;
+      // the bodies found in the whole frame, on their own (a crop round a sofa arm can make the pose model see a body)
+      whole = document.createElement('canvas'); whole.width = w; whole.height = h;
+      const wx = whole.getContext('2d', { willReadFrequently: true }); wx.strokeStyle = '#fff';
+      limbsInto(wx, pf.joints, (u, v) => [u * w, v * h]);
+    }
     if (wide || !seed) { const mc = await peopleMask(c); if (!seed) seed = mc; else for (let i = 0; i < seed.length; i++) if (mc[i] > seed[i]) seed[i] = mc[i]; }
     const crops = cropsOf(blobsOf(seed, w, h).concat(prev || []), w, h), o = seed.slice();
     for (const b of crops) for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) o[y * w + x] = 0;
@@ -27680,8 +27691,31 @@ onmessage = async e => {
         const i = y * w + x; if (val > o[i]) o[i] = val;
       }
     }
-    if (anyLimb) { const d = lx.getImageData(0, 0, w, h).data; for (let i = 0; i < o.length; i++) { const v = d[i * 4 + 3] / 255 * 0.65; if (v > o[i]) o[i] = v; } }
+    if (anyLimb) {
+      const d = lx.getImageData(0, 0, w, h).data;
+      for (let i = 0; i < o.length; i++) { const v = d[i * 4 + 3] / 255 * 0.65; if (v > o[i]) o[i] = v; }
+      if (whole) dropStrays(o, w, h, whole.getContext('2d').getImageData(0, 0, w, h).data);
+    }
     return o;
+  }
+  /* the segmenters now and then call a dark thing near someone a person too (a pair of shoes on the floor, a bag): a
+     blob that no body joint of the pose model falls in, and that is much smaller than the people found, isn't one */
+  function dropStrays(o, w, h, limbs) {
+    const lab = new Int32Array(w * h), comps = [];
+    for (let i = 0; i < w * h; i++) {
+      if (lab[i] || o[i] < 0.35) continue;
+      const id = comps.length + 1, st = [i], px = []; lab[i] = id; let limb = 0;
+      while (st.length) {
+        const q = st.pop(), x = q % w; px.push(q); if (limbs[q * 4 + 3] > 0) limb++;
+        if (x > 0 && !lab[q - 1] && o[q - 1] >= 0.35) { lab[q - 1] = id; st.push(q - 1); }
+        if (x < w - 1 && !lab[q + 1] && o[q + 1] >= 0.35) { lab[q + 1] = id; st.push(q + 1); }
+        if (q >= w && !lab[q - w] && o[q - w] >= 0.35) { lab[q - w] = id; st.push(q - w); }
+        if (q < w * (h - 1) && !lab[q + w] && o[q + w] >= 0.35) { lab[q + w] = id; st.push(q + w); }
+      }
+      comps.push({ px, limb });
+    }
+    const big = comps.reduce((m, c) => Math.max(m, c.px.length), 0);
+    for (const c of comps) if (!c.limb && c.px.length < big * 0.3) for (const q of c.px) o[q] = Math.min(o[q], 0.2);
   }
   async function pickMask(c, u, v) {
     const seg = await model('pick'), out = seg.segment(c, { keypoint: { x: clamp(u, 0.001, 0.999), y: clamp(v, 0.001, 0.999) } });
@@ -33218,6 +33252,7 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
     e.preventDefault(); e.stopPropagation();
     closePop();
     const x0 = e.clientX, y0 = e.clientY;
+    o.y0 = y0;
     let moved = false;
     // Shift / ⌘ click adds a layer or clip to the selection (or takes it out); the settings then change all of them
     if ((e.shiftKey || e.metaKey || e.ctrlKey) && (o.kind === 'clip' || o.kind === 'ov' || o.kind === 'grp')) {
@@ -33253,6 +33288,8 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
       const dx = ev.clientX - x0;
       if (!moved && Math.abs(dx) < 4 && Math.abs(ev.clientY - y0) < 6) return;
       moved = true;
+      // near the top or bottom of the tracks: scroll them, so a track out of view can be reached
+      if (!o.side) { const sb = scroll.getBoundingClientRect(); if (ev.clientY < sb.top + 26) scroll.scrollTop -= 12; else if (ev.clientY > sb.bottom - 18) scroll.scrollTop += 12; }
       dragMove(o, dx / pps, ev);
     };
     const up = ev => {
@@ -33275,11 +33312,15 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
     if (o.kind === 'clip') {
       const el = o.el, v0 = o.v0;
       if (!o.side) {
-        // reorder: the block follows the pointer, the others stay until it's dropped
-        o.b.style.transform = `translateX(${dt * pps}px)`;
+        // reorder: the block follows the pointer, the others stay until it's dropped; dragged up onto a layer track (or
+        // above the top one, for a new track) it leaves the video track there
+        const tg = dropTarget(ev.clientY), up = tg && tg.kind === 'ov';
+        o.tgt = up ? tg : null;
+        o.b.style.transform = `translate(${dt * pps}px, ${up ? ev.clientY - o.y0 : 0}px)`;
         o.b.classList.add('lift');
         const mid = el.time.start + (el.time.end - el.time.start) / 2 + dt;
         o.to = S.clips().filter(c => c !== el && c.time.start + (c.time.end - c.time.start) / 2 < mid).length;
+        markDrop(up ? tg : null);
         return;
       }
       S.changeEl(el, e => {
@@ -33295,7 +33336,7 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
       // show the frame at the cut
       S.seek(o.side === 'l' ? el.time.start + 0.001 : el.time.end - 0.02);
     } else if (o.kind === 'grp') {
-      const g0 = o.g0, lane = o.side ? null : laneAt(ev.clientY, 'ov');
+      const tg = o.side ? null : dropTarget(ev.clientY), g0 = o.g0, lane = tg && tg.kind === 'ov' ? tg.lane : null;
       S.changeGroup(g0.id, g => {
         if (!o.side) {
           const k = Math.max(dt, -g0.start, -g0.origin), d0 = g.start - g0.start;
@@ -33319,7 +33360,9 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
       // a video layer's left edge trims the clip too, so the picture stays where it was in time
       if (vid && o.side === 'l') s = Math.max(s, s0 - (vd0.trim || 0) / (vd0.speed || 1));
       if (vid && o.side === 'r' && vd0.loop === false) { const src = S.clipSrcLen(Object.assign({ clip: null }, o.el)) || R.assetVideo(o.el.assetId).v.duration || 9999; en = Math.min(en, s0 + ((vd0.end > 0 ? vd0.end : src) - (vd0.trim || 0)) / (vd0.speed || 1)); }
-      const lane = o.side ? null : laneAt(ev.clientY, 'ov');
+      // onto another track, above the top one (a new track), or down into the video track (it becomes a clip there)
+      const tg = o.side ? null : dropTarget(ev.clientY), lane = tg && tg.kind === 'ov' ? tg.lane : null;
+      o.toMain = !!(tg && tg.kind === 'main' && o.el.type === 'image' && o.el.assetId && !o.el.grp);
       const a0 = o.v0.anim;
       S.changeEl(o.el, e => {
         // a moved layer's entrance moves with it
@@ -33330,28 +33373,81 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
         if (lane != null) e.lane = lane;
       }, true);
       S.seek(o.side === 'r' ? en - 0.02 : s + 0.001);
+      render(true);
+      markDrop(o.toMain ? { kind: 'main', t: s } : lane != null ? tg : null, o);
+      return;
     } else if (o.kind === 'snd') {
       const a0 = o.a0, len0 = A.trackLen(a0), end0 = a0.end > 0 ? a0.end : a0.dur || len0 + (a0.trim || 0);
       const p = {};
-      if (!o.side) { p.start = Math.max(0, (a0.start || 0) + dt); const lane = laneAt(ev.clientY, 'au'); if (lane != null) p.lane = lane; }
+      if (!o.side) { p.start = Math.max(0, (a0.start || 0) + dt); const tg = dropTarget(ev.clientY); if (tg && tg.kind === 'au') p.lane = tg.lane; }
       else if (o.side === 'l') { const k = clamp(dt, -(a0.trim || 0), len0 - 0.1); p.trim = (a0.trim || 0) + k; p.start = Math.max(0, (a0.start || 0) + k); }
       else p.end = clamp(end0 + dt, (a0.trim || 0) + 0.1, a0.dur || end0 + dt);
       S.changeSound(a0.id, p, true);
     }
     render(true);
   }
-  function dragEnd(o) {
+  function dragEnd(o, dt) {
+    markDrop(null);
     if (o.kind === 'clip' && !o.side) {
       o.b.style.transform = ''; o.b.classList.remove('lift');
+      if (o.tgt) { clipToLayer(o.el, o.el.time.start + (dt || 0), o.tgt.lane); return; }
       if (o.to != null && o.to !== S.clips().indexOf(o.el)) S.moveClip(o.el, o.to); else render();
       return;
     }
+    if (o.kind === 'ov' && o.toMain) { layerToClip(o.el); return; }
     if (o.kind === 'ov' && o.el.lane !== (o.lane0 ?? o.el.lane)) restack([o.el], o.el.lane || 0);
     if (o.kind === 'grp' && o.g.lane !== o.lane0 && o.g.lane != null) restack(S.groupMembers(o.g.id), o.g.lane);
     S.commit();
     S.emit('doc');
   }
 
+  // where a drag would land: { kind: 'ov' | 'main' | 'au', lane } — above the top track is the empty one up there (a new
+  // track), below the last sound track the empty one down there
+  function dropTarget(clientY) {
+    const rows = [...lanes.querySelectorAll('.vtl-row')];
+    if (!rows.length) return null;
+    const first = rows[0], last = rows[rows.length - 1];
+    if (clientY < first.getBoundingClientRect().top) return first.dataset.kind === 'ov' ? { kind: 'ov', lane: +first.dataset.lane, row: first } : null;
+    if (clientY >= last.getBoundingClientRect().bottom) return last.dataset.kind === 'au' ? { kind: 'au', lane: +last.dataset.lane, row: last } : null;
+    for (const r of rows) {
+      const b = r.getBoundingClientRect();
+      if (clientY >= b.top && clientY < b.bottom) return { kind: r.dataset.kind, lane: r.dataset.lane != null ? +r.dataset.lane : null, row: r };
+    }
+    return null;
+  }
+  // show where it will land: the track lit up; on the video track, a line where the clip goes in
+  function markDrop(tg) {
+    for (const r of lanes.querySelectorAll('.vtl-row.drop')) r.classList.remove('drop');
+    for (const m of lanes.querySelectorAll('.vtl-insert')) m.remove();
+    if (!tg) return;
+    const row = tg.kind === 'main' ? lanes.querySelector('.vtl-row.main') : [...lanes.querySelectorAll('.vtl-row')].find(r => r.dataset.kind === tg.kind && +r.dataset.lane === tg.lane);
+    if (!row) return;
+    row.classList.add('drop');
+    if (tg.kind === 'main') {
+      const list = S.clips(), i = list.filter(c => c.time.start + (c.time.end - c.time.start) / 2 < tg.t).length, at = i < list.length ? list[i].time.start : list.length ? list[list.length - 1].time.end : 0;
+      row.querySelector('.vtl-track').append(h('div.vtl-insert', { style: { left: at * pps + 'px' } }));
+    }
+  }
+  // a clip taken off the video track onto a layer track: it keeps its moment and its length, full frame over the video
+  // (stacked copies of a clip, each cut with a mask, are the hand-made split screen)
+  function clipToLayer(el, start, lane) {
+    const len = el.time.end - el.time.start, s = Math.max(0, Math.round(start * 100) / 100);
+    S.changeEl(el, e => { delete e.clip; e.time = { start: s, end: Math.round((s + len) * 100) / 100 }; e.lane = lane; if (e.video) e.video = Object.assign({}, e.video, { loop: false }); }, true);
+    restack([el], lane);
+    S.commit();
+    S.emit('doc');
+    S.select([el.id]);
+    toast('Now a layer over the video — drag it back down to put it in the video track again');
+  }
+  // a photo or video layer dragged down into the video track: a clip, where it was dropped
+  function layerToClip(el) {
+    const t = (el.time && el.time.start) || 0, idx = S.clips().filter(c => c.time.start + (c.time.end - c.time.start) / 2 < t).length;
+    S.changeEl(el, e => { delete e.lane; }, true);
+    S.makeClip(el, true);
+    const e2 = S.elById(el.id);
+    if (e2 && idx < S.clips().length - 1) S.moveClip(e2, idx);
+    S.select([el.id]);
+  }
   // the track under the pointer (null when it's another kind of track)
   function laneAt(clientY, kind) {
     for (const r of lanes.querySelectorAll('.vtl-row')) {
@@ -34464,9 +34560,15 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
         const want = cloneTime(el, s, it);
         if (want == null) continue;
         src = e.v; time = env.editor ? e.v.currentTime : want;
+        // a trail never reaches back across a cut in the clip (the person jumped somewhere else): it would leave a
+        // ghost of the last take where nobody is now
+        if (it.edge === 'hide' && jumpBetween(sj, time, s)) continue;
       } else {
         // a frozen copy appears once the video reaches it, with a quick fade
         if (cl.reveal !== false && t != null) { if (s < it.at - 0.01) continue; op *= clamp((s - it.at + 0.01) / 0.15, 0, 1); }
+        // and makes way while the person on screen stands where it is (after a cut, or stopping on the spot)
+        const ov = overlap(refBox(sj, it.at), refBox(sj, s));
+        if (ov > 0.1) op *= clamp(1 - (ov - 0.1) / 0.1, 0, 1);
         src = still(el, it.at); time = it.at;
         if (!src) continue;
       }
@@ -34558,15 +34660,52 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
   S.findCloneTakes = el => (ready(el) ? findTakes(el.subj) : []);
   // the moments of 'Freeze trail': a new copy each time the subject has moved about a body width on
   function freezeMoments(sj, gap) {
-    const tr = track(sj), out = [];
+    const tr = track(sj), out = [], kept = [], js = jumps(sj);
     let last = null;
     for (const p of tr) {
       if (!p) continue;
-      if (!last || Math.hypot(p.x - last.x, p.y - last.y) >= Math.max(p.w, 0.04) * (gap || 1.1)) { out.push(+p.t.toFixed(3)); last = p; }
+      // not right at a cut (half the frames there belong to the other take)
+      if (js.some(j => Math.abs(p.t - j) < 0.25)) continue;
+      if (last && Math.hypot(p.x - last.x, p.y - last.y) < Math.max(p.w, 0.04) * (gap || 1.1)) continue;
+      // nor where an earlier copy already stands
+      const b = [p.x - p.w / 2, p.y - p.h / 2, p.x + p.w / 2, p.y + p.h / 2];
+      if (kept.some(k => overlap(k, b) > 0.3)) { last = p; continue; }
+      out.push(+p.t.toFixed(3)); kept.push(b); last = p;
       if (out.length >= MAX) break;
     }
     return out;
   }
+  // the subject's box at a moment, in the reference view
+  function refBox(sj, time) {
+    const b = boxAt(sj, time);
+    if (!b) return null;
+    const f = frameAt(sj, time), Hf = sj.cam && sj.cam.moving && sj.cam.H[f];
+    if (!Hf) return b;
+    const cs = [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]].map(q => CT.apply(Hf, q[0], q[1]));
+    return [Math.min(...cs.map(q => q[0])), Math.min(...cs.map(q => q[1])), Math.max(...cs.map(q => q[0])), Math.max(...cs.map(q => q[1]))];
+  }
+  // how much two boxes overlap (intersection over union)
+  function overlap(a, b) {
+    if (!a || !b) return 0;
+    const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])), iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1])), I = ix * iy;
+    return I / Math.max(1e-6, (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - I);
+  }
+  /* cuts in the clip: moments where the subject jumps further in one frame than anyone moves (several takes joined
+     into one file, the usual way 'many places' footage arrives) */
+  const jumpCache = new WeakMap();
+  function jumps(sj) {
+    if (jumpCache.has(sj)) return jumpCache.get(sj);
+    const tr = track(sj), out = [];
+    let prev = null;
+    for (const p of tr) {
+      if (!p) continue;
+      if (prev && p.t - prev.t < 0.2 && Math.hypot(p.x - prev.x, p.y - prev.y) > Math.max(0.06, 0.45 * Math.max(p.w, prev.w))) out.push((p.t + prev.t) / 2);
+      prev = p;
+    }
+    jumpCache.set(sj, out);
+    return out;
+  }
+  const jumpBetween = (sj, a, b) => { const lo = Math.min(a, b), hi = Math.max(a, b); return jumps(sj).some(j => j > lo && j <= hi); };
   // run the subject finder over the whole clip (with the camera) if it hasn't been yet
   /* a quick look for split screen (no people finder): frames every ~0.2 s, small; the empty room is the median of
      them (each frame's light levelled to it first — lamps and auto exposure change between takes), and whatever

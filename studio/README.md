@@ -43,13 +43,21 @@ Start one from the home page (**Video editor** — pick or drop several videos a
 - **The timeline** sits under the canvas (drag its top edge to make it taller): the **Video** track holds the clips one after another, **Text & layers** above it shows anything timed, **Sound** below holds music and voiceovers with their waveforms. Click or drag on the ruler to move the playhead; the canvas shows that moment and you can edit right there. Zoom with the slider or ⌘/Ctrl-scroll, *Fit* shows the whole video.
 - **Clips**: drag a clip to put it somewhere else, drag its edges to trim (everything after it moves up — no gaps), press **S** (or ⌘B) or the scissors to split at the playhead, ⌘D / the copy button to duplicate, ⌫ to delete. Photos show for 3 s (drag the edge or set *Shows for*). Each clip keeps everything a photo or video layer has: speed (5–400 %, smooth slow motion), **Play backwards**, crop and position (*Fill* or *Fit* the frame), filters and film looks, the 131 Styles, blur, animation — plus **Auto fix**, which evens out exposure, contrast and colour from the clip itself. *Take out of the video track* turns a clip into a free layer over the video (picture in picture); a free photo or video gets *Put in the video track*.
 - **Transitions**: the small square between two clips — Cut, Dissolve, Dip to black, Flash, Slide, Push, Whip pan, Wipe, Circle, Zoom, Blur, Spin and Glitch, with their length (0.1–3 s), a direction for the moving ones, *Apply to all clips* and *Preview*. A transition overlaps the two clips by its length.
-- **Layers over the video**: tracks above the video track hold anything that plays over it — videos and photos (picture in picture: the *Layer* button or the **+** on *New layer* adds them at the playhead), titles, stickers and shapes. Drag a bar along to move it in time, its edges to trim (a video's left edge trims the clip itself), or up and down to another track — a higher track draws on top. Drop files onto a layer track to add them there.
+- **Layers over the video**: tracks above the video track hold anything that plays over it — videos and photos (picture in picture: the *Layer* button or the **+** on *New layer* adds them at the playhead), titles, stickers and shapes. Drag a bar along to move it in time, its edges to trim (a video's left edge trims the clip itself), or up and down to another track — a higher track draws on top. Drag it **above the top track** (keep pointing above the
+  timeline) to give it a new track of its own, or **down into the Video track** to make it a clip there (a line shows where
+  it goes in). Drop files onto a layer track to add them there.
+- **Clips onto layer tracks**: drag a clip **up** out of the Video track onto a layer track — or above the top one for a
+  new track — and it becomes a full-frame layer at the same moment (the clips after it close up; a layer that runs past
+  the last clip makes the video longer). That's the by-hand split screen: stack the takes on tracks above each other,
+  shift each to start together, and give each a *Mask* round where you stand. The tracks scroll by themselves while you
+  drag near their top or bottom edge.
 - **Text**: the *Text* button adds a title at the playhead for 3 s; drag its bar to move it, its edges to change when it comes and goes. Any layer with timing shows here.
 - **Sound**: every video keeps its own sound — mute it, set its volume (up to 200 %) and fades in the clip's *Sound* row. **Music** adds any sound file (mp3, m4a, wav, ogg, opus, flac…) at the playhead; drag it along, trim either end, split it, and set its volume, fade in / out and *Loop to the end of the video* when it's selected. **Voice** records a voiceover from the microphone while the video plays from the playhead. Dropping files on the timeline puts sound files on a sound lane and videos / photos into the video track where you drop them. The canvas inspector's **Sound** section lists the tracks and adds music to any design, animated or still (a still design grows to the music's length).
 - **Groups (compositing)**: adding a template over a video brings all its layers in as **one group** — one bar on one track, starting at the playhead — instead of a track per layer. Click the bar for the group's settings (name, opacity, blend, hide, a **Style** for the whole group — its layers are styled together as one picture — Ungroup, Delete); double-click it (or its ›) to **open** it: the timeline then shows the group's own layers on their own tracks, which you can move and trim inside the group's window (shaded outside). *All tracks* (or Esc) goes back. Move the group to move everything in it, entrance timings included; trim its ends to cut it. Any layers can be grouped: select them and press the *Group* button or ⌘G (⇧⌘G ungroups).
 - **Selecting several**: Shift- or ⌘-click clips and layers on the timeline (or on the canvas) to select more than one; the inspector then changes them together — Style, transitions, speed and play backwards, sound, look, adjustments, film effects, blur, frame and motion.
 - **Scrolling**: the mouse wheel / trackpad scrolls the timeline up and down, Shift + wheel or a sideways swipe scrolls along it, and ⌘ / Ctrl + wheel zooms it — the canvas stays where it is.
-- **Sound tracks**: as many as you need; drag a sound up or down to another track, mute a whole track from its label, drop files or library sounds where they should play.
+- **Sound tracks**: as many as you need; drag a sound up or down to another track — or below the last one for a new
+  track — mute a whole track from its label, drop files or library sounds where they should play.
 - **Export** mixes all of it into the video: AAC sound in MP4 (Opus where the browser has no AAC encoder), Opus in WebM, and a `sound.wav` next to PNG frame sequences. A *Sound* switch leaves it out. Changing a clip's speed changes the pitch of its sound, the same in the preview and the file.
 
 ## Auto captions and subtitles
@@ -450,9 +458,12 @@ Select a video and open **Clones** in the inspector:
 - Two takes are the same spot only when the boxes round you mostly overlap, so sitting on the sofa and standing beside it
   count as two places even when you fill the frame.
 - Switching to Trail or Freeze trail (or taking clones off) gives the whole clip back.
-- **Trail**: copies follow a moment behind you — how many, the gap between them and how much they fade.
+- **Trail**: copies follow a moment behind you — how many, the gap between them and how much they fade. A trail never
+  reaches back across a cut in the clip (several takes joined into one file — the person jumps to a new spot), so no
+  faded copy of the last take is left where nobody is any more.
 - **Freeze trail**: a frozen copy is left behind each time you've moved about a body width on; each appears when the video
-  reaches it (or all from the start). *Freeze here* adds one at the frame on screen.
+  reaches it (or all from the start). No copy is taken right at a cut or where another copy already stands, and a copy
+  steps aside while you stand where it is. *Freeze here* adds one at the frame on screen.
 - **In front**: whoever stands nearer the camera (lower in the picture) covers the others — the person on screen now
   included — or the newest copy goes on top.
 - **More**: *Edge* makes the cut tighter or looser, *Softness* feathers it, and *Keep the copies still as the camera moves*
@@ -501,6 +512,10 @@ Runs in the browser with Google's MediaPipe Tasks (`@mediapipe/tasks-vision` fro
   the joints the pose model still finds. On the DAVIS test videos this lifted the overlap with hand-drawn masks from 0.48
   to 0.84 (two small people at a crossing) and 0.63 to 0.76 (a dark club); a walker went from 0.87 to 0.89 and now keeps
   98.5 % of her outline, legs and feet included.
+- **Not people**: the segmenters sometimes take a dark thing next to someone for a person (a pair of shoes on the floor,
+  the end of a sofa). A blob that no body joint found in the whole frame falls in, and that is much smaller than the
+  people found, is dropped — on the owner's room clip that removed every such patch; on DAVIS *crossing* the overlap
+  went from 0.81 to 0.82.
 - **Anything you click**: *magic touch*.
 - The models download on first use (16 MB for people, 9 MB for whole bodies, 6 MB for picking, plus the runtime, from
   storage.googleapis.com and jsDelivr — so it needs a connection) and run on the graphics card when that is quicker,

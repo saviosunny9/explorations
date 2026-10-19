@@ -110,6 +110,10 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   snapped to still), which shifted the copies; copies' edges are light-matched and difference-gated. Split screen (zones
   per take, quick scan, no people finder) and layer masks (masks.js: subject / object / pen / box / ellipse / brush,
   feather, invert, shapes that follow motion, guided + matted subject edges).
+  Then: the owner's 'ghost' screenshots were Trail / Freeze trail across the hard cuts between takes — both now know the
+  clip's cuts; the people finder drops stray blobs (shoes, a sofa arm) that no whole-frame pose joint falls in. Timeline:
+  clips drag up onto layer tracks (or above the top for a new one), layers drag down into the video track, sounds below
+  the last track get a new one; layers past the last clip lengthen the video.
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 
