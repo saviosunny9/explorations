@@ -115,26 +115,35 @@
     bitrate = bitrate || Math.round(width * height * fps * 0.1);
     await R.preload(doc);
     const audible = sound && window.StudioAudio && window.StudioAudio.hasSound(doc);
+    const cands = format === 'png' || transparent ? null : await encoderCandidates(width, height, fps, bitrate, format);
+    // recorded in real time (no encoder): the videos play along, so the editor's syncing stays on
+    if (cands && !cands.length) return recordRealtime({ width, height, fps, duration, bitrate, onProgress, signal });
+    // frame by frame: the editor keeps its hands off the videos until the export is done (redrawing while a frame's videos
+    // were still seeking moved them away again — clones use several at once)
+    R.holdLive++;
+    try { return await framewise(); } finally { R.holdLive--; }
+    async function framewise() {
     if (format === 'png') return exportFrames({ width, height, fps, duration, transparent, sound: audible, onProgress, signal });
     if (transparent) {
       const t = await exportAlphaWebm({ width, height, fps, duration, bitrate, sound: audible, onProgress, signal });
       if (t) return t;
     }
-    const cands = await encoderCandidates(width, height, fps, bitrate, format);
-    if (!cands.length) return recordRealtime({ width, height, fps, duration, bitrate, onProgress, signal });
+    const cands2 = cands || await encoderCandidates(width, height, fps, bitrate, format);
+    if (!cands2.length) { R.holdLive--; try { return await recordRealtime({ width, height, fps, duration, bitrate, onProgress, signal }); } finally { R.holdLive++; } }
     // if an encoder gives up part-way (typically hardware H.264 at 4K), start again with the next one
     let lastErr = null;
-    for (let ci = 0; ci < cands.length; ci++) {
+    for (let ci = 0; ci < cands2.length; ci++) {
       try {
-        return await encodeWith(cands[ci], { doc, width, height, fps, duration, bitrate, sound: audible, onProgress, signal });
+        return await encodeWith(cands2[ci], { doc, width, height, fps, duration, bitrate, sound: audible, onProgress, signal });
       } catch (err) {
         if (!err || !err.fromEncoder || (signal && signal.aborted)) throw err;
-        console.warn('Video encoder failed, trying the next one', cands[ci].cfg, err);
+        console.warn('Video encoder failed, trying the next one', cands2[ci].cfg, err);
         lastErr = err;
-        if (ci < cands.length - 1) onProgress(0, 'retry');
+        if (ci < cands2.length - 1) onProgress(0, 'retry');
       }
     }
     throw lastErr;
+    }
   };
   async function encodeWith(enc, { doc, width, height, fps, duration, bitrate, sound, onProgress, signal }) {
     // the single-file build already carries the muxers; otherwise fetch the one we need

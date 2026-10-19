@@ -122,7 +122,10 @@
   R.hasVideo = doc => videoUsers(doc).length > 0;
   R.playing = false;
   // editor preview: let the video run and only correct it when it drifts
+  // R.holdLive > 0 while frames are being sought exactly (export): the editor redrawing in the meantime mustn't move them
+  R.holdLive = 0;
   function liveSync(v, vd, t, start, tgt) {
+    if (R.holdLive > 0) return;
     const target = tgt ? tgt(t, v) : R.videoTarget(vd, t, v, start);
     // a video can't play backwards: a reversed clip is stepped by seeking
     if (t == null || !R.playing || (vd && vd.reverse)) {
@@ -360,6 +363,10 @@
   }
   // export: seek every video to its exact frame before the frame is drawn
   R.syncVideos = async function (doc, t, force) {
+    R.holdLive++;
+    try { await syncAll(doc, t, force); } finally { R.holdLive--; }
+  };
+  async function syncAll(doc, t, force) {
     const jobs = [];
     for (const u of videoUsers(doc)) {
       if (!userOn(u, t)) continue;
@@ -386,7 +393,7 @@
     await Promise.all(jobs);
     // anything else a frame needs before it's drawn (clones' still frames)
     for (const f of R.extraSync) await f(doc, t);
-  };
+  }
   R.extraSync = [];
 
   let stickerMap = null;
