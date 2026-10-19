@@ -429,17 +429,20 @@ onmessage = async e => {
     if (!shown) throw new Error('The picture isn’t ready yet');
     const size = R.mediaSize(shown), [aw, ah] = sizeOf(size.w, size.h, AN);
     // the times to look at (source time, seconds)
-    let times = [0], fps = 0, t0 = 0, v = null;
+    let times = [0], fps = 0, t0 = 0, v = null, vfps = 0, stride = 1, f0 = 0;
     if (isVid) {
       const vd = what.whole ? {} : el.video || {}, dur = shown.duration, end = vd.end > 0 ? Math.min(dur, vd.end) : dur, ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05));
       if (at != null) times = [at];
       else {
         const len = Math.max(0.05, end - ts);
-        // every frame of the clip (≤ 30 a second), fewer for long clips (≤ 2400 frames)
-        fps = clamp(Math.min(await R.clipFps(el.assetId) || 30, 30, 2400 / len), 2, 30);
-        const n = Math.max(1, Math.round(len * fps));
-        // sampled in the middle of each frame, so a seek can't land on the frame before
-        t0 = ts + 0.5 / fps; times = Array.from({ length: n }, (_, i) => Math.min(end - 0.02, t0 + i / fps));
+        // every frame of the clip (≤ 30 a second: every other frame of a 60 fps clip), fewer for long clips (≤ 2400 frames),
+        // each taken in the middle of a real frame — a mask that's a frame out cuts off legs in mid-stride
+        vfps = (await R.clipFps(el.assetId)) || 30;
+        stride = Math.max(1, Math.ceil(vfps / Math.min(30, 2400 / len) - 1e-6));
+        fps = vfps / stride;
+        f0 = Math.floor(ts * vfps + 1e-6);
+        const n = Math.max(1, Math.floor((end * vfps - f0) / stride));
+        t0 = (f0 + 0.5) / vfps; times = Array.from({ length: n }, (_, i) => Math.min(end - 0.02, t0 + i / fps));
       }
       v = await openVideo(el.assetId);
     }
@@ -553,7 +556,7 @@ onmessage = async e => {
       box.push(...(x1 < 0 ? [0, 0, 0, 0] : [Math.round(x0 / mw * 1000), Math.round(y0 / mh * 1000), Math.round((x1 + 1) / mw * 1000), Math.round((y1 + 1) / mh * 1000)]));
     }
     const sheets = await pack(steady, mw, mh);
-    return { v: 2, of: el.assetId, people, pts, at: what.at ?? null, whole: !!what.whole, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000, box, cam };
+    return { v: 2, of: el.assetId, people, pts, at: what.at ?? null, whole: !!what.whole, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, vfps: at == null ? vfps : 0, f0, stride, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000, box, cam };
   }
   // masks → PNG sprite sheets (white, alpha = mask)
   async function pack(masks, w, h) {

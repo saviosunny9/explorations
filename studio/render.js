@@ -176,12 +176,20 @@
     const gaps = [];
     for (let i = 1; i < times.length; i++) { const d = times[i] - times[i - 1]; if (d > 0.004) gaps.push(d); }
     gaps.sort((a, b) => a - b);
-    // the shortest gap is one frame (a busy machine can skip frames, never add them)
-    e.fps = gaps.length ? clamp(Math.round(1 / gaps[0]), 12, 120) : 30;
+    // the usual gap is one frame (a busy machine skips some, never adds any), snapped to the rates cameras use
+    const raw = gaps.length >= 3 ? 1 / gaps[gaps.length >> 1] : 0, RATES = [12, 15, 23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 90, 100, 119.88, 120];
+    const near = raw ? RATES.reduce((a, b) => (Math.abs(b - raw) < Math.abs(a - raw) ? b : a)) : 0;
+    e.fps = !raw ? 30 : Math.abs(near - raw) / raw < 0.04 ? near : clamp(Math.round(raw), 12, 120);
     await seekTo(v, was);
     return e.fps;
   }
-  R.clipFps = id => { const e = assetVideo(id); return e && e.ok ? clipFps(e) : Promise.resolve(30); };
+  // measured on a <video> of its own: the one on screen is paused and sought by the editor while it plays
+  R.clipFps = async id => {
+    const e = assetVideo(id, 'fps');
+    if (!e) return 30;
+    if (!e.ok) await e.promise;
+    return e.ok ? clipFps(e) : 30;
+  };
   function grabFrame(v) {
     const s = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
     const c = canvas(Math.max(1, Math.round(v.videoWidth * s)), Math.max(1, Math.round(v.videoHeight * s)));
@@ -4673,8 +4681,10 @@
   R.subjectMask = function (el, st, slot) {
     const sj = el && el.subj;
     if (!R.hasSubject(el)) return null;
-    const f = sj.n > 1 && sj.fps ? clamp(((st || 0) - (sj.t0 || 0)) * sj.fps, 0, sj.n - 1) : 0;
-    // masks taken at the clip's own frame rate: the one for this frame; sparser ones (long clips): blended
+    // masks taken on the clip's own frames: the one for the frame showing (by frame number); the older kind by time
+    const f = sj.n > 1 && sj.vfps ? clamp((Math.floor((st || 0) * sj.vfps + 1e-6) - sj.f0) / (sj.stride || 1), 0, sj.n - 1)
+      : sj.n > 1 && sj.fps ? clamp(((st || 0) - (sj.t0 || 0)) * sj.fps, 0, sj.n - 1) : 0;
+    // every frame (or every other one): the nearest; sparser ones (long clips): blended
     const dense = (sj.fps || 0) >= 23.5, i = dense ? Math.round(f) : Math.floor(f), fr = dense ? 0 : Math.round((f - i) * 8) / 8, j = Math.min(sj.n - 1, i + 1);
     const key = sj.sheets.join(',') + '|' + i + '|' + fr;
     const ck = slot ? el.id + '#' + slot : el.id;

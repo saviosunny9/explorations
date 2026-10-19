@@ -103,7 +103,8 @@
   };
 
   /* ── the camera: where a moment's picture sits in the frame on screen ── */
-  const frameAt = (sj, time) => clamp(Math.round(((time || 0) - (sj.t0 || 0)) * (sj.fps || 1)), 0, sj.n - 1);
+  // the analysed frame for a moment: by frame number (as R.subjectMask does), or by time for older masks
+  const frameAt = (sj, time) => clamp(sj.vfps ? Math.round((Math.floor((time || 0) * sj.vfps + 1e-6) - sj.f0) / (sj.stride || 1)) : Math.round(((time || 0) - (sj.t0 || 0)) * (sj.fps || 1)), 0, sj.n - 1);
   function warpFor(el, sj, from, to) {
     const cam = sj.cam, c = el.clones;
     if (!cam || !cam.moving || c.steady === false || !CT) return null;
