@@ -99,6 +99,10 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   browser) or with Gemini (the owner's key, translations), every word timed by the handoff's alignment model, 10 caption
   layouts / 18 looks (kinetic word captions incl. words behind the person, karaoke, subtitles with a second language),
   transcript editing with automatic re-timing, single-word edits, .srt in / out.
+  Then: clones (from the owner's reference video): Many places (takes found automatically), Trail, Freeze trail on any
+  video, depth-ordered, steadied through a camera track (camtrack.js); the subject finder got the pose model (in a worker,
+  graphics path, restarted after crashes), crops around each person, limbs from joints and a gentler temporal median —
+  tested on DAVIS clips with ground truth and a synthetic 'many places' clip with known takes, masks and shake.
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 
@@ -143,6 +147,11 @@ coffee tastes OFF!", "TO MAKE USING MONEY" → "TO MAKE MONEY SIMPLE". Earlier s
 - The word-timing weights (`align-model.js`) are CC-BY-NC 4.0 (from MMS): not for commercial use as they are.
 - The online copy carries its own copy of the Fast speech model and runtime (`tools/whisper_prep.py`, ~160 MB of the
   256 MB per-version budget), tested with jsDelivr and Hugging Face blocked; *Best* there needs Hugging Face.
+- Clones: the subject finder is slow on a processor-only machine (≈ 4.5 s a frame here with the body model on software
+  WebGL: 18 min for a 10 s clip); a laptop with a graphics card is many times faster. MediaPipe's pose model aborts on some
+  pictures on its processor path (`Check failed: 1 == ChannelSize()`), so it runs on the graphics path in a worker that is
+  restarted when that happens. A clean-plate difference matte was tried for still cameras and dropped (it pulled in
+  whatever moved behind people). Test material (DAVIS sequences, the synthetic clip) is not in the repo.
 
 ## Testing
 

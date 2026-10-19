@@ -14,6 +14,8 @@ Open `studio/index.html` in a browser, or serve the folder with any static serve
 | `render.js` | Canvas renderer for every element type, used by both the editor and export |
 | `styles.js` | 131 realtime image styles (dreamy motion, flash light, subject FX, datamosh, ASCII, pixel, print, geometric, distort, blur, glitch, light, glass, material) |
 | `subject.js` | Finds the subject of a photo or video (people automatically, or anything you click) and follows it through every frame |
+| `camtrack.js` | Follows the camera through a clip (for clones that stay put when the camera moves) |
+| `clones.js` | Clones: the same person in several places at once (Many places, Trail, Freeze trail) |
 | `styles-ui.js` | The Styles panel, the Style section of the inspector and the action bar under the canvas |
 | `app.js` | Editor core: stage, selection, snapping & guides, transforms, text editing, crop, history, import |
 | `bgremove.js` | On-device background removal (RMBG-1.4 via ONNX Runtime Web) |
@@ -452,14 +454,17 @@ Select a video and open **Clones** in the inspector:
 ## Finding the subject (Flash Light, *Apply to* subject / background, Clones)
 
 Runs in the browser with Google's MediaPipe Tasks (`@mediapipe/tasks-vision` from jsDelivr):
-- **People**: the *pose landmarker*'s body mask finds whole people (legs and feet included). The *selfie multiclass*
-  segmenter adds hair and loose clothes. Both are run again on a close crop around each person, so someone small and far
-  away is found as well as someone near. On the DAVIS test videos this lifted the overlap with hand-drawn masks from
-  0.87 to 0.91 (a walker), 0.48 to 0.84 (two small people at a crossing) and 0.63 to 0.76 (a dark club).
+- **People**: the *pose landmarker*'s body mask finds whole people, and the *selfie multiclass* segmenter adds hair and
+  loose clothes. Both are run again on a close crop around each person, so someone small and far away is found as well as
+  someone near. Where both lose an arm or a leg against a background of the same colour, rounded limbs are drawn along
+  the joints the pose model still finds. On the DAVIS test videos this lifted the overlap with hand-drawn masks from 0.48
+  to 0.84 (two small people at a crossing) and 0.63 to 0.76 (a dark club); a walker went from 0.87 to 0.89 and now keeps
+  98.5 % of her outline, legs and feet included.
 - **Anything you click**: *magic touch*.
 - The models download on first use (16 MB for people, 9 MB for whole bodies, 6 MB for picking, plus the runtime, from
   storage.googleapis.com and jsDelivr — so it needs a connection) and run on the graphics card when that is quicker,
-  otherwise on the processor. The body model runs in the background and is restarted if it ever gets stuck on a frame.
+  otherwise on the processor (the body model always prefers the graphics card). It runs in the background and is restarted
+  if it ever gets stuck on a frame.
 - Every frame of a video is looked at (up to 30 a second; fewer for clips over 80 s), each mask is sharpened along the
   picture's own edges and steadied against its neighbours.
 - A clicked spot is followed forwards and backwards from the frame you clicked on by matching the picture around it, and

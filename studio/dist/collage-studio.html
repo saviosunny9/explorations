@@ -1396,6 +1396,20 @@ body.mobile .snd-add { opacity: 1; }
 .cap-card-demo span { font-weight: 500; font-size: 15px; opacity: .85; }
 .cap-card-txt { font-size: 11px; color: rgba(255,255,255,.7); }
 
+/* clones (clones.js) */
+.clone-tiles { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.clone-tile { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); color: var(--ink); cursor: pointer; }
+.clone-tile:hover { border-color: var(--line-strong); }
+.clone-tile .clone-art { grid-row: span 2; color: var(--ink); }
+.clone-tile .clone-art svg { width: 56px; height: 38px; fill: currentColor; display: block; }
+.clone-tile b { font-weight: 600; font-size: 12.5px; }
+.clone-tile span:not(.clone-art) { font-size: 11px; color: var(--ink-3); line-height: 1.35; }
+.clone-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+.clone-row { display: grid; grid-template-columns: 18px 1fr auto auto auto; gap: 4px; align-items: center; }
+.clone-row.off { opacity: .45; }
+.clone-n { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); text-align: center; }
+.clone-busy { display: flex; flex-direction: column; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); padding: 4px 0 8px; }
+
 /* subject picking (subject.js): click what should light up */
 .subj-pick { position: absolute; inset: 0; z-index: 30; cursor: crosshair; }
 .subj-pick.busy { cursor: progress; }
@@ -8313,10 +8327,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
     return URL.createObjectURL(new Blob([u], { type: mime }));
   }
-  function assetVideo(id) {
+  // slot: another <video> of the same file (a clone showing a different moment of it)
+  function assetVideo(id, slot) {
     const src = assets[id];
     if (!src) return null;
-    let e = vidCache.get(id);
+    const key = slot ? id + '#' + slot : id;
+    let e = vidCache.get(key);
     if (e && e.src === src) return e;
     const v = document.createElement('video');
     v.muted = true; v.defaultMuted = true; v.playsInline = true; v.preload = 'auto'; v.loop = false;
@@ -8328,7 +8344,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     v.addEventListener('seeked', () => requestRedraw());
     try { v.src = src.startsWith('data:') ? dataToBlobUrl(src) : src; } catch (err) { e.failed = true; }
-    vidCache.set(id, e);
+    vidCache.set(key, e);
     return e;
   }
   R.assetVideo = assetVideo;
@@ -8352,16 +8368,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const bg = doc.background || {};
     if (isVideoAsset(bg.assetId)) out.push({ id: bg.assetId, vd: bg.video, start: 0, el: null });
     for (const el of doc.elements || []) if (el.type === 'image' && !el.hidden && isVideoAsset(el.assetId)) out.push({ id: el.assetId, vd: el.video, start: (el.time && el.time.start) || 0, el });
+    // more <video>s of the same files (clones.js): { id, slot, vd, start, el, tgt(t, v) → the moment to show }
+    for (const f of R.extraVideoUsers) out.push(...f(doc));
     return out;
   }
+  R.extraVideoUsers = [];
   R.videoUsers = videoUsers;
   // a layer that's cut out at this moment needs no frame (clips after each other each have their own window)
   const userOn = (u, t) => !u.el || t == null || R.visibleAt(u.el, t);
   R.hasVideo = doc => videoUsers(doc).length > 0;
   R.playing = false;
   // editor preview: let the video run and only correct it when it drifts
-  function liveSync(v, vd, t, start) {
-    const target = R.videoTarget(vd, t, v, start);
+  function liveSync(v, vd, t, start, tgt) {
+    const target = tgt ? tgt(t, v) : R.videoTarget(vd, t, v, start);
     // a video can't play backwards: a reversed clip is stepped by seeking
     if (t == null || !R.playing || (vd && vd.reverse)) {
       if (!v.paused) v.pause();
@@ -8373,13 +8392,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (v.paused) { if (!v.seeking) v.currentTime = target; v.play().catch(() => {}); }
     else if (Math.abs(v.currentTime - target) > 0.3 && !v.seeking) v.currentTime = target;
   }
+  R.liveSync = liveSync;
   R.liveSyncVideos = function (doc, t) {
     const seen = new Set();
     for (const u of videoUsers(doc)) {
-      const e = assetVideo(u.id);
+      const e = assetVideo(u.id, u.slot), key = u.slot ? u.id + '#' + u.slot : u.id;
       if (!e || !e.ok) continue;
-      if (userOn(u, t)) { seen.add(u.id); liveSync(e.v, u.vd, t, u.start); continue; }
-      if (seen.has(u.id)) continue;
+      if (userOn(u, t)) { seen.add(key); liveSync(e.v, u.vd, t, u.start, u.tgt); continue; }
+      if (seen.has(key) || u.slot) continue;
       // off screen: stop it, and park a clip that's about to come in on its first frame
       if (!e.v.paused) e.v.pause();
       const s0 = u.el.time && u.el.time.start;
@@ -8592,7 +8612,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const jobs = [];
     for (const u of videoUsers(doc)) {
       if (!userOn(u, t)) continue;
-      const e = assetVideo(u.id);
+      const e = assetVideo(u.id, u.slot);
       if (!e) continue;
       if (!e.ok) await e.promise;
       if (!e.ok) continue;
@@ -8601,8 +8621,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // a seek still in flight (from the editor) would leave its old frame on screen
       if (v.seeking) await new Promise(res => { const fin = () => { v.removeEventListener('seeked', fin); res(); }; v.addEventListener('seeked', fin); setTimeout(fin, 1500); });
       // slowed down with smooth frames: build the in-between frame (one video, two seeks, so not in parallel)
-      if (t != null && u.vd && (u.vd.speed || 1) < 0.999 && !u.vd.reverse) { await smoothFrame(u, e, t); continue; }
-      const target = R.videoTarget(u.vd, t, v, u.start);
+      if (t != null && !u.slot && u.vd && (u.vd.speed || 1) < 0.999 && !u.vd.reverse) { await smoothFrame(u, e, t); continue; }
+      const target = u.tgt ? u.tgt(t, v) : R.videoTarget(u.vd, t, v, u.start);
       if (!force && Math.abs(v.currentTime - target) < 0.0005) continue;
       jobs.push(new Promise(res => {
         let done = false;
@@ -8613,7 +8633,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }));
     }
     await Promise.all(jobs);
+    // anything else a frame needs before it's drawn (clones' still frames)
+    for (const f of R.extraSync) await f(doc, t);
   };
+  R.extraSync = [];
 
   let stickerMap = null;
   function stickerDef(id) {
@@ -11335,6 +11358,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (img && env.editor && isVideoAsset(el.assetId)) liveSync(img, el.video, 'time' in env ? env.time : R.playTime, (el.time && el.time.start) || 0);
     // exporting a slowed-down clip: draw the smooth in-between frame made for this moment
     if (img && !env.editor && isVideoAsset(el.assetId)) img = R.interpFrame(el.assetId, el.video, (el.time && el.time.start) || 0, 'time' in env ? env.time : null) || img;
+    // clones (clones.js): the frame with the subject's other moments laid into it
+    if (img && el.clones && el.clones.on && R.cloneFrame) img = R.cloneFrame(el, img, env) || img;
     if (el.outline && el.outline.on && el.outline.width > 0 && img && (f.style || 'none') === 'none') {
       const src = filteredSource(el.assetId, img, el.filters);
       drawOutlined(ctx, el, 'img:' + el.assetId + JSON.stringify(el.filters || {}) + JSON.stringify(el.crop || {}) + (el.flipX ? 1 : 0), (c, w, h) => drawCover(c, src, { x: 0, y: 0, w, h }, el));
@@ -12901,14 +12926,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const subjCache = new Map();
   // a subject found for this layer's own picture (split clips share the file under another id: same URL)
   R.hasSubject = el => { const sj = el && el.subj; return !!(sj && sj.sheets && sj.sheets.length && sj.n && (!sj.of || assets[sj.of] === assets[el.assetId])); };
-  R.subjectMask = function (el, st) {
+  // slot: a second cache line for the same layer (clones ask for several moments at once)
+  R.subjectMask = function (el, st, slot) {
     const sj = el && el.subj;
     if (!R.hasSubject(el)) return null;
     const f = sj.n > 1 && sj.fps ? clamp(((st || 0) - (sj.t0 || 0)) * sj.fps, 0, sj.n - 1) : 0;
     // masks taken at the clip's own frame rate: the one for this frame; sparser ones (long clips): blended
     const dense = (sj.fps || 0) >= 23.5, i = dense ? Math.round(f) : Math.floor(f), fr = dense ? 0 : Math.round((f - i) * 8) / 8, j = Math.min(sj.n - 1, i + 1);
     const key = sj.sheets.join(',') + '|' + i + '|' + fr;
-    let hit = subjCache.get(el.id);
+    const ck = slot ? el.id + '#' + slot : el.id;
+    let hit = subjCache.get(ck);
     if (hit && hit.key === key) return hit.c;
     const cell = k => { const sh = assetImage(sj.sheets[Math.floor(k / sj.per)]); if (!sh) return null; const q = k % sj.per; return [sh, (q % sj.cols) * sj.cw, Math.floor(q / sj.cols) * sj.ch]; };
     const A = cell(i), B = fr > 0 ? cell(j) : null;
@@ -12918,8 +12945,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     x.globalAlpha = 1 - fr; x.drawImage(A[0], A[1], A[2], sj.cw, sj.ch, 0, 0, sj.cw, sj.ch);
     if (B) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = fr; x.drawImage(B[0], B[1], B[2], sj.cw, sj.ch, 0, 0, sj.cw, sj.ch); x.globalCompositeOperation = 'source-over'; }
     x.globalAlpha = 1;
-    if (subjCache.size > 40) subjCache.clear();
-    subjCache.set(el.id, { key, c });
+    if (subjCache.size > 80) subjCache.clear();
+    subjCache.set(ck, { key, c });
     return c;
   };
   // a layer's subject mask in its own box, scaled by k (for captions set behind the person)
@@ -13134,7 +13161,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function isComplete(el) {
-    if (el.type === 'image') return (!el.assetId || !!assetImage(el.assetId)) && (!(el.studio && el.studio.on && el.studio.cutId) || !!assetImage(el.studio.cutId)) && R.subjectReady(el);
+    if (el.type === 'image') return (!el.assetId || !!assetImage(el.assetId)) && (!(el.studio && el.studio.on && el.studio.cutId) || !!assetImage(el.studio.cutId)) && R.subjectReady(el) && (!el.clones || !R.clonesReady || R.clonesReady(el));
     if (el.type === 'sticker') { const svg = stickerSvg(el); return !svg || !!svgImage(svg); }
     return true;
   }
@@ -27093,6 +27120,218 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
 
 </script>
 <script>
+/* Savio's editor — camera tracking for clones (window.StudioCamTrack).
+   How the camera moved through a clip: for every frame, the homography that maps it onto a reference view of the scene
+   (the first frame; a later key frame takes over once the first has left the picture). Corners of the background are
+   followed with block matching on a three-level pyramid — each patch is compared through the current estimate of the
+   camera, so turning and zooming don't throw it — and a homography is fitted to them robustly (RANSAC, then least squares on
+   the inliers). Whatever is marked as the subject is left out, so a moving person never drags the camera with them.
+     const T = StudioCamTrack.create(w, h);  H = T.step(grey, subject)   // grey: Float32 w×h (0..255), subject: 0..1 or null
+   H (9 numbers, row-major) maps this frame's pixels to the reference view's. */
+(function () {
+  'use strict';
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const I3 = () => [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  function mul(a, b) { const o = new Array(9); for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) o[r * 3 + c] = a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c]; return o; }
+  function inv(m) {
+    const [a, b, c, d, e, f, g, h, i] = m, A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
+    if (!det) return I3();
+    return [A / det, -(b * i - c * h) / det, (b * f - c * e) / det, B / det, (a * i - c * g) / det, -(a * f - c * d) / det, C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
+  }
+  const norm = m => { const k = m[8] || 1; return m.map(x => x / k); };
+  const apply = (H, x, y) => { const w = H[6] * x + H[7] * y + H[8]; return [(H[0] * x + H[1] * y + H[2]) / w, (H[3] * x + H[4] * y + H[5]) / w]; };
+
+  /* ── images ── */
+  function down(g, w, h) {
+    const W = w >> 1, H = h >> 1, o = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * 2 * w + x * 2; o[y * W + x] = (g[i] + g[i + 1] + g[i + w] + g[i + w + 1]) * 0.25; }
+    return { g: o, w: W, h: H };
+  }
+  function blur3(g, w, h) {
+    const t = new Float32Array(g.length), o = new Float32Array(g.length);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; t[i] = (g[y * w + Math.max(0, x - 1)] + 2 * g[i] + g[y * w + Math.min(w - 1, x + 1)]) * 0.25; }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; o[i] = (t[Math.max(0, y - 1) * w + x] + 2 * t[i] + t[Math.min(h - 1, y + 1) * w + x]) * 0.25; }
+    return o;
+  }
+  function pyramid(g, w, h) { const L0 = { g: blur3(g, w, h), w, h }, L1 = down(L0.g, w, h), L2 = down(L1.g, L1.w, L1.h); return [L0, L1, L2]; }
+  function bil(L, x, y) {
+    if (x < 0 || y < 0 || x > L.w - 1.001 || y > L.h - 1.001) return NaN;
+    const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, i = y0 * L.w + x0, g = L.g;
+    return (g[i] * (1 - fx) + g[i + 1] * fx) * (1 - fy) + (g[i + L.w] * (1 - fx) + g[i + L.w + 1] * fx) * fy;
+  }
+
+  /* ── corners worth following: Shi–Tomasi, one (the best) per grid cell, none on the subject ── */
+  function corners(L, mask, want) {
+    const { g, w, h } = L, gx = new Float32Array(w * h), gy = new Float32Array(w * h);
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; gx[i] = (g[i + 1] - g[i - 1]) * 0.5; gy[i] = (g[i + w] - g[i - w]) * 0.5; }
+    const cols = Math.max(4, Math.round(Math.sqrt(want * w / h))), rows = Math.max(3, Math.round(want / cols)), out = [], R = 3, edge = 14;
+    const scores = [];
+    for (let cy = 0; cy < rows; cy++) for (let cx = 0; cx < cols; cx++) {
+      const xa = Math.max(edge, (cx * w / cols) | 0), xb = Math.min(w - edge, ((cx + 1) * w / cols) | 0), ya = Math.max(edge, (cy * h / rows) | 0), yb = Math.min(h - edge, ((cy + 1) * h / rows) | 0);
+      let best = 0, bx = -1, by = -1;
+      for (let y = ya; y < yb; y += 2) for (let x = xa; x < xb; x += 2) {
+        if (mask && mask[y * w + x] > 0.2) continue;
+        let a = 0, b = 0, c = 0;
+        for (let v = -R; v <= R; v++) for (let u = -R; u <= R; u++) { const k = (y + v) * w + x + u, p = gx[k], q = gy[k]; a += p * p; b += p * q; c += q * q; }
+        const tr = a + c, s = tr / 2 - Math.sqrt(Math.max(0, tr * tr / 4 - (a * c - b * b)));
+        if (s > best) { best = s; bx = x; by = y; }
+      }
+      if (bx >= 0) scores.push([best, bx, by]);
+    }
+    if (!scores.length) return out;
+    const sorted = scores.map(s => s[0]).sort((a, b) => a - b), floor = Math.max(30, sorted[Math.floor(sorted.length * 0.2)] * 0.5);
+    for (const [s, x, y] of scores) if (s >= floor) out.push([x, y]);
+    return out;
+  }
+
+  /* ── one patch: the reference's look at p, searched for in the frame (seen through the estimate G: ref → frame) ── */
+  function matchPatch(RL, FL, p, G, r, S) {
+    const n = 2 * r + 1, T = new Float32Array(n * n);
+    let mt = 0;
+    for (let v = -r, k = 0; v <= r; v++) for (let u = -r; u <= r; u++, k++) { const a = bil(RL, p[0] + u, p[1] + v); if (a !== a) return null; T[k] = a; mt += a; }
+    mt /= n * n;
+    let tv = 0; for (let k = 0; k < T.length; k++) { T[k] -= mt; tv += Math.abs(T[k]); }
+    if (tv < n * n * 1.2) return null;   // too flat to place
+    const m = n + 2 * S, Wn = new Float32Array(m * m);
+    for (let v = -r - S, k = 0; v <= r + S; v++) for (let u = -r - S; u <= r + S; u++, k++) { const q = apply(G, p[0] + u, p[1] + v), a = bil(FL, q[0], q[1]); if (a !== a) return null; Wn[k] = a; }
+    const cost = (dx, dy) => {
+      let mw = 0; for (let v = 0; v < n; v++) { const row = (v + S + dy) * m + S + dx; for (let u = 0; u < n; u++) mw += Wn[row + u]; }
+      mw /= n * n;
+      let s = 0; for (let v = 0, k = 0; v < n; v++) { const row = (v + S + dy) * m + S + dx; for (let u = 0; u < n; u++, k++) s += Math.abs(T[k] - (Wn[row + u] - mw)); }
+      return s;
+    };
+    let best = Infinity, bx = 0, by = 0;
+    const C = new Float32Array((2 * S + 1) * (2 * S + 1));
+    for (let dy = -S; dy <= S; dy++) for (let dx = -S; dx <= S; dx++) { const c = cost(dx, dy); C[(dy + S) * (2 * S + 1) + dx + S] = c; if (c < best) { best = c; bx = dx; by = dy; } }
+    // a clear winner only (not one of many lookalikes along an edge)
+    let second = Infinity;
+    for (let dy = -S; dy <= S; dy++) for (let dx = -S; dx <= S; dx++) if (Math.abs(dx - bx) > 1 || Math.abs(dy - by) > 1) second = Math.min(second, C[(dy + S) * (2 * S + 1) + dx + S]);
+    if (second < best * 1.08) return null;
+    // sub-pixel: a parabola through the neighbours
+    const at = (dx, dy) => (Math.abs(dx) <= S && Math.abs(dy) <= S ? C[(dy + S) * (2 * S + 1) + dx + S] : NaN);
+    const sub = (a, b, c) => { const d = a - 2 * b + c; return a === a && c === c && d > 0 ? clamp(0.5 * (a - c) / d, -0.5, 0.5) : 0; };
+    const fx = sub(at(bx - 1, by), best, at(bx + 1, by)), fy = sub(at(bx, by - 1), best, at(bx, by + 1));
+    return [bx + fx, by + fy, best / (n * n)];
+  }
+
+  /* ── fitting ── */
+  function solve(A, b) {
+    const n = b.length, M = A.map((r, i) => r.concat(b[i]));
+    for (let c = 0; c < n; c++) {
+      let piv = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+      if (Math.abs(M[piv][c]) < 1e-12) return null;
+      [M[c], M[piv]] = [M[piv], M[c]];
+      for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+    }
+    return M.map((r, i) => r[n] / r[i]);
+  }
+  // least-squares homography src → dst (normalised so the numbers stay well conditioned)
+  function fitH(src, dst) {
+    const n = src.length; if (n < 4) return null;
+    const nm = pts => { let mx = 0, my = 0; for (const p of pts) { mx += p[0]; my += p[1]; } mx /= pts.length; my /= pts.length; let d = 0; for (const p of pts) d += Math.hypot(p[0] - mx, p[1] - my); const s = Math.SQRT2 / (d / pts.length || 1); return [s, 0, -s * mx, 0, s, -s * my, 0, 0, 1]; };
+    const Ts = nm(src), Td = nm(dst), AtA = Array.from({ length: 8 }, () => new Array(8).fill(0)), Atb = new Array(8).fill(0);
+    for (let k = 0; k < n; k++) {
+      const [x, y] = apply(Ts, src[k][0], src[k][1]), [u, v] = apply(Td, dst[k][0], dst[k][1]);
+      const rows = [[x, y, 1, 0, 0, 0, -u * x, -u * y, u], [0, 0, 0, x, y, 1, -v * x, -v * y, v]];
+      for (const r of rows) for (let i = 0; i < 8; i++) { Atb[i] += r[i] * r[8]; for (let j = 0; j < 8; j++) AtA[i][j] += r[i] * r[j]; }
+    }
+    const h = solve(AtA, Atb); if (!h) return null;
+    return norm(mul(inv(Td), mul(h.concat(1), Ts)));
+  }
+  function fitAffine(src, dst) {
+    const n = src.length; if (n < 3) return null;
+    const AtA = Array.from({ length: 3 }, () => new Array(3).fill(0)), bx = [0, 0, 0], by = [0, 0, 0];
+    for (let k = 0; k < n; k++) { const r = [src[k][0], src[k][1], 1]; for (let i = 0; i < 3; i++) { bx[i] += r[i] * dst[k][0]; by[i] += r[i] * dst[k][1]; for (let j = 0; j < 3; j++) AtA[i][j] += r[i] * r[j]; } }
+    const a = solve(AtA, bx), b = solve(AtA.map(r => r.slice()), by);
+    return a && b ? [a[0], a[1], a[2], b[0], b[1], b[2], 0, 0, 1] : null;
+  }
+  // a camera can't flip, squash or bend the picture wildly between frames
+  function sane(H, w, h) {
+    if (!H || H.some(x => !isFinite(x))) return false;
+    const det = H[0] * H[4] - H[1] * H[3];
+    if (det < 0.4 || det > 2.5) return false;
+    for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h]]) { const ww = H[6] * x + H[7] * y + H[8]; if (ww < 0.5 || ww > 2) return false; }
+    return true;
+  }
+  let seed = 12345;
+  const rand = n => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+  // RANSAC over 4-point homographies, then least squares on everything that agrees
+  function robust(src, dst, tol, w, h) {
+    const n = src.length; if (n < 8) return null;
+    let best = null, bestN = 0;
+    for (let it = 0; it < 160; it++) {
+      const idx = new Set(); while (idx.size < 4) idx.add(rand(n));
+      const s = [...idx].map(i => src[i]), d = [...idx].map(i => dst[i]), H = fitH(s, d);
+      if (!sane(H, w, h)) continue;
+      let c = 0; for (let k = 0; k < n; k++) { const q = apply(H, src[k][0], src[k][1]); if (Math.hypot(q[0] - dst[k][0], q[1] - dst[k][1]) < tol) c++; }
+      if (c > bestN) { bestN = c; best = H; if (c > n * 0.92) break; }
+    }
+    if (!best) return null;
+    let H = best;
+    for (let pass = 0; pass < 2; pass++) {
+      const s = [], d = [];
+      for (let k = 0; k < n; k++) { const q = apply(H, src[k][0], src[k][1]); if (Math.hypot(q[0] - dst[k][0], q[1] - dst[k][1]) < tol * (pass ? 0.75 : 1)) { s.push(src[k]); d.push(dst[k]); } }
+      const H2 = s.length >= 8 ? fitH(s, d) : null;
+      if (sane(H2, w, h)) H = H2; else { const A = fitAffine(s, d); if (sane(A, w, h)) H = A; }
+      bestN = s.length;
+    }
+    return { H, inliers: bestN, n };
+  }
+
+  /* ── the tracker ── */
+  function create(w, h, o = {}) {
+    const want = o.points || 240;
+    let kf = null, prev = I3(), prev2 = null, frames = 0;
+    // a key frame: its pyramid, its corners and where it sits in the reference view
+    const key = (pyr, mask, Hk) => ({ pyr, Hk, pts: corners(pyr[0], mask, want), n0: 0 });
+    function track(pyr, mask, G0) {
+      // G: key frame → this frame (the inverse of what's returned), refined level by level
+      let G = G0, res = null;
+      const LV = [[2, 4, 5], [1, 3, 6], [0, 2, 7]];
+      for (const [lv, S, r] of LV) {
+        const s = 1 << lv, RL = kf.pyr[lv], FL = pyr[lv];
+        const Gl = [G[0], G[1], G[2] / s, G[3], G[4], G[5] / s, G[6] * s, G[7] * s, G[8]];
+        const src = [], dst = [];
+        for (const p0 of kf.pts) {
+          const p = [p0[0] / s, p0[1] / s], m = matchPatch(RL, FL, p, Gl, r, S);
+          if (!m) continue;
+          const q = apply(Gl, p[0] + m[0], p[1] + m[1]);
+          if (mask) { const qi = Math.round(q[1] * s) * w + Math.round(q[0] * s); if (mask[qi] > 0.3) continue; }
+          src.push(p); dst.push(q);
+        }
+        const fit = robust(src, dst, lv === 0 ? 1.4 : 1.0, FL.w, FL.h);
+        if (!fit) { if (lv === 2) continue; break; }
+        const Hl = fit.H;
+        G = [Hl[0], Hl[1], Hl[2] * s, Hl[3], Hl[4], Hl[5] * s, Hl[6] / s, Hl[7] / s, Hl[8]];
+        res = { G, inliers: fit.inliers, n: kf.pts.length };
+      }
+      return res;
+    }
+    return {
+      step(grey, mask) {
+        const pyr = pyramid(grey, w, h);
+        frames++;
+        if (!kf) { kf = key(pyr, mask, I3()); kf.n0 = kf.pts.length; prev = I3(); return prev.slice(); }
+        // where this frame probably is: the last one, moved on as much again (the camera keeps going)
+        let guess = prev;
+        if (prev2) { const step = mul(inv(prev2), prev); guess = norm(mul(prev, step)); if (!sane(mul(inv(kf.Hk), guess), w, h)) guess = prev; }
+        const G0 = inv(mul(inv(kf.Hk), guess));
+        let r = track(pyr, mask, norm(G0));
+        if ((!r || r.inliers < 20) && guess !== prev) r = track(pyr, mask, norm(inv(mul(inv(kf.Hk), prev))));
+        let H = prev;
+        if (r) H = norm(mul(kf.Hk, inv(r.G)));
+        prev2 = prev; prev = H;
+        // most of the key frame has left the picture (or it no longer matches): this frame becomes the key frame
+        if (!r || r.inliers < Math.max(40, kf.n0 * 0.45)) { kf = key(pyr, mask, H); kf.n0 = kf.pts.length; }
+        return H.slice();
+      },
+    };
+  }
+  window.StudioCamTrack = { create, mul, inv, apply, fitH, norm };
+})();
+
+</script>
+<script>
 /* Savio's editor — subject masks.
    Finds the subject of a photo or video layer — every person (MediaPipe selfie multiclass), and / or anything the user
    clicks (MediaPipe magic touch, prompted again on every frame from deep inside the last frame's mask) — follows it
@@ -27111,6 +27350,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   const MODELS = {
     people: MP + 'image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',
     pick: MP + 'interactive_segmenter/magic_touch/float32/1/magic_touch.tflite',
+    pose: MP + 'pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task',
   };
   const AN = 512;      // analysis size (long side) fed to the models
   const SHEET = 4096;  // sprite sheet size limit
@@ -27118,7 +27358,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   /* ── models (loaded on first use) ──
      From jsDelivr / Google storage; the online copy (window.STUDIO_MODEL_PARTS) falls back to copies published next to
      the page: vendor/vision_bundle.mjs + vision_wasm_internal.{js,wasm}, models/subject-<kind>.part<i>.txt (base64). */
-  const PARTS = { people: 2, pick: 1 };
+  const PARTS = { people: 2, pick: 1, pose: 1 };
   let vision = null;
   const segs = {};
   async function runtime() {
@@ -27129,7 +27369,8 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
     return { v, files: await v.FilesetResolver.forVisionTasks(VER + '/wasm'), local };
   }
   async function modelBytes(kind) {
-    try { const r = await fetch(MODELS[kind]); if (!r.ok) throw new Error('HTTP ' + r.status); return new Uint8Array(await r.arrayBuffer()); }
+    // (a stalled download gives up rather than holding everything up)
+    try { const r = await fetch(MODELS[kind], AbortSignal.timeout ? { signal: AbortSignal.timeout(60000) } : {}); if (!r.ok) throw new Error('HTTP ' + r.status); return new Uint8Array(await r.arrayBuffer()); }
     catch (e) {
       if (!window.STUDIO_MODEL_PARTS) throw new Error('Couldn’t download the subject finder — check the connection');
       let t = '';
@@ -27171,6 +27412,89 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   }
   S.subjectModelsReady = () => !!(segs.people || segs.pick);
 
+  /* ── the pose model (whole bodies, legs and feet included) runs in a worker: on a few pictures it never returns, and a
+     stuck worker can be stopped and started again — the main page would just freeze ── */
+  const POSE_SRC = `let lm = null;
+onmessage = async e => {
+  const d = e.data;
+  try {
+    if (d.type === 'init') {
+      const v = await import(d.bundle), files = d.files || await v.FilesetResolver.forVisionTasks(d.wasm);
+      const make = delegate => v.PoseLandmarker.createFromOptions(files, { baseOptions: { modelAssetBuffer: new Uint8Array(d.bytes), delegate }, runningMode: 'IMAGE', numPoses: 4, outputSegmentationMasks: true, minPoseDetectionConfidence: 0.4, minPosePresenceConfidence: 0.4 });
+      const test = new OffscreenCanvas(256, 256), tx = test.getContext('2d'); tx.fillStyle = '#888'; tx.fillRect(0, 0, 256, 256);
+      const run = m => { const r = m.detect(test); for (const k of r.segmentationMasks || []) k.close(); };
+      // the graphics path whenever there is one, even a slow one: the processor path aborts on some pictures (a MediaPipe
+      // bug in its mask conversion — 'Check failed: 1 == ChannelSize()')
+      try { const g = await make('GPU'); run(g); lm = g; } catch (err) { /* no WebGL here */ }
+      if (!lm) lm = await make('CPU');
+      postMessage({ type: 'ready' });
+    } else {
+      const r = lm.detect(d.img), out = [], tr = [];
+      for (const k of r.segmentationMasks || []) { const a = k.getAsFloat32Array().slice(); out.push({ a, w: k.width, h: k.height }); tr.push(a.buffer); k.close(); }
+      if (d.img.close) d.img.close();
+      const joints = (r.landmarks || []).map(p => p.map(q => [q.x, q.y, q.visibility ?? 1]));
+      postMessage({ type: 'res', id: d.id, masks: out, joints }, tr);
+    }
+  } catch (err) { postMessage({ type: 'err', id: d.id, msg: String((err && err.message) || err) }); }
+};`;
+  const pose = { w: null, ready: null, bytes: null, fails: 0, cropFails: 0, off: false, noCrops: false, n: 0, waits: new Map() };
+  function poseStop() { if (pose.w) pose.w.terminate(); pose.w = null; pose.ready = null; for (const f of pose.waits.values()) f(null); pose.waits.clear(); }
+  function poseStart() {
+    if (pose.off) return null;
+    if (pose.ready) return pose.ready;
+    pose.ready = (async () => {
+      if (!vision) vision = runtime().catch(e => { vision = null; throw e; });
+      // the model is downloaded once; a restarted worker gets the same bytes
+      if (!pose.bytes) pose.bytes = modelBytes('pose').catch(e => { pose.bytes = null; throw e; });
+      const rt = await vision, bytes = await pose.bytes;
+      let w;
+      // a classic worker (a module worker can't start from a file:// page); import() still works inside it
+      try { w = new Worker(URL.createObjectURL(new Blob([POSE_SRC], { type: 'text/javascript' }))); }
+      catch (e) { pose.off = true; return false; }
+      pose.w = w;
+      w.onmessage = e => { const f = pose.waits.get(e.data.id ?? 'init'); if (f) { pose.waits.delete(e.data.id ?? 'init'); f(e.data); } };
+      w.onerror = () => { pose.fails++; poseStop(); };
+      const abs = u => new URL(u, location.href).href;
+      const msg = rt.files === rt.local || (rt.local && rt.files && rt.files.wasmLoaderPath === rt.local.wasmLoaderPath)
+        ? { bundle: abs('vendor/vision_bundle.mjs'), files: rt.local } : { bundle: VER + '/vision_bundle.mjs', wasm: VER + '/wasm' };
+      const ok = await new Promise(res => {
+        pose.waits.set('init', d => res(d && d.type === 'ready'));
+        w.postMessage(Object.assign({ type: 'init', bytes: bytes.slice().buffer }, msg));
+        setTimeout(() => { if (pose.waits.has('init')) { pose.waits.delete('init'); res(false); } }, 45000);
+      });
+      if (!ok) { poseStop(); pose.off = true; return false; }
+      return true;
+    })();
+    return pose.ready;
+  }
+  // all the pose masks for a picture, as one { a, w, h } (null: no pose model, or it got stuck — then it's restarted).
+  // crop: a close-up of one person — the pictures it chokes on are nearly always these, so those stop being asked first
+  async function poseRaw(c, crop) {
+    if (pose.off || (crop && pose.noCrops)) return null;
+    let up;
+    try { up = await poseStart(); } catch (e) { pose.off = true; return null; }
+    if (!up || !pose.w) return null;
+    const id = ++pose.n, img = await createImageBitmap(c);
+    const d = await new Promise(res => {
+      pose.waits.set(id, res);
+      pose.w.postMessage({ type: 'detect', id, img }, [img]);
+      setTimeout(() => { if (pose.waits.has(id)) { pose.waits.delete(id); res('stuck'); } }, 4000);
+    });
+    if (d === 'stuck' || !d || d.type === 'err') {
+      // a picture it chokes on (stuck, or the runtime aborted): this picture goes without, the worker starts again —
+      // and if it keeps happening, close-ups stop being asked, then the whole model
+      poseStop();
+      if (crop) { if (++pose.cropFails >= 6) pose.noCrops = true; } else if (++pose.fails >= 6) pose.off = true;
+      return null;
+    }
+    if (!d.masks.length) return { a: new Float32Array(4), w: 2, h: 2, none: true, joints: [] };
+    const o = d.masks[0];
+    for (const m of d.masks.slice(1)) if (m.w === o.w && m.h === o.h) for (let i = 0; i < o.a.length; i++) if (m.a[i] > o.a[i]) o.a[i] = m.a[i];
+    o.joints = d.joints || [];
+    return o;
+  }
+  S.subjectPoseState = () => ({ off: pose.off, noCrops: pose.noCrops, fails: pose.fails, cropFails: pose.cropFails, calls: pose.n });
+
   /* ── one frame ── */
   function frameCanvas(src, w, h) {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -27196,6 +27520,94 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
     for (let i = 0; i < m.length; i++) m[i] = 1 - bg[i];
     out.close();
     return resample(m, w, h, c.width, c.height);
+  }
+  // the selfie model's people (1 − background) at its own size
+  async function peopleRaw(c) {
+    const seg = await model('people'), out = seg.segment(c), cm = out.confidenceMasks, w = cm[0].width, h = cm[0].height;
+    const bg = cm[0].getAsFloat32Array(), a = new Float32Array(w * h);
+    for (let i = 0; i < a.length; i++) a[i] = 1 - bg[i];
+    out.close();
+    return { a, w, h };
+  }
+  /* ── people, done properly: where they are (the pose model every frame, the selfie model every few frames, and last
+     frame's people), then both models again on a close crop around each of them — a small person far away gets the
+     whole of the models' attention, and between them they keep legs, feet, hair and loose clothes ── */
+  function blobsOf(m, w, h, thr = 0.5) {
+    const seen = new Uint8Array(w * h), out = [], minN = Math.max(24, w * h * 0.0003);
+    for (let i = 0; i < w * h; i++) {
+      if (seen[i] || m[i] < thr) continue;
+      let x0 = w, y0 = h, x1 = 0, y1 = 0, n = 0; const st = [i]; seen[i] = 1;
+      while (st.length) {
+        const q = st.pop(), x = q % w, y = (q / w) | 0; n++;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x > 0 && !seen[q - 1] && m[q - 1] >= thr) { seen[q - 1] = 1; st.push(q - 1); }
+        if (x < w - 1 && !seen[q + 1] && m[q + 1] >= thr) { seen[q + 1] = 1; st.push(q + 1); }
+        if (y > 0 && !seen[q - w] && m[q - w] >= thr) { seen[q - w] = 1; st.push(q - w); }
+        if (y < h - 1 && !seen[q + w] && m[q + w] >= thr) { seen[q + w] = 1; st.push(q + w); }
+      }
+      if (n >= minN) out.push([x0, y0, x1, y1, n]);
+    }
+    return out;
+  }
+  // a roomy square crop around each blob; crops that touch become one
+  function cropsOf(boxes, w, h) {
+    let out = boxes.map(b => { const bw = b[2] - b[0] + 1, bh = b[3] - b[1] + 1, cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, sz = Math.max(bw, bh) * 1.35 + 8; return [Math.max(0, cx - sz / 2), Math.max(0, cy - sz / 2), Math.min(w, cx + sz / 2), Math.min(h, cy + sz / 2)]; });
+    for (let again = true; again;) {
+      again = false;
+      for (let i = 0; i < out.length && !again; i++) for (let j = i + 1; j < out.length && !again; j++) {
+        const a = out[i], b = out[j];
+        if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) { out[i] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]; out.splice(j, 1); again = true; }
+      }
+    }
+    return out.filter(b => b[2] - b[0] >= 8 && b[3] - b[1] >= 8).sort((a, b) => (b[2] - b[0]) * (b[3] - b[1]) - (a[2] - a[0]) * (a[3] - a[1])).slice(0, 6);
+  }
+  const sampleAt = (r, u, v) => r.a[Math.min(r.h - 1, (v * r.h) | 0) * r.w + Math.min(r.w - 1, (u * r.w) | 0)];
+  /* ── limbs from the pose's joints: against a background of much the same colour (bare legs on pale rock) both models
+     lose arms and legs, but the joints are still found — rounded limbs along them (sized from the torso) fill the gap.
+     A little background around a leg is invisible in a clone (it's the same background); a missing leg isn't. ── */
+  const LIMBS = [[23, 25, 0.17], [24, 26, 0.17], [25, 27, 0.12], [26, 28, 0.12], [27, 29, 0.08], [28, 30, 0.08], [29, 31, 0.07], [30, 32, 0.07], [27, 31, 0.07], [28, 32, 0.07],
+    [11, 13, 0.11], [12, 14, 0.11], [13, 15, 0.085], [14, 16, 0.085], [11, 23, 0.2], [12, 24, 0.2], [11, 12, 0.16], [23, 24, 0.2]];
+  function limbsInto(x, joints, map) {
+    for (const J of joints) {
+      if (!J || J.length < 33) continue;
+      const P = i => map(J[i][0], J[i][1]), vis = i => J[i][2] > 0.5;
+      if (!vis(11) || !vis(12) || !vis(23) || !vis(24)) continue;
+      const sh = [(P(11)[0] + P(12)[0]) / 2, (P(11)[1] + P(12)[1]) / 2], hp = [(P(23)[0] + P(24)[0]) / 2, (P(23)[1] + P(24)[1]) / 2], L = Math.hypot(sh[0] - hp[0], sh[1] - hp[1]);
+      if (L < 4) continue;
+      x.lineCap = 'round';
+      for (const [a, b, r] of LIMBS) {
+        if (!vis(a) || !vis(b)) continue;
+        const A = P(a), B = P(b);
+        x.lineWidth = 1.5 * r * L; x.beginPath(); x.moveTo(A[0], A[1]); x.lineTo(B[0], B[1]); x.stroke();
+      }
+    }
+  }
+  async function peopleFine(src, c, prev, wide) {
+    const w = c.width, h = c.height, size = R.mediaSize(src) || { w, h }, k = size.w / w;
+    const pf = await poseRaw(c);
+    let seed = pf && !pf.none ? resample(pf.a, pf.w, pf.h, w, h) : null;
+    const limbs = document.createElement('canvas'); limbs.width = w; limbs.height = h;
+    const lx = limbs.getContext('2d', { willReadFrequently: true }); lx.strokeStyle = '#fff';
+    let anyLimb = false;
+    if (pf && pf.joints && pf.joints.length) { limbsInto(lx, pf.joints, (u, v) => [u * w, v * h]); anyLimb = true; }
+    if (wide || !seed) { const mc = await peopleMask(c); if (!seed) seed = mc; else for (let i = 0; i < seed.length; i++) if (mc[i] > seed[i]) seed[i] = mc[i]; }
+    const crops = cropsOf(blobsOf(seed, w, h).concat(prev || []), w, h), o = seed.slice();
+    for (const b of crops) for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) o[y * w + x] = 0;
+    for (const b of crops) {
+      const bw = b[2] - b[0], bh = b[3] - b[1], L = 384, s = L / Math.max(bw, bh);
+      const cc = document.createElement('canvas'); cc.width = Math.max(8, Math.round(bw * s)); cc.height = Math.max(8, Math.round(bh * s));
+      cc.getContext('2d').drawImage(src, b[0] * k, b[1] * k, bw * k, bh * k, 0, 0, cc.width, cc.height);
+      const a = await peopleRaw(cc), p = await poseRaw(cc, true);
+      if (p && p.joints && p.joints.length) { limbsInto(lx, p.joints, (u, v) => [b[0] + u * bw, b[1] + v * bh]); anyLimb = true; }
+      for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) {
+        const u = (x + 0.5 - b[0]) / bw, v = (y + 0.5 - b[1]) / bh;
+        if (u < 0 || v < 0 || u >= 1 || v >= 1) continue;
+        let val = sampleAt(a, u, v); if (p && !p.none) val = Math.max(val, sampleAt(p, u, v));
+        const i = y * w + x; if (val > o[i]) o[i] = val;
+      }
+    }
+    if (anyLimb) { const d = lx.getImageData(0, 0, w, h).data; for (let i = 0; i < o.length; i++) { const v = d[i * 4 + 3] / 255 * 0.65; if (v > o[i]) o[i] = v; } }
+    return o;
   }
   async function pickMask(c, u, v) {
     const seg = await model('pick'), out = seg.segment(c, { keypoint: { x: clamp(u, 0.001, 0.999), y: clamp(v, 0.001, 0.999) } });
@@ -27311,7 +27723,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   function refine(m, frame, w, h) {
     const d = frame.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data, I = new Float32Array(w * h);
     for (let i = 0; i < I.length; i++) I[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) / 255;
-    const q = guided(I, m, w, h, Math.max(2, Math.round(Math.max(w, h) / 110)), 0.004), o = new Uint8Array(w * h);
+    const q = guided(I, m, w, h, Math.max(1, Math.round(Math.max(w, h) / 240)), 0.004), o = new Uint8Array(w * h);
     for (let i = 0; i < o.length; i++) { const t = clamp((q[i] - 0.18) / 0.64, 0, 1); o[i] = Math.round(t * t * (3 - 2 * t) * 255); }
     return o;
   }
@@ -27333,8 +27745,15 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
   });
   const sizeOf = (iw, ih, L) => iw >= ih ? [L, Math.max(2, Math.round(L * ih / iw))] : [Math.max(2, Math.round(L * iw / ih)), L];
 
+  const CT = () => window.StudioCamTrack;
+  // corners of the picture moved by H (how far the camera went), in px
+  const camShift = (H, w, h) => Math.max(...[[0, 0], [w, 0], [0, h], [w, h]].map(([x, y]) => { const q = CT().apply(H, x, y); return Math.hypot(q[0] - x, q[1] - y); }));
+  // px homography → one across the picture (u, v in 0..1)
+  const toUv = (H, w, h) => [H[0], H[1] * h / w, H[2] / w, H[3] * w / h, H[4], H[5] / h, H[6] * w, H[7] * h, H[8]].map(x => +x.toPrecision(7));
+
   /* ── a run: every frame of the clip (or the one photo) ── */
-  // what: { people: bool, pts: [[u, v], …] } — u, v across the source picture
+  // what: { people: bool, pts: [[u, v], …], whole (the whole file, not just the trimmed part), cam (follow the camera) }
+  // — u, v across the source picture
   async function analyse(el, what, { onProgress = () => {}, signal, at } = {}) {
     if (!el || el.type !== 'image' || !el.assetId) throw new Error('Pick a photo or video layer');
     const people = !!what.people, pts = (what.pts || []).map(p => [p[0], p[1]]);
@@ -27346,7 +27765,7 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
     // the times to look at (source time, seconds)
     let times = [0], fps = 0, t0 = 0, v = null;
     if (isVid) {
-      const vd = el.video || {}, dur = shown.duration, end = vd.end > 0 ? Math.min(dur, vd.end) : dur, ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05));
+      const vd = what.whole ? {} : el.video || {}, dur = shown.duration, end = vd.end > 0 ? Math.min(dur, vd.end) : dur, ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05));
       if (at != null) times = [at];
       else {
         const len = Math.max(0.05, end - ts);
@@ -27371,10 +27790,13 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
     // picks are clicked on one frame (what.at, in the clip's own time): follow them forwards from there, then backwards
     const i0 = isVid && fps && what.at != null ? clamp(Math.round((what.at - t0) * fps), 0, n - 1) : 0;
     const order = []; for (let i = i0; i < n; i++) order.push(i); for (let i = i0 - 1; i >= 0; i--) order.push(i);
+    // the camera is followed frame after frame, so only when the frames come in order
+    const camOn = !!what.cam && isVid && n > 2 && i0 === 0 && !!CT(), tracker = camOn ? CT().create(aw, ah) : null, Hs = camOn ? new Array(n) : null;
     const looks = pts.map(() => null), cutPeople = pts.map(() => false); // each thing's colours on the frame it was clicked on
-    const fresh = () => ({ keys: pts.map(p => p.slice()), last: pts.map(() => null), lastPm: pts.map(() => null), coast: pts.map(() => 0), prevGrey: null });
-    const copy = st => ({ keys: st.keys.map(k => k && k.slice()), last: st.last.slice(), lastPm: st.lastPm.slice(), coast: st.coast.slice(), prevGrey: st.prevGrey });
-    let st = fresh(), snap = null, done = 0;
+    const fresh = () => ({ keys: pts.map(p => p.slice()), last: pts.map(() => null), lastPm: pts.map(() => null), coast: pts.map(() => 0), prevGrey: null, boxes: null });
+    const copy = st => ({ keys: st.keys.map(k => k && k.slice()), last: st.last.slice(), lastPm: st.lastPm.slice(), coast: st.coast.slice(), prevGrey: st.prevGrey, boxes: st.boxes });
+    let st = fresh(), snap = null, done = 0, seen = 0;
+    const total = n;
     // one clicked thing on one frame → its mask (or null)
     async function pickOne(c, grey, j, cut) {
       const prev = st.last[j], old = st.keys[j];
@@ -27412,14 +27834,16 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
       st.keys[j] = at01(pm, k[0], k[1]) < 0.75 ? nextPrompt(G, k[0], k[1], 1.5) || k : k;
       return pm;
     }
+    const tick = async () => { onProgress(++done / total); if (done % 2 === 0) await new Promise(r => setTimeout(r, 0)); };
     for (const i of order) {
       if (signal && signal.aborted) throw new DOMException('Cancelled', 'AbortError');
       if (i === i0 - 1 && snap) st = copy(snap);
       if (v) await seek(v, times[i]);
-      const c = frameCanvas(v || shown, aw, ah), grey = pts.length ? greyOf(c) : null;
-      // people are found when asked for — and also when something that isn't a person was clicked, so a person
-      // touching it (sitting on the picked chair, holding the picked cup) can be cut out of its mask
-      const pp = people || (pts.length && (i === i0 || cutPeople.some(Boolean))) ? await peopleMask(c) : null;
+      const c = frameCanvas(v || shown, aw, ah), grey = pts.length || camOn ? greyOf(c) : null;
+      // people (crops around each, pose + selfie models) — and also when something that isn't a person was clicked, so a
+      // person touching it (sitting on the picked chair, holding the picked cup) can be cut out of its mask
+      const wantPeople = people || (pts.length && (i === i0 || cutPeople.some(Boolean)));
+      const pp = wantPeople ? await peopleFine(v || shown, c, st.boxes, seen++ % 6 === 0) : null;
       if (i === i0 && pp && !people) pts.forEach((q, j) => { cutPeople[j] = at01(pp, q[0], q[1]) < 0.3; });
       let m = people ? pp.slice() : null;
       for (let j = 0; j < pts.length; j++) {
@@ -27427,25 +27851,43 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
         if (!pm) continue;
         if (!m) m = pm.slice(); else for (let k = 0; k < m.length; k++) if (pm[k] > m[k]) m[k] = pm[k];
       }
+      m = m || new Float32Array(aw * ah);
       st.prevGrey = grey;
+      st.boxes = people ? blobsOf(m, aw, ah).map(b => b.slice(0, 4)) : null;
+      if (camOn) Hs[i] = tracker.step(grey, m);
       if (i === i0) snap = copy(st);
-      const small = resample(m || new Float32Array(aw * ah), aw, ah, mw, mh), fc = frameCanvas(c, mw, mh);
+      const small = resample(m, aw, ah, mw, mh), fc = frameCanvas(c, mw, mh);
       masks[i] = refine(small, fc, mw, mh);
-      onProgress(++done / n);
-      if (done % 2 === 0) await new Promise(r => setTimeout(r, 0));
+      await tick();
+    }
+    // the camera: still enough to leave alone? (well under a pixel of the source at its largest move)
+    let cam = null, still = true;
+    if (camOn) {
+      const shift = Math.max(...Hs.map(H => camShift(H, aw, ah)));
+      still = shift < 0.5 * aw / Math.max(1, size.w) * 2;
+      cam = { w: aw, h: ah, moving: !still, shift: +(shift / aw).toFixed(4), H: Hs.map(H => toUv(H, aw, ah)) };
     }
     if (v) { v.removeAttribute('src'); v.load(); }
     // steadier edges: the median of each frame and its neighbours
     const steady = masks.length < 3 ? masks : masks.map((m, i) => {
       if (!i || i === masks.length - 1) return m;
       const a = masks[i - 1], c = masks[i + 1], o = new Uint8Array(m.length);
-      for (let k = 0; k < m.length; k++) { const x = a[k], y = m[k], z = c[k]; o[k] = x > y ? (y > z ? y : x > z ? z : x) : (x > z ? x : y > z ? z : y); }
+      // (only where this frame is unsure: a leg in mid-stride is somewhere else in the frames either side, and a plain
+      // median would rub it out)
+      for (let k = 0; k < m.length; k++) { const x = a[k], y = m[k], z = c[k]; o[k] = y > 215 || y < 40 ? y : x > y ? (y > z ? y : x > z ? z : x) : (x > z ? x : y > z ? z : y); }
       return o;
     });
     let cover = 0;
-    for (const m of steady) { let s = 0; for (let k = 0; k < m.length; k += 7) s += m[k]; cover = Math.max(cover, s / (m.length / 7) / 255); }
+    // each frame's subject box (u, v ‰): how far away clones stand, where they are over time
+    const box = [];
+    for (const m of steady) {
+      let s2 = 0; for (let k = 0; k < m.length; k += 7) s2 += m[k]; cover = Math.max(cover, s2 / (m.length / 7) / 255);
+      let x0 = mw, y0 = mh, x1 = -1, y1 = -1;
+      for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) if (m[y * mw + x] > 127) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      box.push(...(x1 < 0 ? [0, 0, 0, 0] : [Math.round(x0 / mw * 1000), Math.round(y0 / mh * 1000), Math.round((x1 + 1) / mw * 1000), Math.round((y1 + 1) / mh * 1000)]));
+    }
     const sheets = await pack(steady, mw, mh);
-    return { of: el.assetId, people, pts, at: what.at ?? null, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000 };
+    return { v: 2, of: el.assetId, people, pts, at: what.at ?? null, whole: !!what.whole, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000, box, cam };
   }
   // masks → PNG sprite sheets (white, alpha = mask)
   async function pack(masks, w, h) {
@@ -28102,7 +28544,7 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
     mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3M8 21h8',
     scissors: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
     volume: 'M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13', mute: 'M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6',
-    timeline: 'M3 5h18M3 19h18M5 9h6v6H5zM13 9h6v6h-6z', captions: 'M3 5h18v14H3zM6 12h5M13 12h5M6 15.5h8M16 15.5h2', reverse: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+    refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', timeline: 'M3 5h18M3 19h18M5 9h6v6H5zM13 9h6v6h-6z', captions: 'M3 5h18v14H3zM6 12h5M13 12h5M6 15.5h8M16 15.5h2', reverse: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
     speed: 'M12 21a9 9 0 1 1 9-9M12 12l4-4', clip: 'M4 6h16v12H4zM9 9.5v5l4.5-2.5z', fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
     path: 'M3 17c3-7 6-9 9-5s6 3 9-5', sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   };
@@ -31866,7 +32308,7 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
     Blur: ['drop', 'Blur'], Frame: ['square', 'Frame'], Typography: ['type', 'Font'], Background: ['square', 'Style'], Text: ['edit', 'Text'],
     Effects: ['sparkle', 'Effects'], Motion: ['play', 'Motion'], Position: ['move', 'Position'], Arrange: ['layers', 'Arrange'], Playback: ['film', 'Playback'],
     'Stop motion': ['film', 'Frames'], Shape: ['shapes', 'Shape'], Colours: ['palette', 'Colours'], Underneath: ['image', 'Under'], Photos: ['image', 'Photos'],
-    'Opacity & blend': ['blend', 'Blend'], Captions: ['captions', 'Captions'], Type: ['type', 'Type'], Words: ['edit', 'Words'],
+    'Opacity & blend': ['blend', 'Blend'], Captions: ['captions', 'Captions'], Type: ['type', 'Type'], Words: ['edit', 'Words'], Clones: ['copy', 'Clones'],
   };
   function mSections() {
     const out = [];
@@ -33616,6 +34058,422 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
         h('span.cap-card-demo', null, h('b', null, 'every'), h('i', null, ' word'), h('span', null, ' as it’s said')),
         h('span.cap-card-txt', null, 'Subtitles and word captions from the sound of your video, music or voiceover')));
   };
+})();
+
+</script>
+<script>
+/* Savio's editor — clones: the same person (or anything found as the subject) in several places at once.
+   On a video layer, el.clones = { on, mode, … } lays other moments of the same clip into each frame, cut out with the
+   layer's subject masks (subject.js, analysed over the whole file with the camera followed):
+     places  'Many places'  — one long take where you move to a new spot each time (a tripod, or a steady hand): each
+                              spot plays at once; list: [{ id, dt (s after the first take), op, on }], edge 'hold' | 'loop'
+     trail   'Trail'        — copies following a moment behind: count, gap (s), fade
+     freeze  'Freeze trail' — the subject left frozen where it was at each moment in list: [{ id, at (source s), op, on }];
+                              each appears once the video reaches it (reveal)
+   Shared: order 'depth' (whoever stands further back is behind) | 'newest', soft (edge softness, px of the mask), grow
+   (−3…3: tighter / looser cut), steady (warp each moment through the camera track so it stays put when the camera moves).
+   Live clones play from their own <video> of the file (render.js slots, kept in step in the editor, sought exactly on
+   export); freeze clones are still frames grabbed once. */
+(function () {
+  'use strict';
+  const S = window.Studio, R = window.StudioRender, CT = window.StudioCamTrack;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const MAX = 12;
+  const uid = () => 'c' + Math.random().toString(36).slice(2, 8);
+  const isVideo = el => el && el.type === 'image' && el.assetId && R.isVideoAsset(el.assetId);
+  const vidOf = el => R.assetImage(el.assetId);
+  const durOf = el => { const v = vidOf(el); return v && isFinite(v.duration) ? v.duration : 0; };
+  const startOf = el => (el.time && el.time.start) || 0;
+
+  /* ── what to draw ── */
+  // the clones of a layer as drawn: live ones { key, slot, dt, op, edge } and frozen ones { key, at, op }
+  function list(el) {
+    const c = el.clones;
+    if (!c || !c.on) return [];
+    if (c.mode === 'trail') {
+      const n = clamp(Math.round(c.count || 4), 1, MAX), out = [];
+      for (let k = 1; k <= n; k++) out.push({ key: 't' + k, slot: 'clone-t' + k, dt: -k * clamp(c.gap ?? 0.35, 0.04, 5), op: clamp(1 - (c.fade ?? 0.5) * k / (n + 1), 0.05, 1), edge: 'hide' });
+      return out;
+    }
+    return (c.list || []).filter(x => x.on !== false).slice(0, MAX * 2).map(x => x.at != null
+      ? { key: x.id, at: x.at, op: x.op ?? 1 }
+      : { key: x.id, slot: 'clone-' + x.id, dt: x.dt || 0, op: x.op ?? 1, edge: c.edge || 'hold' });
+  }
+  S.cloneList = list;
+  // the moment a live clone shows when the layer shows s (null: not on screen now)
+  function cloneTime(el, s, it) {
+    const D = durOf(el); if (!D) return null;
+    let x = s + it.dt;
+    if (it.edge === 'loop') x = ((x % D) + D) % D;
+    else if (it.edge === 'hide' && (x < 0 || x > D - 0.03)) return null;
+    return clamp(x, 0.02, D - 0.03);
+  }
+  const tgtFor = (el, it) => (t, v) => { const s = R.videoTarget(el.video, t, v, startOf(el)), x = cloneTime(el, s, it); return x == null ? s : x; };
+  // every clone's own <video> joins the others (played in step in the editor, sought exactly on export)
+  R.extraVideoUsers.push(doc => {
+    const out = [];
+    for (const el of doc.elements || []) {
+      if (!isVideo(el) || el.hidden || !el.clones || !el.clones.on) continue;
+      for (const it of list(el)) if (it.slot) out.push({ id: el.assetId, slot: it.slot, vd: el.video, start: startOf(el), el, tgt: tgtFor(el, it) });
+    }
+    return out;
+  });
+
+  /* ── frozen moments: grabbed once from their own <video> ── */
+  const stills = new Map();
+  let grabbing = Promise.resolve();
+  const seek = (v, time) => new Promise(res => {
+    if (Math.abs(v.currentTime - time) < 0.0005 && !v.seeking) { res(); return; }
+    let done = false; const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin); res(); };
+    v.addEventListener('seeked', fin); setTimeout(fin, 3000); v.currentTime = time;
+  });
+  function stillKey(el, at) { return el.assetId + '|' + at.toFixed(3); }
+  function still(el, at) {
+    const k = stillKey(el, at), hit = stills.get(k);
+    if (hit) return hit.c;
+    const job = { c: null };
+    stills.set(k, job);
+    job.p = grabbing = grabbing.then(async () => {
+      const e = R.assetVideo(el.assetId, 'still');
+      if (!e) return;
+      if (!e.ok) await e.promise;
+      if (!e.ok) return;
+      await seek(e.v, at);
+      const v = e.v, sc = Math.min(1, 1920 / Math.max(v.videoWidth, v.videoHeight)), c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(v.videoWidth * sc)); c.height = Math.max(1, Math.round(v.videoHeight * sc));
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      job.c = c;
+      if (stills.size > 120) stills.delete(stills.keys().next().value);
+      R.requestRedraw();
+    }).catch(() => {});
+    return null;
+  }
+  // export: every frozen moment in the design is ready before a frame is drawn
+  R.extraSync.push(async doc => {
+    const waits = [];
+    for (const el of doc.elements || []) {
+      if (!isVideo(el) || el.hidden || !el.clones || !el.clones.on) continue;
+      for (const it of list(el)) if (it.at != null) { still(el, it.at); const j = stills.get(stillKey(el, it.at)); if (j && j.p) waits.push(j.p); }
+    }
+    await Promise.all(waits);
+  });
+  R.clonesReady = el => {
+    if (!el.clones || !el.clones.on || !R.hasSubject(el)) return true;
+    for (const it of list(el)) {
+      if (it.at != null) { if (!stills.get(stillKey(el, it.at)) || !stills.get(stillKey(el, it.at)).c) return false; }
+      else { const e = R.assetVideo(el.assetId, it.slot); if (!e || !e.ok) return false; }
+    }
+    return true;
+  };
+
+  /* ── the camera: where a moment's picture sits in the frame on screen ── */
+  const frameAt = (sj, time) => clamp(Math.round(((time || 0) - (sj.t0 || 0)) * (sj.fps || 1)), 0, sj.n - 1);
+  function warpFor(el, sj, from, to) {
+    const cam = sj.cam, c = el.clones;
+    if (!cam || !cam.moving || c.steady === false || !CT) return null;
+    const a = cam.H[frameAt(sj, from)], b = cam.H[frameAt(sj, to)];
+    if (!a || !b) return null;
+    // that moment's picture → the reference view → the picture on screen now
+    return CT.norm(CT.mul(CT.inv(b), a));
+  }
+  const boxAt = (sj, time) => { const f = frameAt(sj, time) * 4, b = sj.box || []; return b[f + 3] ? [b[f] / 1000, b[f + 1] / 1000, b[f + 2] / 1000, b[f + 3] / 1000] : null; };
+  // how far back someone stands: where their feet are (lower in the picture = nearer)
+  function depth(sj, time, W) { const b = boxAt(sj, time); if (!b) return -1; const p = W ? CT.apply(W, (b[0] + b[2]) / 2, b[3]) : [0, b[3]]; return p[1]; }
+
+  /* ── drawing ── */
+  const tmp = new Map();
+  function scratch(key, w, h) { let c = tmp.get(key); if (!c) { c = document.createElement('canvas'); tmp.set(key, c); } if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return c; }
+  // the mask a little looser or tighter (grow −3…3) and softer, at the mask's own size
+  function edgeMask(m, grow, soft, key) {
+    if (!grow && !soft) return m;
+    const c = scratch('edge' + key, m.width, m.height), x = c.getContext('2d', { willReadFrequently: true });
+    x.clearRect(0, 0, c.width, c.height);
+    const r = Math.abs(grow) * 0.8 + soft * 0.5;
+    x.filter = r > 0.05 ? `blur(${r.toFixed(2)}px)` : 'none'; x.drawImage(m, 0, 0); x.filter = 'none';
+    if (grow) {
+      const d = x.getImageData(0, 0, c.width, c.height), a = d.data, lo = grow > 0 ? 0.02 : 0.5, hi = grow > 0 ? 0.5 : 0.98;
+      for (let i = 3; i < a.length; i += 4) { const t = clamp((a[i] / 255 - lo) / (hi - lo), 0, 1); a[i] = t * t * (3 - 2 * t) * 255; }
+      x.putImageData(d, 0, 0);
+    }
+    return c;
+  }
+  // a picture drawn through a homography (u, v → u, v): one affine when it's that close, else a mesh of triangles
+  function drawHomog(ctx, src, H, W, Hh) {
+    const P = (u, v) => { const q = CT.apply(H, u, v); return [q[0] * W, q[1] * Hh]; };
+    // the best affine through the corners and centre, and how far the real warp strays from it
+    const pts = [[0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0.5]], dst = pts.map(p => P(p[0], p[1]));
+    const aff = affineFit(pts.map(p => [p[0] * W, p[1] * Hh]), dst);
+    let dev = 0;
+    for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) { const u = i / 4, v = j / 4, q = P(u, v), a = [aff[0] * u * W + aff[1] * v * Hh + aff[2], aff[3] * u * W + aff[4] * v * Hh + aff[5]]; dev = Math.max(dev, Math.hypot(q[0] - a[0], q[1] - a[1])); }
+    if (dev < 0.6) { ctx.save(); ctx.transform(aff[0], aff[3], aff[1], aff[4], aff[2], aff[5]); ctx.drawImage(src, 0, 0, W, Hh); ctx.restore(); return; }
+    const n = 10;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const u0 = i / n, u1 = (i + 1) / n, v0 = j / n, v1 = (j + 1) / n;
+      const s = [[u0 * W, v0 * Hh], [u1 * W, v0 * Hh], [u1 * W, v1 * Hh], [u0 * W, v1 * Hh]], d = [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
+      tri(ctx, src, W, Hh, [s[0], s[1], s[2]], [d[0], d[1], d[2]]);
+      tri(ctx, src, W, Hh, [s[0], s[2], s[3]], [d[0], d[2], d[3]]);
+    }
+  }
+  function affineFit(src, dst) {
+    // least squares x' = a x + b y + c, y' = d x + e y + f
+    let sxx = 0, sxy = 0, syy = 0, sx = 0, sy = 0, n = src.length, bx = [0, 0, 0], by = [0, 0, 0];
+    for (let k = 0; k < n; k++) { const [x, y] = src[k], [u, v] = dst[k]; sxx += x * x; sxy += x * y; syy += y * y; sx += x; sy += y; bx[0] += x * u; bx[1] += y * u; bx[2] += u; by[0] += x * v; by[1] += y * v; by[2] += v; }
+    const M = [[sxx, sxy, sx], [sxy, syy, sy], [sx, sy, n]];
+    const solve3 = b => { const m = M.map((r, i) => r.concat(b[i])); for (let c = 0; c < 3; c++) { let p = c; for (let r = c + 1; r < 3; r++) if (Math.abs(m[r][c]) > Math.abs(m[p][c])) p = r; [m[c], m[p]] = [m[p], m[c]]; for (let r = 0; r < 3; r++) if (r !== c) { const f = m[r][c] / m[c][c]; for (let k = c; k < 4; k++) m[r][k] -= f * m[c][k]; } } return m.map((r, i) => r[3] / r[i]); };
+    const a = solve3(bx), b = solve3(by);
+    return [a[0], a[1], a[2], b[0], b[1], b[2]];
+  }
+  function tri(ctx, src, W, H, s, d) {
+    const [[x0, y0], [x1, y1], [x2, y2]] = s, [[u0, v0], [u1, v1], [u2, v2]] = d;
+    const det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0); if (!det) return;
+    const a = ((u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0)) / det, b = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / det;
+    const c = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / det, e = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
+    const cx = (u0 + u1 + u2) / 3, cy = (v0 + v1 + v2) / 3, grow = p => { const dx = p[0] - cx, dy = p[1] - cy, L = Math.hypot(dx, dy) || 1; return [p[0] + dx / L * 0.4, p[1] + dy / L * 0.4]; };
+    ctx.save(); ctx.beginPath(); const g0 = grow(d[0]), g1 = grow(d[1]), g2 = grow(d[2]); ctx.moveTo(g0[0], g0[1]); ctx.lineTo(g1[0], g1[1]); ctx.lineTo(g2[0], g2[1]); ctx.closePath(); ctx.clip();
+    ctx.transform(a, c, b, e, u0 - a * x0 - b * y0, v0 - c * x0 - e * y0);
+    ctx.drawImage(src, 0, 0, W, H); ctx.restore();
+  }
+  // one cut-out: the picture inside its mask, laid into the frame
+  function cutInto(x, key, src, m, W, H, warp, op, cl) {
+    const c = scratch('cut' + key, W, H), cx = c.getContext('2d');
+    cx.globalCompositeOperation = 'source-over'; cx.clearRect(0, 0, W, H); cx.drawImage(src, 0, 0, W, H);
+    cx.globalCompositeOperation = 'destination-in'; cx.drawImage(edgeMask(m, cl.grow || 0, cl.soft ?? 1, key), 0, 0, W, H);
+    cx.globalCompositeOperation = 'source-over';
+    x.globalAlpha = clamp(op, 0, 1);
+    if (warp) drawHomog(x, c, warp, W, H); else x.drawImage(c, 0, 0);
+    x.globalAlpha = 1;
+  }
+  const frames = new Map();
+  R.cloneFrame = function (el, img, env) {
+    const sj = el.subj, cl = el.clones;
+    if (!R.hasSubject(el) || !sj.box || !cl) return null;
+    const items = list(el), main = vidOf(el);
+    if (!items.length || !main) return null;
+    const t = 'time' in env ? env.time : R.playTime, start = startOf(el);
+    const s = env.editor ? main.currentTime : R.videoTarget(el.video, t, main, start);
+    const parts = [];
+    for (const it of items) {
+      let src, time, op = it.op;
+      if (it.slot) {
+        const e = R.assetVideo(el.assetId, it.slot);
+        if (!e || !e.ok) continue;
+        if (env.editor) R.liveSync(e.v, el.video, t, start, tgtFor(el, it));
+        const want = cloneTime(el, s, it);
+        if (want == null) continue;
+        src = e.v; time = env.editor ? e.v.currentTime : want;
+      } else {
+        // a frozen copy appears once the video reaches it, with a quick fade
+        if (cl.reveal !== false && t != null) { if (s < it.at - 0.01) continue; op *= clamp((s - it.at + 0.01) / 0.15, 0, 1); }
+        src = still(el, it.at); time = it.at;
+        if (!src) continue;
+      }
+      const m = R.subjectMask(el, time, it.key);
+      if (!m || op <= 0.01) continue;
+      parts.push({ it, src, time, m, op, warp: warpFor(el, sj, time, s) });
+    }
+    if (!parts.length) return null;
+    const size = R.mediaSize(img), cap = env.editor ? (R.playing ? 960 : 1280) : 1920, k = Math.min(1, cap / Math.max(size.w, size.h));
+    const W = Math.max(1, Math.round(size.w * k)), H = Math.max(1, Math.round(size.h * k));
+    const key = s.toFixed(3) + '|' + parts.map(p => p.it.key + '@' + p.time.toFixed(3) + ':' + p.op.toFixed(2)).join(',') + '|' + JSON.stringify(cl) + '|' + W;
+    let fr = frames.get(el.id);
+    if (fr && fr.key === key && !img._interp) return fr.c;
+    if (!fr) { fr = { c: document.createElement('canvas'), key: '' }; frames.set(el.id, fr); }
+    const c = fr.c; if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const x = c.getContext('2d');
+    x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, W, H);
+    x.drawImage(img, 0, 0, W, H);
+    // who's in front: the further back someone stands, the earlier they're drawn — the person on screen now included
+    const live = { live: true, d: depth(sj, s, null) };
+    let order = parts.map(p => Object.assign(p, { d: depth(sj, p.time, p.warp) }));
+    if (cl.order === 'newest') order = order.sort((a, b) => (a.it.at ?? a.it.dt ?? 0) - (b.it.at ?? b.it.dt ?? 0));
+    else order = order.concat([live]).sort((a, b) => a.d - b.d);
+    let drawnBehind = false;
+    for (const p of order) {
+      if (p.live) {
+        // the person on screen now, back on top of anyone standing behind them
+        if (drawnBehind) { const lm = R.subjectMask(el, s, 'live'); if (lm) cutInto(x, 'live', img, lm, W, H, null, 1, cl); }
+        continue;
+      }
+      cutInto(x, p.it.key, p.src, p.m, W, H, p.warp, p.op, cl);
+      drawnBehind = true;
+    }
+    if (cl.order === 'newest') { const lm = R.subjectMask(el, s, 'live'); if (lm) cutInto(x, 'live', img, lm, W, H, null, 1, cl); }
+    fr.key = key;
+    // a frame of its own for the filters' cache
+    c._interp = true; c._stamp = key;
+    return c;
+  };
+
+  /* ── setting clones up from what was found ── */
+  const ready = el => R.hasSubject(el) && el.subj.v >= 2 && el.subj.whole && el.subj.box && el.subj.n > 2 && !el.subj.preview;
+  S.clonesReady = ready;
+  // per frame: where the subject is (u, v of its middle, its height), in the reference view so camera moves don't count
+  function track(sj) {
+    const out = [];
+    for (let f = 0; f < sj.n; f++) {
+      const b = sj.box.slice(f * 4, f * 4 + 4).map(v => v / 1000);
+      if (!b[3] || b[3] - b[1] < 0.02) { out.push(null); continue; }
+      let c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+      const H = sj.cam && sj.cam.moving && sj.cam.H[f];
+      if (H) c = CT.apply(H, c[0], c[1]);
+      out.push({ x: c[0], y: c[1], h: b[3] - b[1], w: b[2] - b[0], t: (sj.t0 || 0) + f / (sj.fps || 1) });
+    }
+    return out;
+  }
+  // the takes of 'Many places': stretches where the subject stays in one spot, one per spot, in order
+  function findTakes(sj) {
+    const tr = track(sj), fps = sj.fps || 1, n = tr.length;
+    const sm = tr.map((p, i) => { if (!p) return null; let x = 0, y = 0, k = 0; for (let j = Math.max(0, i - Math.round(fps / 4)); j <= Math.min(n - 1, i + Math.round(fps / 4)); j++) if (tr[j]) { x += tr[j].x; y += tr[j].y; k++; } return { x: x / k, y: y / k, h: p.h, w: p.w, t: p.t }; });
+    const hs = sm.filter(Boolean).map(p => p.h).sort((a, b) => a - b), hMed = hs.length ? hs[hs.length >> 1] : 0.3;
+    // still enough: moving less than a third of a body height a second
+    const still = sm.map((p, i) => { if (!p) return false; const a = sm[Math.max(0, i - 2)], b = sm[Math.min(n - 1, i + 2)]; if (!a || !b) return false; return Math.hypot(b.x - a.x, b.y - a.y) / ((b.t - a.t) || 1e-3) < hMed * 0.35; });
+    const runs = [];
+    for (let i = 0; i < n;) { if (!still[i]) { i++; continue; } let j = i; while (j + 1 < n && still[j + 1]) j++; runs.push([i, j]); i = j + 1; }
+    const spot = r => { let x = 0, y = 0, k = 0; for (let i = r[0]; i <= r[1]; i++) { x += sm[i].x; y += sm[i].y; k++; } return { x: x / k, y: y / k }; };
+    // runs at the same spot with a short break between them are one take
+    const merged = [];
+    for (const r of runs) {
+      const last = merged[merged.length - 1];
+      if (last && (r[0] - last[1]) / fps < 0.6) { const a = spot(last), b = spot(r); if (Math.hypot(a.x - b.x, a.y - b.y) < hMed * 0.3) { last[1] = r[1]; continue; } }
+      merged.push(r.slice());
+    }
+    let takes = merged.filter(r => (r[1] - r[0] + 1) / fps >= 0.8).map(r => Object.assign(spot(r), { a: sm[r[0]].t, b: sm[r[1]].t, len: (r[1] - r[0] + 1) / fps }));
+    // one take per spot (the longest), each spot clearly somewhere else
+    const keep = [];
+    for (const tk of takes.slice().sort((p, q) => q.len - p.len)) if (!keep.some(k => Math.hypot(k.x - tk.x, k.y - tk.y) < hMed * 0.5)) keep.push(tk);
+    takes = keep.sort((p, q) => p.a - q.a).slice(0, MAX + 1);
+    return takes;
+  }
+  S.findCloneTakes = el => (ready(el) ? findTakes(el.subj) : []);
+  // the moments of 'Freeze trail': a new copy each time the subject has moved about a body width on
+  function freezeMoments(sj, gap) {
+    const tr = track(sj), out = [];
+    let last = null;
+    for (const p of tr) {
+      if (!p) continue;
+      if (!last || Math.hypot(p.x - last.x, p.y - last.y) >= Math.max(p.w, 0.04) * (gap || 1.1)) { out.push(+p.t.toFixed(3)); last = p; }
+      if (out.length >= MAX) break;
+    }
+    return out;
+  }
+  // run the subject finder over the whole clip (with the camera) if it hasn't been yet
+  S.prepareClones = async function (el) {
+    if (ready(el)) return el;
+    await S.findSubject(el, { people: true, whole: true, cam: true });
+    return S.doc.elements.find(e => e.id === el.id) || null;
+  };
+  // mode: 'places' | 'trail' | 'freeze'
+  S.makeClones = async function (el, mode, o = {}) {
+    el = await S.prepareClones(el);
+    if (!el || !ready(el)) throw new Error('Couldn’t find anyone in this video to clone');
+    const sj = el.subj, prev = el.clones || {};
+    const cfg = { on: true, mode, order: prev.order || 'depth', soft: prev.soft ?? 1, grow: prev.grow || 0, steady: prev.steady !== false };
+    let video = null, note = '';
+    if (mode === 'trail') Object.assign(cfg, { count: prev.count || 4, gap: prev.gap || 0.35, fade: prev.fade ?? 0.5 });
+    if (mode === 'freeze') { Object.assign(cfg, { reveal: true, list: freezeMoments(sj).map(at => ({ id: uid(), at })) }); if (cfg.list.length < 2) note = 'The subject hardly moves, so there are few copies — add more with “Freeze here”.'; }
+    if (mode === 'places') {
+      let takes = findTakes(sj);
+      const D = durOf(el);
+      if (takes.length < 2) {
+        // no clear spots: the clip in equal parts
+        const k = clamp(Math.floor(D / 2.5), 2, 4);
+        takes = Array.from({ length: k }, (_, i) => ({ a: D * i / k, b: D * (i + 1) / k, len: D / k }));
+        note = 'Couldn’t tell where you stood still, so the clip is cut into ' + takes.length + ' equal takes — change their starts below.';
+      }
+      const L = Math.max(1, o.length === 'longest' ? Math.max(...takes.map(t => t.len)) : Math.min(...takes.map(t => t.len)));
+      Object.assign(cfg, { edge: 'hold', length: o.length || 'shortest', list: takes.slice(1).map(tk => ({ id: uid(), dt: +(tk.a - takes[0].a).toFixed(3) })) });
+      video = Object.assign({}, el.video, { trim: +takes[0].a.toFixed(3), end: +Math.min(D, takes[0].a + L).toFixed(3) });
+    }
+    S.changeEl(el, e => { e.clones = cfg; if (video) e.video = video; });
+    S.commit();
+    return { el: S.doc.elements.find(e => e.id === el.id), note };
+  };
+  S.removeClones = function (el) { S.changeEl(el, e => { delete e.clones; }); S.commit(); };
+
+  /* ── the inspector ── */
+  const U = S.ui, { h, ic, sec, row, full, more, label, num, seg, toggle, toast } = U;
+  const fmt = s => { s = Math.max(0, s || 0); const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r < 10 ? '0' : ''}${r.toFixed(1)}`; };
+  const setCl = (el, patch, live) => { S.changeEl(el, e => { e.clones = Object.assign({}, e.clones, patch); }, live); if (!live) S.commit(); };
+  const nowSource = el => { const v = vidOf(el); return v ? v.currentTime : 0; };
+  let busy = null;
+  async function start(el, mode) {
+    busy = { id: el.id, mode };
+    U.renderInspector();
+    try {
+      const r = await S.makeClones(el, mode);
+      if (r.note) toast(r.note);
+      else toast({ places: 'Clones in every spot you stood', trail: 'Clone trail on', freeze: 'Freeze trail on' }[mode]);
+    } catch (e) { if (e && e.name !== 'AbortError') toast(e.message || 'Couldn’t make clones'); }
+    busy = null;
+    U.renderInspector();
+  }
+  S.on('subjectprogress', id => { if (busy && busy.id === id) { const bar = document.querySelector('.clone-busy i'), j = S.subjectJob(id); if (bar && j) bar.style.width = Math.round(j.p * 100) + '%'; const t = document.querySelector('.clone-busy span'); if (t && j) t.textContent = j.loading ? 'Getting the people finder…' : `Finding the subject in every frame… ${Math.round(j.p * 100)}%`; } });
+  const MODES = [['places', 'Many places', 'One long take where you move to a new spot each time — every spot plays at once'], ['trail', 'Trail', 'Copies follow a moment behind'], ['freeze', 'Freeze trail', 'A frozen copy left behind as you move']];
+  const ICON = {
+    places: '<svg viewBox="0 0 48 32"><circle cx="10" cy="11" r="3.4"/><rect x="7" y="15" width="6" height="11" rx="2.5"/><circle cx="24" cy="9" r="3.4"/><rect x="21" y="13" width="6" height="11" rx="2.5"/><circle cx="38" cy="12" r="3.4"/><rect x="35" y="16" width="6" height="11" rx="2.5"/></svg>',
+    trail: '<svg viewBox="0 0 48 32"><g opacity=".25"><circle cx="9" cy="10" r="3.4"/><rect x="6" y="14" width="6" height="12" rx="2.5"/></g><g opacity=".5"><circle cx="19" cy="10" r="3.4"/><rect x="16" y="14" width="6" height="12" rx="2.5"/></g><g opacity=".75"><circle cx="29" cy="10" r="3.4"/><rect x="26" y="14" width="6" height="12" rx="2.5"/></g><circle cx="39" cy="10" r="3.4"/><rect x="36" y="14" width="6" height="12" rx="2.5"/></svg>',
+    freeze: '<svg viewBox="0 0 48 32"><g opacity=".55"><circle cx="9" cy="10" r="3.4"/><rect x="6" y="14" width="6" height="12" rx="2.5"/><circle cx="21" cy="10" r="3.4"/><rect x="18" y="14" width="6" height="12" rx="2.5"/></g><circle cx="35" cy="10" r="3.4"/><rect x="32" y="14" width="6" height="12" rx="2.5"/><path d="M40 6l4-3M41 10h5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>',
+  };
+  function tile(el, m) {
+    const b = h('button.clone-tile', { type: 'button', title: m[2], onclick: () => start(el, m[0]) });
+    const art = h('span.clone-art'); art.innerHTML = ICON[m[0]];
+    b.append(art, h('b', null, m[1]), h('span', null, m[2]));
+    return b;
+  }
+  function itemRow(el, it, i, kind) {
+    const cl = el.clones, D = durOf(el);
+    const edit = (patch, live) => setCl(el, { list: cl.list.map(x => (x.id === it.id ? Object.assign({}, x, patch) : x)) }, live);
+    return h('div.clone-row' + (it.on === false ? '.off' : ''), null,
+      h('span.clone-n', null, String(i + 2)),
+      h('div.clone-time', { title: kind === 'freeze' ? 'The moment frozen (in the clip)' : 'Where this take starts in the clip' },
+        num('sel', null, { get: () => (kind === 'freeze' ? it.at : (el.video.trim || 0) + it.dt), set: (v, live) => { v = clamp(v, 0, Math.max(0, D - 0.05)); edit(kind === 'freeze' ? { at: +v.toFixed(3) } : { dt: +(v - (el.video.trim || 0)).toFixed(3) }, live); }, min: 0, max: D || 60, step: 0.1, unit: 's', label: kind === 'freeze' ? 'At' : 'Starts', small: true })),
+      kind === 'freeze' ? h('button.icon-btn', { type: 'button', title: 'Go to the moment the video reaches it', onclick: () => { const vd = el.video || {}, at = startOf(el) + (it.at - (vd.trim || 0)) / (vd.speed || 1); if (S.seek && at >= 0) S.seek(at); } }, ic('play')) : h('span'),
+      h('button.icon-btn', { type: 'button', title: it.on === false ? 'Show this clone' : 'Hide this clone', onclick: () => { edit({ on: it.on === false }); U.renderInspector(); } }, ic(it.on === false ? 'eyeOff' : 'eye')),
+      h('button.icon-btn', { type: 'button', title: 'Remove this clone', onclick: () => { setCl(el, { list: cl.list.filter(x => x.id !== it.id) }); U.renderInspector(); } }, ic('x')));
+  }
+  function section(el) {
+    const cl = el.clones, job = S.subjectJob(el.id), running = busy && busy.id === el.id;
+    if (running || (job && !job.quick && busy)) {
+      return sec('Clones', [h('div.clone-busy', null, h('div.cap-bar', null, h('i', { style: { width: Math.round(((job && job.p) || 0) * 100) + '%' } })), h('span', null, 'Finding the subject in every frame…')),
+        full(h('button.btn', { type: 'button', onclick: () => { S.cancelSubject(el.id); busy = null; U.renderInspector(); } }, 'Cancel'))], true, { key: 'clones' });
+    }
+    if (!cl || !cl.on) {
+      return sec('Clones', [
+        h('p.hint', null, 'The same person in several places at once. Works best with the camera on a tripod; a moving camera is followed so the copies stay put.'),
+        h('div.clone-tiles', null, MODES.map(m => tile(el, m))),
+      ], false, { key: 'clones' });
+    }
+    const mode = cl.mode, kids = [];
+    kids.push(row('Look', seg('sel', null, MODES.map(m => [m[0], m[1]]), { get: () => mode, set: v => { if (v !== mode) start(el, v); } })));
+    if (mode === 'trail') {
+      kids.push(row('Copies', num('sel', null, { get: () => cl.count || 4, set: (v, live) => setCl(el, { count: Math.round(v) }, live), min: 1, max: MAX, slider: true })));
+      kids.push(row('Gap', num('sel', null, { get: () => cl.gap ?? 0.35, set: (v, live) => setCl(el, { gap: +v.toFixed(2) }, live), min: 0.05, max: 2, step: 0.05, unit: 's', slider: true })));
+      kids.push(row('Fade', num('sel', null, { get: () => cl.fade ?? 0.5, set: (v, live) => setCl(el, { fade: v }, live), min: 0, max: 95, scale: 100, unit: '%', slider: true })));
+    } else {
+      const rows = (cl.list || []).map((it, i) => itemRow(el, it, i, mode));
+      kids.push(label(mode === 'places' ? 'Takes (1 is the video itself)' : 'Frozen copies'));
+      kids.push(h('div.clone-list', null, rows.length ? rows : h('p.hint', null, 'None yet.')));
+      const add = mode === 'places'
+        ? h('button.btn.small', { type: 'button', title: 'Add a take starting where the clip is now', onclick: () => { const v = vidOf(el), at = v ? v.currentTime : 0; setCl(el, { list: (cl.list || []).concat({ id: uid(), dt: +(at - (el.video.trim || 0)).toFixed(3) }) }); U.renderInspector(); } }, ic('plus'), 'Take from here')
+        : h('button.btn.small', { type: 'button', title: 'Freeze a copy at the frame on screen', onclick: () => { const at = +nowSource(el).toFixed(3); setCl(el, { list: (cl.list || []).concat({ id: uid(), at }).sort((a, b) => a.at - b.at) }); U.renderInspector(); } }, ic('plus'), 'Freeze here');
+      kids.push(h('div.cap-actions', null, add));
+      if (mode === 'places') {
+        kids.push(row('Length', seg('sel', null, [['shortest', 'Shortest take'], ['longest', 'Longest']], { get: () => cl.length || 'shortest', set: v => { const takes = [{ a: el.video.trim || 0 }].concat((cl.list || []).map(x => ({ a: (el.video.trim || 0) + x.dt }))); const D = durOf(el); const lens = takes.map((tk, i) => { const nx = takes.slice().sort((p, q) => p.a - q.a).find(q => q.a > tk.a); return (nx ? nx.a : D) - tk.a; }); const L = Math.max(1, v === 'longest' ? Math.max(...lens) : Math.min(...lens)); S.changeEl(el, e => { e.clones = Object.assign({}, e.clones, { length: v }); e.video = Object.assign({}, e.video, { end: +Math.min(D, (e.video.trim || 0) + L).toFixed(3) }); }); S.commit(); U.renderInspector(); } })));
+        kids.push(row('Take ends', seg('sel', null, [['hold', 'Hold'], ['loop', 'Loop']], { get: () => cl.edge || 'hold', set: v => setCl(el, { edge: v }) })));
+      } else kids.push(toggle('sel', null, 'Each appears when it’s reached', { get: () => cl.reveal !== false, set: v => setCl(el, { reveal: v }) }));
+    }
+    kids.push(row('In front', seg('sel', null, [['depth', 'Nearest'], ['newest', 'Newest']], { get: () => cl.order || 'depth', set: v => setCl(el, { order: v }) })));
+    kids.push(more('clones-more', [
+      row('Edge', num('sel', null, { get: () => cl.grow || 0, set: (v, live) => setCl(el, { grow: Math.round(v) }, live), min: -3, max: 3, slider: true })),
+      row('Softness', num('sel', null, { get: () => cl.soft ?? 1, set: (v, live) => setCl(el, { soft: v }, live), min: 0, max: 6, step: 0.5, slider: true })),
+      el.subj.cam && el.subj.cam.moving ? toggle('sel', null, 'Keep the copies still as the camera moves', { get: () => cl.steady !== false, set: v => setCl(el, { steady: v }) }) : h('p.hint', null, 'The camera stays still in this clip, so the copies need no steadying.'),
+      h('div.cap-actions', null,
+        h('button.btn.small', { type: 'button', title: 'Look for the subject again, frame by frame', onclick: () => { S.changeEl(el, e => { delete e.subj; }); start(el, mode); } }, ic('refresh'), 'Find again'),
+        h('button.btn.small', { type: 'button', onclick: () => { S.removeClones(el); U.renderInspector(); } }, ic('trash'), 'Remove clones')),
+    ], 'More'));
+    return sec('Clones', kids, true, { key: 'clones' });
+  }
+  U.addSection('el', el => (isVideo(el) ? section(el) : null));
 })();
 
 </script>
