@@ -419,8 +419,8 @@ Chromium exports WebM (no H.264); real Chrome exports MP4.
    JSZip, plus `STUDIO_MODEL_PARTS` so background removal can read model parts published under `models/`)
    and publish `<dir>/collage-studio.html` to that URL. Published next to it: `vendor/ort-wasm-simd.wasm`
    (onnxruntime-web 1.16.3, from npm), and for subject.js's fallback `vendor/vision_bundle.mjs` + `vendor/vision_wasm_internal.{js,wasm}`
-   (@mediapipe/tasks-vision 0.10.14 from jsDelivr) and `models/subject-people.part0–1.txt` / `models/subject-pick.part0.txt`
-   (base64 of the selfie multiclass / magic touch .tflite from storage.googleapis.com, split to stay under the 16 MB file limit),
+   (@mediapipe/tasks-vision 0.10.14 from jsDelivr) and `models/subject-people.part0–1.txt` / `models/subject-pick.part0.txt` / `models/subject-pose.part0.txt`
+   (base64 of the selfie multiclass / magic touch .tflite and pose_landmarker_full.task from storage.googleapis.com, split to stay under the 16 MB file limit),
    and for captions `python3 studio/tools/whisper_prep.py <dir>` → `vendor/transformers.min.js`, `vendor/ort-wasm-simd-threaded.jsep.mjs`,
    `models/whisper/*` (manifest + 11 base64 parts) and `models/hf/onnx-community/whisper-base_timestamped/*.json` (~160 MB in all). Still missing: `models/rmbg.part0–4.txt` and `models/ultraface.txt` —
    huggingface.co was blocked from this cloud environment, so background removal in the artifact only works if the
