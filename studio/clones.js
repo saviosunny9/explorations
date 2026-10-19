@@ -180,6 +180,7 @@
     x.globalAlpha = 1;
   }
   const frames = new Map();
+  let unsettled = 0;
   R.cloneFrame = function (el, img, env) {
     const sj = el.subj, cl = el.clones;
     if (!R.hasSubject(el) || !sj.box || !cl) return null;
@@ -234,9 +235,11 @@
       drawnBehind = true;
     }
     if (cl.order === 'newest') { const lm = R.subjectMask(el, s, 'live'); if (lm) cutInto(x, 'live', img, lm, W, H, null, 1, cl); }
-    fr.key = key;
+    // a video still seeking already reports its new time but shows the old picture: don't keep that composite for the time
+    const settled = !main.seeking && !parts.some(p => p.src.seeking);
+    fr.key = settled ? key : '';
     // a frame of its own for the filters' cache
-    c._interp = true; c._stamp = key;
+    c._interp = true; c._stamp = settled ? key : key + '~' + (++unsettled);
     return c;
   };
 
@@ -305,6 +308,9 @@
     const sj = el.subj, prev = el.clones || {};
     const cfg = { on: true, mode, order: prev.order || 'depth', soft: prev.soft ?? 1, grow: prev.grow || 0, steady: prev.steady !== false };
     let video = null, note = '';
+    // Many places cuts the clip to its first take: the other looks (and taking clones off) give the whole clip back
+    const was = prev.mode === 'places' && prev.was ? prev.was : null;
+    if (was && mode !== 'places') video = Object.assign({}, el.video, was);
     if (mode === 'trail') Object.assign(cfg, { count: prev.count || 4, gap: prev.gap || 0.35, fade: prev.fade ?? 0.5 });
     if (mode === 'freeze') { Object.assign(cfg, { reveal: true, list: freezeMoments(sj).map(at => ({ id: uid(), at })) }); if (cfg.list.length < 2) note = 'The subject hardly moves, so there are few copies — add more with “Freeze here”.'; }
     if (mode === 'places') {
@@ -318,13 +324,14 @@
       }
       const L = Math.max(1, o.length === 'longest' ? Math.max(...takes.map(t => t.len)) : Math.min(...takes.map(t => t.len)));
       Object.assign(cfg, { edge: 'hold', length: o.length || 'shortest', list: takes.slice(1).map(tk => ({ id: uid(), dt: +(tk.a - takes[0].a).toFixed(3) })) });
+      cfg.was = was || { trim: el.video.trim || 0, end: el.video.end ?? null };
       video = Object.assign({}, el.video, { trim: +takes[0].a.toFixed(3), end: +Math.min(D, takes[0].a + L).toFixed(3) });
     }
     S.changeEl(el, e => { e.clones = cfg; if (video) e.video = video; });
     S.commit();
     return { el: S.doc.elements.find(e => e.id === el.id), note };
   };
-  S.removeClones = function (el) { S.changeEl(el, e => { delete e.clones; }); S.commit(); };
+  S.removeClones = function (el) { S.changeEl(el, e => { if (e.clones && e.clones.mode === 'places' && e.clones.was) e.video = Object.assign({}, e.video, e.clones.was); delete e.clones; }); S.commit(); };
 
   /* ── the inspector ── */
   const U = S.ui, { h, ic, sec, row, full, more, label, num, seg, toggle, toast } = U;

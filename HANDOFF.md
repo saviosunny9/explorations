@@ -103,6 +103,8 @@ to PNG / JPG / MP4 / WebM with sound (including see-through PNG, WebM with alpha
   video, depth-ordered, steadied through a camera track (camtrack.js); the subject finder got the pose model (in a worker,
   graphics path, restarted after crashes), crops around each person, limbs from joints and a gentler temporal median —
   tested on DAVIS clips with ground truth and a synthetic 'many places' clip with known takes, masks and shake.
+  Exported clone frames are checked against the exact composite of that clip (mean ≈ 3 / 255): a composite made while a
+  clone's video was still seeking is never cached (it had stuck stale frames into the result).
 
 Full list: `git log --reverse --format='%ad %s' --date=short`.
 

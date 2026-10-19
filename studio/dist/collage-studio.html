@@ -8379,7 +8379,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   R.hasVideo = doc => videoUsers(doc).length > 0;
   R.playing = false;
   // editor preview: let the video run and only correct it when it drifts
+  // R.holdLive > 0 while frames are being sought exactly (export): the editor redrawing in the meantime mustn't move them
+  R.holdLive = 0;
   function liveSync(v, vd, t, start, tgt) {
+    if (R.holdLive > 0) return;
     const target = tgt ? tgt(t, v) : R.videoTarget(vd, t, v, start);
     // a video can't play backwards: a reversed clip is stepped by seeking
     if (t == null || !R.playing || (vd && vd.reverse)) {
@@ -8433,12 +8436,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const gaps = [];
     for (let i = 1; i < times.length; i++) { const d = times[i] - times[i - 1]; if (d > 0.004) gaps.push(d); }
     gaps.sort((a, b) => a - b);
-    // the shortest gap is one frame (a busy machine can skip frames, never add them)
-    e.fps = gaps.length ? clamp(Math.round(1 / gaps[0]), 12, 120) : 30;
+    // the usual gap is one frame (a busy machine skips some, never adds any), snapped to the rates cameras use
+    const raw = gaps.length >= 3 ? 1 / gaps[gaps.length >> 1] : 0, RATES = [12, 15, 23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 90, 100, 119.88, 120];
+    const near = raw ? RATES.reduce((a, b) => (Math.abs(b - raw) < Math.abs(a - raw) ? b : a)) : 0;
+    e.fps = !raw ? 30 : Math.abs(near - raw) / raw < 0.04 ? near : clamp(Math.round(raw), 12, 120);
     await seekTo(v, was);
     return e.fps;
   }
-  R.clipFps = id => { const e = assetVideo(id); return e && e.ok ? clipFps(e) : Promise.resolve(30); };
+  // measured on a <video> of its own: the one on screen is paused and sought by the editor while it plays
+  R.clipFps = async id => {
+    const e = assetVideo(id, 'fps');
+    if (!e) return 30;
+    if (!e.ok) await e.promise;
+    return e.ok ? clipFps(e) : 30;
+  };
   function grabFrame(v) {
     const s = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
     const c = canvas(Math.max(1, Math.round(v.videoWidth * s)), Math.max(1, Math.round(v.videoHeight * s)));
@@ -8609,6 +8620,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   // export: seek every video to its exact frame before the frame is drawn
   R.syncVideos = async function (doc, t, force) {
+    R.holdLive++;
+    try { await syncAll(doc, t, force); } finally { R.holdLive--; }
+  };
+  async function syncAll(doc, t, force) {
     const jobs = [];
     for (const u of videoUsers(doc)) {
       if (!userOn(u, t)) continue;
@@ -8635,7 +8650,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     await Promise.all(jobs);
     // anything else a frame needs before it's drawn (clones' still frames)
     for (const f of R.extraSync) await f(doc, t);
-  };
+  }
   R.extraSync = [];
 
   let stickerMap = null;
@@ -12930,8 +12945,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   R.subjectMask = function (el, st, slot) {
     const sj = el && el.subj;
     if (!R.hasSubject(el)) return null;
-    const f = sj.n > 1 && sj.fps ? clamp(((st || 0) - (sj.t0 || 0)) * sj.fps, 0, sj.n - 1) : 0;
-    // masks taken at the clip's own frame rate: the one for this frame; sparser ones (long clips): blended
+    // masks taken on the clip's own frames: the one for the frame showing (by frame number); the older kind by time
+    const f = sj.n > 1 && sj.vfps ? clamp((Math.floor((st || 0) * sj.vfps + 1e-6) - sj.f0) / (sj.stride || 1), 0, sj.n - 1)
+      : sj.n > 1 && sj.fps ? clamp(((st || 0) - (sj.t0 || 0)) * sj.fps, 0, sj.n - 1) : 0;
+    // every frame (or every other one): the nearest; sparser ones (long clips): blended
     const dense = (sj.fps || 0) >= 23.5, i = dense ? Math.round(f) : Math.floor(f), fr = dense ? 0 : Math.round((f - i) * 8) / 8, j = Math.min(sj.n - 1, i + 1);
     const key = sj.sheets.join(',') + '|' + i + '|' + fr;
     const ck = slot ? el.id + '#' + slot : el.id;
@@ -26382,26 +26399,35 @@ window.StudioSoundpack = {"credit":"Joseph Sardin \u2014 BigSoundBank.com (CC0)"
     bitrate = bitrate || Math.round(width * height * fps * 0.1);
     await R.preload(doc);
     const audible = sound && window.StudioAudio && window.StudioAudio.hasSound(doc);
+    const cands = format === 'png' || transparent ? null : await encoderCandidates(width, height, fps, bitrate, format);
+    // recorded in real time (no encoder): the videos play along, so the editor's syncing stays on
+    if (cands && !cands.length) return recordRealtime({ width, height, fps, duration, bitrate, onProgress, signal });
+    // frame by frame: the editor keeps its hands off the videos until the export is done (redrawing while a frame's videos
+    // were still seeking moved them away again — clones use several at once)
+    R.holdLive++;
+    try { return await framewise(); } finally { R.holdLive--; }
+    async function framewise() {
     if (format === 'png') return exportFrames({ width, height, fps, duration, transparent, sound: audible, onProgress, signal });
     if (transparent) {
       const t = await exportAlphaWebm({ width, height, fps, duration, bitrate, sound: audible, onProgress, signal });
       if (t) return t;
     }
-    const cands = await encoderCandidates(width, height, fps, bitrate, format);
-    if (!cands.length) return recordRealtime({ width, height, fps, duration, bitrate, onProgress, signal });
+    const cands2 = cands || await encoderCandidates(width, height, fps, bitrate, format);
+    if (!cands2.length) { R.holdLive--; try { return await recordRealtime({ width, height, fps, duration, bitrate, onProgress, signal }); } finally { R.holdLive++; } }
     // if an encoder gives up part-way (typically hardware H.264 at 4K), start again with the next one
     let lastErr = null;
-    for (let ci = 0; ci < cands.length; ci++) {
+    for (let ci = 0; ci < cands2.length; ci++) {
       try {
-        return await encodeWith(cands[ci], { doc, width, height, fps, duration, bitrate, sound: audible, onProgress, signal });
+        return await encodeWith(cands2[ci], { doc, width, height, fps, duration, bitrate, sound: audible, onProgress, signal });
       } catch (err) {
         if (!err || !err.fromEncoder || (signal && signal.aborted)) throw err;
-        console.warn('Video encoder failed, trying the next one', cands[ci].cfg, err);
+        console.warn('Video encoder failed, trying the next one', cands2[ci].cfg, err);
         lastErr = err;
-        if (ci < cands.length - 1) onProgress(0, 'retry');
+        if (ci < cands2.length - 1) onProgress(0, 'retry');
       }
     }
     throw lastErr;
+    }
   };
   async function encodeWith(enc, { doc, width, height, fps, duration, bitrate, sound, onProgress, signal }) {
     // the single-file build already carries the muxers; otherwise fetch the one we need
@@ -27763,17 +27789,20 @@ onmessage = async e => {
     if (!shown) throw new Error('The picture isn’t ready yet');
     const size = R.mediaSize(shown), [aw, ah] = sizeOf(size.w, size.h, AN);
     // the times to look at (source time, seconds)
-    let times = [0], fps = 0, t0 = 0, v = null;
+    let times = [0], fps = 0, t0 = 0, v = null, vfps = 0, stride = 1, f0 = 0;
     if (isVid) {
       const vd = what.whole ? {} : el.video || {}, dur = shown.duration, end = vd.end > 0 ? Math.min(dur, vd.end) : dur, ts = clamp(vd.trim || 0, 0, Math.max(0, end - 0.05));
       if (at != null) times = [at];
       else {
         const len = Math.max(0.05, end - ts);
-        // every frame of the clip (≤ 30 a second), fewer for long clips (≤ 2400 frames)
-        fps = clamp(Math.min(await R.clipFps(el.assetId) || 30, 30, 2400 / len), 2, 30);
-        const n = Math.max(1, Math.round(len * fps));
-        // sampled in the middle of each frame, so a seek can't land on the frame before
-        t0 = ts + 0.5 / fps; times = Array.from({ length: n }, (_, i) => Math.min(end - 0.02, t0 + i / fps));
+        // every frame of the clip (≤ 30 a second: every other frame of a 60 fps clip), fewer for long clips (≤ 2400 frames),
+        // each taken in the middle of a real frame — a mask that's a frame out cuts off legs in mid-stride
+        vfps = (await R.clipFps(el.assetId)) || 30;
+        stride = Math.max(1, Math.ceil(vfps / Math.min(30, 2400 / len) - 1e-6));
+        fps = vfps / stride;
+        f0 = Math.floor(ts * vfps + 1e-6);
+        const n = Math.max(1, Math.floor((end * vfps - f0) / stride));
+        t0 = (f0 + 0.5) / vfps; times = Array.from({ length: n }, (_, i) => Math.min(end - 0.02, t0 + i / fps));
       }
       v = await openVideo(el.assetId);
     }
@@ -27887,7 +27916,7 @@ onmessage = async e => {
       box.push(...(x1 < 0 ? [0, 0, 0, 0] : [Math.round(x0 / mw * 1000), Math.round(y0 / mh * 1000), Math.round((x1 + 1) / mw * 1000), Math.round((y1 + 1) / mh * 1000)]));
     }
     const sheets = await pack(steady, mw, mh);
-    return { v: 2, of: el.assetId, people, pts, at: what.at ?? null, whole: !!what.whole, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000, box, cam };
+    return { v: 2, of: el.assetId, people, pts, at: what.at ?? null, whole: !!what.whole, sheets: sheets.ids, per: sheets.per, cols: sheets.cols, cw: mw, ch: mh, n, fps, vfps: at == null ? vfps : 0, f0, stride, t0: isVid ? (at != null ? at : t0) : 0, cover: Math.round(cover * 1000) / 1000, box, cam };
   }
   // masks → PNG sprite sheets (white, alpha = mask)
   async function pack(masks, w, h) {
@@ -34167,7 +34196,8 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
   };
 
   /* ── the camera: where a moment's picture sits in the frame on screen ── */
-  const frameAt = (sj, time) => clamp(Math.round(((time || 0) - (sj.t0 || 0)) * (sj.fps || 1)), 0, sj.n - 1);
+  // the analysed frame for a moment: by frame number (as R.subjectMask does), or by time for older masks
+  const frameAt = (sj, time) => clamp(sj.vfps ? Math.round((Math.floor((time || 0) * sj.vfps + 1e-6) - sj.f0) / (sj.stride || 1)) : Math.round(((time || 0) - (sj.t0 || 0)) * (sj.fps || 1)), 0, sj.n - 1);
   function warpFor(el, sj, from, to) {
     const cam = sj.cam, c = el.clones;
     if (!cam || !cam.moving || c.steady === false || !CT) return null;
@@ -34183,18 +34213,17 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
   /* ── drawing ── */
   const tmp = new Map();
   function scratch(key, w, h) { let c = tmp.get(key); if (!c) { c = document.createElement('canvas'); tmp.set(key, c); } if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return c; }
-  // the mask a little looser or tighter (grow −3…3) and softer, at the mask's own size
+  // the mask made solid — a person isn't see-through, but the models are often only half sure about legs and arms, and a
+  // half-sure leg would show the background through it — then a little looser or tighter (grow −3…3) and softer, at the
+  // mask's own size
   function edgeMask(m, grow, soft, key) {
-    if (!grow && !soft) return m;
     const c = scratch('edge' + key, m.width, m.height), x = c.getContext('2d', { willReadFrequently: true });
     x.clearRect(0, 0, c.width, c.height);
-    const r = Math.abs(grow) * 0.8 + soft * 0.5;
+    const r = Math.abs(grow) * 0.6 + soft * 0.5;
     x.filter = r > 0.05 ? `blur(${r.toFixed(2)}px)` : 'none'; x.drawImage(m, 0, 0); x.filter = 'none';
-    if (grow) {
-      const d = x.getImageData(0, 0, c.width, c.height), a = d.data, lo = grow > 0 ? 0.02 : 0.5, hi = grow > 0 ? 0.5 : 0.98;
-      for (let i = 3; i < a.length; i += 4) { const t = clamp((a[i] / 255 - lo) / (hi - lo), 0, 1); a[i] = t * t * (3 - 2 * t) * 255; }
-      x.putImageData(d, 0, 0);
-    }
+    const d = x.getImageData(0, 0, c.width, c.height), a = d.data, lo = clamp(0.14 - grow * 0.05, 0.01, 0.6), hi = clamp(0.5 - grow * 0.07, lo + 0.1, 0.95);
+    for (let i = 3; i < a.length; i += 4) { const t = clamp((a[i] / 255 - lo) / (hi - lo), 0, 1); a[i] = t * t * (3 - 2 * t) * 255; }
+    x.putImageData(d, 0, 0);
     return c;
   }
   // a picture drawn through a homography (u, v → u, v): one affine when it's that close, else a mesh of triangles
@@ -34244,6 +34273,7 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
     x.globalAlpha = 1;
   }
   const frames = new Map();
+  let unsettled = 0;
   R.cloneFrame = function (el, img, env) {
     const sj = el.subj, cl = el.clones;
     if (!R.hasSubject(el) || !sj.box || !cl) return null;
@@ -34298,9 +34328,11 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
       drawnBehind = true;
     }
     if (cl.order === 'newest') { const lm = R.subjectMask(el, s, 'live'); if (lm) cutInto(x, 'live', img, lm, W, H, null, 1, cl); }
-    fr.key = key;
+    // a video still seeking already reports its new time but shows the old picture: don't keep that composite for the time
+    const settled = !main.seeking && !parts.some(p => p.src.seeking);
+    fr.key = settled ? key : '';
     // a frame of its own for the filters' cache
-    c._interp = true; c._stamp = key;
+    c._interp = true; c._stamp = settled ? key : key + '~' + (++unsettled);
     return c;
   };
 
@@ -34369,6 +34401,9 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
     const sj = el.subj, prev = el.clones || {};
     const cfg = { on: true, mode, order: prev.order || 'depth', soft: prev.soft ?? 1, grow: prev.grow || 0, steady: prev.steady !== false };
     let video = null, note = '';
+    // Many places cuts the clip to its first take: the other looks (and taking clones off) give the whole clip back
+    const was = prev.mode === 'places' && prev.was ? prev.was : null;
+    if (was && mode !== 'places') video = Object.assign({}, el.video, was);
     if (mode === 'trail') Object.assign(cfg, { count: prev.count || 4, gap: prev.gap || 0.35, fade: prev.fade ?? 0.5 });
     if (mode === 'freeze') { Object.assign(cfg, { reveal: true, list: freezeMoments(sj).map(at => ({ id: uid(), at })) }); if (cfg.list.length < 2) note = 'The subject hardly moves, so there are few copies — add more with “Freeze here”.'; }
     if (mode === 'places') {
@@ -34382,13 +34417,14 @@ window.STUDIO_ALIGN_MODEL = 'v6KjogquxyCBpaktwCppMC4tQiURrTioxKxBqIOtjKpRpRYgtx9
       }
       const L = Math.max(1, o.length === 'longest' ? Math.max(...takes.map(t => t.len)) : Math.min(...takes.map(t => t.len)));
       Object.assign(cfg, { edge: 'hold', length: o.length || 'shortest', list: takes.slice(1).map(tk => ({ id: uid(), dt: +(tk.a - takes[0].a).toFixed(3) })) });
+      cfg.was = was || { trim: el.video.trim || 0, end: el.video.end ?? null };
       video = Object.assign({}, el.video, { trim: +takes[0].a.toFixed(3), end: +Math.min(D, takes[0].a + L).toFixed(3) });
     }
     S.changeEl(el, e => { e.clones = cfg; if (video) e.video = video; });
     S.commit();
     return { el: S.doc.elements.find(e => e.id === el.id), note };
   };
-  S.removeClones = function (el) { S.changeEl(el, e => { delete e.clones; }); S.commit(); };
+  S.removeClones = function (el) { S.changeEl(el, e => { if (e.clones && e.clones.mode === 'places' && e.clones.was) e.video = Object.assign({}, e.video, e.clones.was); delete e.clones; }); S.commit(); };
 
   /* ── the inspector ── */
   const U = S.ui, { h, ic, sec, row, full, more, label, num, seg, toggle, toast } = U;
