@@ -214,16 +214,29 @@
       const gain = (a, b) => (k > 150 && b > k * 4 ? clamp(a / b, 0.7, 1.45) : 1);
       const g0 = gain(sL0, sC0), g1 = gain(sL1, sC1), g2 = gain(sL2, sC2);
       const sm = (v, a, b) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+      const AL = new Float32Array(n);
       for (let i = 0, o = 0; i < n; i++, o += 4) {
         const mm = Md[o + 3] / 255, dd = Dd[o + 3] / 255;
-        if (mm < 0.004 && dd < 0.02) { Cd[o + 3] = 0; continue; }
+        if (mm < 0.004 && dd < 0.02) continue;
         const r = Cd[o] * g0, gg = Cd[o + 1] * g1, b = Cd[o + 2] * g2;
         const diff = (Math.abs(Ld[o] - r) + Math.abs(Ld[o + 1] - gg) + Math.abs(Ld[o + 2] - b)) / 3;
         // inside the mask: anything that differs at all; in the band: only what clearly does, less so further out
         const near = Math.min(1, dd * 2.4);
-        const a = Math.max(mm * sm(diff, 1.5, 7), near * (1 - mm) * sm(diff, 14 + (1 - near) * 22, 30 + (1 - near) * 30));
-        Cd[o] = r > 255 ? 255 : r; Cd[o + 1] = gg > 255 ? 255 : gg; Cd[o + 2] = b > 255 ? 255 : b; Cd[o + 3] = Math.round(a * Cd[o + 3]);
+        AL[i] = Math.max(mm * sm(diff, 1.5, 7), near * (1 - mm) * sm(diff, 14 + (1 - near) * 22, 30 + (1 - near) * 30));
+        Cd[o] = r > 255 ? 255 : r; Cd[o + 1] = gg > 255 ? 255 : gg; Cd[o + 2] = b > 255 ? 255 : b;
       }
+      // pixel-by-pixel decisions leave a ragged edge: smooth it a little (two passes of a 3 × 3 box)
+      let A2 = AL;
+      for (let pass = 0; pass < 2; pass++) {
+        const o2 = new Float32Array(n);
+        for (let y = 0; y < rh; y++) for (let x2 = 0; x2 < rw; x2++) {
+          let sum = 0, k2 = 0;
+          for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= rh) continue; for (let dx2 = -1; dx2 <= 1; dx2++) { const xx = x2 + dx2; if (xx < 0 || xx >= rw) continue; sum += A2[yy * rw + xx]; k2++; } }
+          o2[y * rw + x2] = sum / k2;
+        }
+        A2 = o2;
+      }
+      for (let i = 0, o = 3; i < n; i++, o += 4) Cd[o] = Math.round(A2[i] * Cd[o]);
       cx.clearRect(0, 0, W, H);
       cx.putImageData(Cimg, rx0, ry0);
     }
@@ -442,10 +455,17 @@
       P = plateOf();
     }
     const box = [];
+    // the room's darkest and lightest within a pixel each way: a hand-held camera's shake moves edges about that much
+    const Pmin = new Float32Array(N * 3), Pmax = new Float32Array(N * 3);
+    for (let y = 0; y < h; y++) for (let x2 = 0; x2 < w; x2++) for (let c = 0; c < 3; c++) {
+      let lo = 1e9, hi = -1e9;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const v = P[(clamp(y + dy, 0, h - 1) * w + clamp(x2 + dx, 0, w - 1)) * 3 + c]; if (v < lo) lo = v; if (v > hi) hi = v; }
+      Pmin[(y * w + x2) * 3 + c] = lo; Pmax[(y * w + x2) * 3 + c] = hi;
+    }
     const D2 = new Float32Array(N), M = new Uint8Array(N);
     for (const f of frs) {
-      for (let j = 0; j < N; j++) D2[j] = Math.abs(f[j * 3] - P[j * 3]) + Math.abs(f[j * 3 + 1] - P[j * 3 + 1]) + Math.abs(f[j * 3 + 2] - P[j * 3 + 2]);
-      const thr = Math.max(42, med(Array.from(D2.filter((_, j) => j % 7 === 0))) * 4);
+      for (let j = 0; j < N; j++) { let d = 0; for (let c = 0; c < 3; c++) { const v = f[j * 3 + c], k = j * 3 + c; d += v > Pmax[k] ? v - Pmax[k] : v < Pmin[k] ? Pmin[k] - v : 0; } D2[j] = d; }
+      const thr = Math.max(30, med(Array.from(D2.filter((_, j) => j % 7 === 0))) * 4);
       // a 3 × 3 vote cleans single pixels away
       for (let y = 0; y < h; y++) for (let x2 = 0; x2 < w; x2++) {
         let k = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const yy = clamp(y + dy, 0, h - 1), xx = clamp(x2 + dx, 0, w - 1); if (D2[yy * w + xx] > thr) k++; }

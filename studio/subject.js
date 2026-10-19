@@ -532,8 +532,11 @@ onmessage = async e => {
     // the camera: still enough to leave alone? (well under a pixel of the source at its largest move)
     let cam = null, still = true;
     if (camOn) {
-      const shift = Math.max(...Hs.map(H => camShift(H, aw, ah)));
+      const shifts = Hs.map(H => camShift(H, aw, ah)), shift = Math.max(...shifts);
       still = shift < 0.5 * aw / Math.max(1, size.w) * 2;
+      // a tripod shot: nearly every frame exactly where the first was — the odd frame that seems to move (a cut between
+      // takes, a lamp switching) is noise, and following it would make the copies jump for that frame
+      if (!still && shifts.filter(x => x < 0.05).length >= shifts.length * 0.85) { still = true; for (let i = 0; i < Hs.length; i++) Hs[i] = [1, 0, 0, 0, 1, 0, 0, 0, 1]; }
       cam = { w: aw, h: ah, moving: !still, shift: +(shift / aw).toFixed(4), H: Hs.map(H => toUv(H, aw, ah)) };
     }
     if (v) { v.removeAttribute('src'); v.load(); }

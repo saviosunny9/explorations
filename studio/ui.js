@@ -3901,6 +3901,9 @@
     mtools.replaceChildren(...items);
     mtools.scrollLeft = sx;
   }
+  // drawing a mask or picking things on a phone: the sheet makes way for the canvas
+  const sheetAway = on => { if (on && S.mobile && mTool) { mTool = null; mobileSheet(); } };
+  S.on('maskedit', sheetAway); S.on('subjectpick', sheetAway);
   S.on('mobile', () => { mTool = null; panel.classList.remove('open'); insp.classList.remove('open'); renderInspector(); renderPanel(); mToolbar(); if (S.fit) S.fit(); });
   S.on('playstate', () => mToolbar());
   // a template loaded or a layer added from a sheet: fold the sheet so the canvas shows

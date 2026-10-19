@@ -386,7 +386,9 @@
         let done = false;
         const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin); res(); };
         v.addEventListener('seeked', fin);
-        setTimeout(fin, 2000);
+        // a far seek in a big file decodes from its last key frame: give it time (several videos of one file at once —
+        // clones — share the decoder, and a frame drawn before its seek lands is the old one)
+        setTimeout(fin, 10000);
         v.currentTime = target;
       }));
     }
