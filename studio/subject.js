@@ -98,7 +98,8 @@ onmessage = async e => {
       const r = lm.detect(d.img), out = [], tr = [];
       for (const k of r.segmentationMasks || []) { const a = k.getAsFloat32Array().slice(); out.push({ a, w: k.width, h: k.height }); tr.push(a.buffer); k.close(); }
       if (d.img.close) d.img.close();
-      postMessage({ type: 'res', id: d.id, masks: out }, tr);
+      const joints = (r.landmarks || []).map(p => p.map(q => [q.x, q.y, q.visibility ?? 1]));
+      postMessage({ type: 'res', id: d.id, masks: out, joints }, tr);
     }
   } catch (err) { postMessage({ type: 'err', id: d.id, msg: String((err && err.message) || err) }); }
 };`;
@@ -152,9 +153,10 @@ onmessage = async e => {
       if (crop) { if (++pose.cropFails >= 6) pose.noCrops = true; } else if (++pose.fails >= 6) pose.off = true;
       return null;
     }
-    if (!d.masks.length) return { a: new Float32Array(4), w: 2, h: 2, none: true };
+    if (!d.masks.length) return { a: new Float32Array(4), w: 2, h: 2, none: true, joints: [] };
     const o = d.masks[0];
     for (const m of d.masks.slice(1)) if (m.w === o.w && m.h === o.h) for (let i = 0; i < o.a.length; i++) if (m.a[i] > o.a[i]) o.a[i] = m.a[i];
+    o.joints = d.joints || [];
     return o;
   }
   S.subjectPoseState = () => ({ off: pose.off, noCrops: pose.noCrops, fails: pose.fails, cropFails: pose.cropFails, calls: pose.n });
@@ -226,10 +228,34 @@ onmessage = async e => {
     return out.filter(b => b[2] - b[0] >= 8 && b[3] - b[1] >= 8).sort((a, b) => (b[2] - b[0]) * (b[3] - b[1]) - (a[2] - a[0]) * (a[3] - a[1])).slice(0, 6);
   }
   const sampleAt = (r, u, v) => r.a[Math.min(r.h - 1, (v * r.h) | 0) * r.w + Math.min(r.w - 1, (u * r.w) | 0)];
+  /* ── limbs from the pose's joints: against a background of much the same colour (bare legs on pale rock) both models
+     lose arms and legs, but the joints are still found — rounded limbs along them (sized from the torso) fill the gap.
+     A little background around a leg is invisible in a clone (it's the same background); a missing leg isn't. ── */
+  const LIMBS = [[23, 25, 0.17], [24, 26, 0.17], [25, 27, 0.12], [26, 28, 0.12], [27, 29, 0.08], [28, 30, 0.08], [29, 31, 0.07], [30, 32, 0.07], [27, 31, 0.07], [28, 32, 0.07],
+    [11, 13, 0.11], [12, 14, 0.11], [13, 15, 0.085], [14, 16, 0.085], [11, 23, 0.2], [12, 24, 0.2], [11, 12, 0.16], [23, 24, 0.2]];
+  function limbsInto(x, joints, map) {
+    for (const J of joints) {
+      if (!J || J.length < 33) continue;
+      const P = i => map(J[i][0], J[i][1]), vis = i => J[i][2] > 0.5;
+      if (!vis(11) || !vis(12) || !vis(23) || !vis(24)) continue;
+      const sh = [(P(11)[0] + P(12)[0]) / 2, (P(11)[1] + P(12)[1]) / 2], hp = [(P(23)[0] + P(24)[0]) / 2, (P(23)[1] + P(24)[1]) / 2], L = Math.hypot(sh[0] - hp[0], sh[1] - hp[1]);
+      if (L < 4) continue;
+      x.lineCap = 'round';
+      for (const [a, b, r] of LIMBS) {
+        if (!vis(a) || !vis(b)) continue;
+        const A = P(a), B = P(b);
+        x.lineWidth = 1.5 * r * L; x.beginPath(); x.moveTo(A[0], A[1]); x.lineTo(B[0], B[1]); x.stroke();
+      }
+    }
+  }
   async function peopleFine(src, c, prev, wide) {
     const w = c.width, h = c.height, size = R.mediaSize(src) || { w, h }, k = size.w / w;
     const pf = await poseRaw(c);
     let seed = pf && !pf.none ? resample(pf.a, pf.w, pf.h, w, h) : null;
+    const limbs = document.createElement('canvas'); limbs.width = w; limbs.height = h;
+    const lx = limbs.getContext('2d', { willReadFrequently: true }); lx.strokeStyle = '#fff';
+    let anyLimb = false;
+    if (pf && pf.joints && pf.joints.length) { limbsInto(lx, pf.joints, (u, v) => [u * w, v * h]); anyLimb = true; }
     if (wide || !seed) { const mc = await peopleMask(c); if (!seed) seed = mc; else for (let i = 0; i < seed.length; i++) if (mc[i] > seed[i]) seed[i] = mc[i]; }
     const crops = cropsOf(blobsOf(seed, w, h).concat(prev || []), w, h), o = seed.slice();
     for (const b of crops) for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) o[y * w + x] = 0;
@@ -238,6 +264,7 @@ onmessage = async e => {
       const cc = document.createElement('canvas'); cc.width = Math.max(8, Math.round(bw * s)); cc.height = Math.max(8, Math.round(bh * s));
       cc.getContext('2d').drawImage(src, b[0] * k, b[1] * k, bw * k, bh * k, 0, 0, cc.width, cc.height);
       const a = await peopleRaw(cc), p = await poseRaw(cc, true);
+      if (p && p.joints && p.joints.length) { limbsInto(lx, p.joints, (u, v) => [b[0] + u * bw, b[1] + v * bh]); anyLimb = true; }
       for (let y = Math.floor(b[1]); y < Math.ceil(b[3]); y++) for (let x = Math.floor(b[0]); x < Math.ceil(b[2]); x++) {
         const u = (x + 0.5 - b[0]) / bw, v = (y + 0.5 - b[1]) / bh;
         if (u < 0 || v < 0 || u >= 1 || v >= 1) continue;
@@ -245,6 +272,7 @@ onmessage = async e => {
         const i = y * w + x; if (val > o[i]) o[i] = val;
       }
     }
+    if (anyLimb) { const d = lx.getImageData(0, 0, w, h).data; for (let i = 0; i < o.length; i++) { const v = d[i * 4 + 3] / 255 * 0.65; if (v > o[i]) o[i] = v; } }
     return o;
   }
   async function pickMask(c, u, v) {
@@ -510,7 +538,9 @@ onmessage = async e => {
     const steady = masks.length < 3 ? masks : masks.map((m, i) => {
       if (!i || i === masks.length - 1) return m;
       const a = masks[i - 1], c = masks[i + 1], o = new Uint8Array(m.length);
-      for (let k = 0; k < m.length; k++) { const x = a[k], y = m[k], z = c[k]; o[k] = x > y ? (y > z ? y : x > z ? z : x) : (x > z ? x : y > z ? z : y); }
+      // (only where this frame is unsure: a leg in mid-stride is somewhere else in the frames either side, and a plain
+      // median would rub it out)
+      for (let k = 0; k < m.length; k++) { const x = a[k], y = m[k], z = c[k]; o[k] = y > 215 || y < 40 ? y : x > y ? (y > z ? y : x > z ? z : x) : (x > z ? x : y > z ? z : y); }
       return o;
     });
     let cover = 0;
