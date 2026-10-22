@@ -183,6 +183,7 @@
       case 'check': ctl = h('label.sw', null, h('input', { type: 'checkbox', checked: !!P[f.k], onchange: e => set(e.target.checked, true) }), h('i')); break;
       case 'select': ctl = h('select', { onchange: e => set(e.target.value, true) }, Object.entries(f.options).map(([v, l]) => h('option', { value: v, selected: String(P[f.k]) === v }, l))); break;
       case 'seg': ctl = h('div.seg', null, Object.entries(f.options).map(([v, l]) => h('button', { type: 'button', class: String(P[f.k]) === v ? 'on' : '', onclick: () => set(isNaN(v) ? v : +v, true) }, l))); break;
+      case 'custom': return f.render(n, () => buildBody(n));
       case 'button': return h('div.frow', null, h('button.btn.sm', { type: 'button', onclick: () => f.action(n) }, f.label));
       case 'note': return h('div.fnote', { html: f.html });
       default: return h('div');
@@ -211,5 +212,6 @@
     drawWires();
   };
   G.rebuild = n => buildBody(n);
+  G.emitChange = (n, field) => emit('change', { node: n, field: field || 'files' });
   window.SixjulyGraph = G; window.sjh = h;
 })();

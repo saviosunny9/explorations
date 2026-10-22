@@ -16,7 +16,7 @@
     o = o || {};
     const t = { id: 'n1', type: 'topics', x: 0, y: 0, params: { text: o.topics || TOPICS } };
     const b = { id: 'n2', type: 'brand', x: 0, y: 340, params: {} };
-    const w = { id: 'n3', type: 'write', x: 324, y: 0, params: {} };
+    const w = { id: 'n3', type: 'write', x: 324, y: 0, params: o.write || {} };
     const d = { id: 'n4', type: 'design', x: 648, y: 60, params: {} };
     const nodes = [t, b, w, d], edges = [
       { from: ['n1', 'topics'], to: ['n3', 'topics'] }, { from: ['n3', 'stories'], to: ['n4', 'stories'] }, { from: ['n2', 'brand'], to: ['n4', 'brand'] }];
@@ -33,6 +33,7 @@
     { name: 'Carousel only', hint: 'Static 4:5 posts', make: () => flowFull({ reel: false }) },
     { name: 'Reel only', hint: '9:16 video with motion', make: () => flowFull({ carousel: false }) },
     { name: 'Punchy reels, dark theme', hint: 'Fast word-by-word motion on black', make: () => { const f = flowFull({ motion: R.MOTION_PRESETS.punchy }); f.nodes.find(n => n.type === 'motion').params.preset = 'punchy'; f.nodes.find(n => n.id === 'n4').params = { theme: 'dark', art: 'spiral' }; return f; } },
+    { name: 'Layout showcase', hint: 'One deck with every layout and cover style', make: () => flowFull({ topics: 'Layout showcase', write: { format: 'showcase', engine: 'patterns' } }) },
     { name: 'Blank', hint: 'Start from nothing', make: () => ({ v: 1, nodes: [], edges: [] }) },
   ];
 
@@ -44,7 +45,11 @@
   const state = { outputs: [], busy: false, pending: false, auto: store.get(LS.auto) === '1', players: [] };
   F.apiKey = store.get(LS.key) || '';
 
-  function save() { store.set(LS.flow, JSON.stringify(G.serialize())); }
+  function save() {
+    let txt = JSON.stringify(G.serialize());
+    if (txt.length > 3e6) { const d = G.serialize(); d.nodes.forEach(n => { if (n.type === 'images') n.params = Object.assign({}, n.params, { files: [] }); }); txt = JSON.stringify(d); }
+    store.set(LS.flow, txt);
+  }
   let saveT; const saveSoon = () => { clearTimeout(saveT); saveT = setTimeout(save, 300); };
   let autoT;
   function scheduleAuto() { if (!state.auto) return; clearTimeout(autoT); autoT = setTimeout(() => run(), 700); }
@@ -166,7 +171,7 @@
       });
       const cap = h('textarea.cap', { value: X.captionText(deck), oninput: e => { const [c, ...rest] = e.target.value.split(/\n\n(?=#)/); deck.caption = c.trim(); deck.hashtags = (rest.join(' ').match(/#\w+/g)) || deck.hashtags; } });
       det.append(h('h4.edcap', { style: { margin: '14px 0 6px', fontSize: '12px', color: 'var(--mute)', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 500 } }, 'Caption'), cap,
-        h('div.dl', { style: { marginTop: '8px' } }, h('button.btn.sm', { onclick: () => { navigator.clipboard && navigator.clipboard.writeText(cap.value); toast('Caption copied'); } }, 'Copy caption')));
+        h('div.dl', { style: { marginTop: '8px' } }, h('button.btn.sm', { onclick: () => { try { navigator.clipboard.writeText(cap.value).then(() => toast('Caption copied'), () => { cap.select(); toast('Press ⌘/Ctrl + C to copy'); }); } catch (e) { cap.select(); toast('Press ⌘/Ctrl + C to copy'); } } }, 'Copy caption')));
     });
     return det;
   }
@@ -201,7 +206,7 @@
   }
   document.addEventListener('click', () => document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')));
 
-  const ADDABLE = ['topics', 'brand', 'write', 'design', 'motion', 'carousel', 'reel'];
+  const ADDABLE = ['topics', 'brand', 'images', 'write', 'design', 'motion', 'carousel', 'reel'];
   function buildMenus() {
     menu('#addMenu', '#addBtn', ADDABLE.map(k => { const d = G.types[k]; return { name: d.title, hint: d.hint, icon: d.icon, run: () => { const c = G.centre(); const n = G.add(k, Math.round((c.x - 150) / 4) * 4, Math.round((c.y - 120) / 4) * 4); G.sel = n.id; n.el.classList.add('sel'); } }; }));
     menu('#exMenu', '#exBtn', [...FLOWS.map(f => ({ name: f.name, hint: f.hint, run: () => loadFlow(f.make()) })), '-',

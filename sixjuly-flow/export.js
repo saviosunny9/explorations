@@ -107,7 +107,12 @@
     const z = new JSZip(); files.forEach(f => z.file(f.name, f.blob));
     return z.generateAsync({ type: 'blob', compression: 'STORE' });
   }
-  function download(blob, name) {
+  let dlP = null;
+  const getDownloads = () => { if (!dlP) dlP = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve(window.claude.use('downloads')).catch(() => null) : Promise.resolve(null); return dlP; };
+  // inside Claude the page hands the file to the viewer through the downloads capability; elsewhere it is a normal browser download
+  async function download(blob, name) {
+    const d = await getDownloads();
+    if (d) { try { await d.save({ filename: name, data: blob }); } catch (e) { if (e && e.code === 'declined') return; throw new Error((e && e.message) || 'Could not save the file'); } return; }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   }

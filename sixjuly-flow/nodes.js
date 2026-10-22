@@ -48,9 +48,10 @@
     hint: 'Turns each topic into slide copy in the Sixjuly voice.',
     inputs: [{ id: 'topics', label: 'Topics', type: 'topics' }], outputs: [{ id: 'stories', label: 'Copy', type: 'stories' }],
     fields: [
-      { k: 'engine', label: 'Engine', type: 'seg', options: { auto: 'Auto', claude: 'Claude', patterns: 'Patterns' }, def: 'auto', hint: 'Auto uses Claude when an API key is set (⚙ top right), pattern banks otherwise.' },
-      { k: 'model', label: 'Model', type: 'select', options: { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-opus-5-5': 'Opus 5.5 (best)', 'claude-haiku-5-5': 'Haiku 5.5 (fastest)' }, def: 'claude-sonnet-5-5', show: p => p.engine !== 'patterns' },
+      { k: 'engine', label: 'Engine', type: 'seg', options: { auto: 'Auto', claude: 'Claude', patterns: 'Patterns' }, def: 'auto', hint: 'Auto writes with Claude when it is available (running inside Claude, or an API key in ⚙) and uses the offline pattern banks otherwise.' },
+      { k: 'model', label: 'Model', type: 'select', options: { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-opus-5-5': 'Opus 5.5 (best)', 'claude-haiku-5-5': 'Haiku 5.5 (fastest)' }, def: 'claude-sonnet-5-5', show: p => p.engine !== 'patterns', hint: 'Used with an API key. Inside Claude the page uses Claude’s own model.' },
       { k: 'format', label: 'Format', type: 'select', options: C.FORMATS, def: 'mix' },
+      { k: 'layouts', label: 'Layouts', type: 'seg', options: { rich: 'Rich mix', classic: 'Classic' }, def: 'rich', show: p => p.format !== 'showcase' },
       { k: 'slides', label: 'Slides', type: 'seg', options: { 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' }, def: 7 },
       { k: 'voice', label: 'Voice notes', type: 'text', def: '', placeholder: 'e.g. a bit more playful, B2B founders', show: p => p.engine !== 'patterns' },
       { k: 'seed', type: 'button', label: '↻ New angle', action: n => { n.params.seed = (n.params.seed || 0) + 1; window.SixjulyFlow && window.SixjulyFlow.touch(n); }, def: 0 },
@@ -59,9 +60,9 @@
       const out = [], list = ins.topics;
       for (let i = 0; i < list.length; i++) {
         G.setStatus(node, 'running', `${i + 1}/${list.length}`);
-        const key = JSON.stringify([list[i], p.engine, p.model, p.format, p.slides, p.voice, p.seed, !!ctx.apiKey && p.engine !== 'patterns']);
+        const key = JSON.stringify([list[i], p.engine, p.model, p.format, p.layouts, p.slides, p.voice, p.seed, p.engine !== 'patterns' && await C.canUseClaude(ctx.apiKey)]);
         let s = ctx.cache.get(key);
-        if (!s) { s = await C.write(list[i], { engine: p.engine, model: p.model, format: p.format, slides: p.slides, voice: p.voice, seed: p.seed, apiKey: ctx.apiKey }); ctx.cache.set(key, s); }
+        if (!s) { s = await C.write(list[i], { engine: p.engine, model: p.model, format: p.format, layouts: p.layouts, slides: p.slides, voice: p.voice, seed: p.seed, apiKey: ctx.apiKey }); ctx.cache.set(key, s); }
         out.push(s);
       }
       const eng = [...new Set(out.map(s => String(s.engine).split(' ')[0]))].join(' + ');
@@ -70,10 +71,38 @@
     },
   });
 
+
+  const shrink = file => new Promise((res, rej) => {
+    const fr = new FileReader(); fr.onerror = () => rej(new Error('Could not read ' + file.name));
+    fr.onload = () => { const im = new Image(); im.onerror = () => rej(new Error(file.name + ' is not an image')); im.onload = () => {
+      const k = Math.min(1, 1400 / Math.max(im.naturalWidth, im.naturalHeight)), cv = document.createElement('canvas'); cv.width = Math.round(im.naturalWidth * k); cv.height = Math.round(im.naturalHeight * k);
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); res(cv.toDataURL('image/jpeg', 0.86)); }; im.src = fr.result; };
+    fr.readAsDataURL(file);
+  });
+  G.register({
+    key: 'images', title: 'Images', icon: ic('<rect x="3" y="4" width="14" height="12" rx="2.5"/><circle cx="7.5" cy="8.5" r="1.4"/><path d="M3.5 14l4-3.5 3 2.5 3-3 3 3"/>'),
+    hint: 'Your photos and work screenshots for collage, poster and festival slides.',
+    inputs: [], outputs: [{ id: 'images', label: 'Images', type: 'images' }],
+    fields: [{ k: 'files', type: 'custom', def: () => [], render(n, rebuild) {
+      const input = window.sjh('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onchange: async e => {
+        for (const f of [...e.target.files]) { try { n.params.files.push({ id: 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: f.name, src: await shrink(f) }); } catch (er) { /* skip */ } }
+        e.target.value = ''; G.emitChange(n); rebuild();
+      } });
+      const grid = window.sjh('div.thumbs', null, (n.params.files || []).map((f, i) => window.sjh('div.thumb', { title: f.name }, window.sjh('img', { src: f.src, alt: f.name }), window.sjh('button', { type: 'button', title: 'Remove', onclick: () => { n.params.files.splice(i, 1); G.emitChange(n); rebuild(); } }, '×'))));
+      return window.sjh('div.col', null, grid, window.sjh('button.btn.sm', { type: 'button', onclick: () => input.click() }, (n.params.files || []).length ? 'Add more images' : 'Add images'), input,
+        window.sjh('div.fhint', null, 'Used in order by Collage, Posters and Greeting slides. Without images they use generated artwork.'));
+    } }],
+    async run(ins, p) {
+      const list = p.files || [];
+      await Promise.all(list.map(f => new Promise(res => { if (R.imgs.has(f.id)) return res(); const im = new Image(); im.onload = im.onerror = () => res(); im.src = f.src; R.imgs.set(f.id, im); })));
+      return { images: list.map(f => ({ id: f.id, name: f.name })), _msg: list.length + (list.length === 1 ? ' image' : ' images') };
+    },
+  });
+
   G.register({
     key: 'design', title: 'Design', icon: ic('<rect x="3.5" y="3.5" width="13" height="13" rx="3"/><path d="M3.5 12l4-3 3 2 3-3 3 3"/>'),
     hint: 'Lays the copy out as Sixjuly brand slides.',
-    inputs: [{ id: 'stories', label: 'Copy', type: 'stories' }, { id: 'brand', label: 'Brand (optional)', type: 'brand', optional: true }],
+    inputs: [{ id: 'stories', label: 'Copy', type: 'stories' }, { id: 'brand', label: 'Brand (optional)', type: 'brand', optional: true }, { id: 'images', label: 'Images (optional)', type: 'images', optional: true }],
     outputs: [{ id: 'decks', label: 'Slides', type: 'decks' }],
     fields: [
       { k: 'theme', label: 'Theme', type: 'select', options: THEMES, def: 'light' },
@@ -84,7 +113,13 @@
       { k: 'art', label: 'Cover art', type: 'seg', options: { none: 'None', orb: 'Halftone', spiral: 'Spiral' }, def: 'orb' },
     ],
     async run(ins, p) {
-      const brand = ins.brand || R.BRAND;
+      const brand = ins.brand || R.BRAND, imgs = ins.images || [], SLOTS = { collage: 3, posters: 4, greeting: 1 };
+      let at = 0;
+      ins.stories.forEach(s => s.slides.forEach(sl => {   // hand the uploaded photos to the layouts that show photos, in order
+        const n = SLOTS[sl.kind]; if (!n) return;
+        if (!imgs.length) { delete sl.imgs; return; }
+        sl.imgs = Array.from({ length: n }, (_, k) => imgs[(at + k) % imgs.length].id); at += n;
+      }));
       const decks = ins.stories.map(s => ({ topic: s.topic, caption: s.caption, hashtags: s.hashtags, engine: s.engine, format: s.format, slides: s.slides, brand, design: Object.assign({}, p), motion: null }));
       return { decks, _msg: decks.length + (decks.length === 1 ? ' deck' : ' decks') };
     },

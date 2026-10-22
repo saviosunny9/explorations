@@ -87,15 +87,17 @@
   const plain = s => String(s == null ? '' : s).replace(/\[\[|\]\]|\{\{|\}\}/g, '');
 
   const mc = document.createElement('canvas').getContext('2d');
-  function setFont(ctx, brand, weight, size, track) {
-    ctx.font = `${weight} ${size}px ${stack(brand)}`;
+  const FAM = { cond: '"Anton", "Bebas Neue", Impact, "Arial Narrow", sans-serif', serif: '"Instrument Serif", "Playfair Display", Georgia, serif', mono: '"Space Mono", "DM Mono", ui-monospace, Menlo, monospace' };
+  const LAYOUTS = {}, COVERS = {}, imgs = new Map();   // filled by layouts.js / the Images node
+  function setFont(ctx, brand, weight, size, track, fam) {
+    ctx.font = `${weight} ${size}px ${fam || stack(brand)}`;
     if ('letterSpacing' in ctx) ctx.letterSpacing = (track || 0) * size + 'px';
   }
 
   // lay words out in lines. opts: { maxW, size, weight, lh (× size), track (× size), align, balance }
   function layoutRich(brand, src, o) {
     const words = parseRich(src);
-    setFont(mc, brand, o.weight, o.size, o.track);
+    setFont(mc, brand, o.weight, o.size, o.track, o.fam);
     const space = mc.measureText(' ').width + (o.track || 0) * o.size * 0;
     const items = words.map(w => {
       if (w.br) return w;
@@ -127,7 +129,7 @@
       ln.forEach(w => { out.push({ runs: w.runs, w: w.w, x, y: li * lh, line: li, idx: wi++ }); x += w.w + space; });
     });
     const widest = items.reduce((a, w) => Math.max(a, w.w || 0), 0);
-    return { words: out, lines: lines.length, w: maxLine, h: lines.length * lh, lh, size: o.size, weight: o.weight, track: o.track, widest };
+    return { words: out, lines: lines.length, w: maxLine, h: lines.length * lh, lh, size: o.size, weight: o.weight, track: o.track, fam: o.fam, widest };
   }
 
   // largest size that fits the box
@@ -171,9 +173,9 @@
     const cover = kind === 'cover', cta = kind === 'cta';
     const hasVisual = !['statement', 'cover', 'cta'].includes(kind);
     const maxW = W - 2 * g.mx;
-    let footL = null, footTop = g.bottom;
+    let footL = null, footTop = g.bottom - (slide.handle ? 0 : 56);
     if (slide.foot) {
-      footL = layoutRich(brand, slide.foot, { maxW: maxW - 130, size: g.footSize, weight: 400, lh: 1.3, track: -0.01, balance: false });
+      footL = layoutRich(brand, slide.foot, { maxW: maxW - (slide.handle ? 330 : 130), size: g.footSize, weight: 400, lh: 1.3, track: -0.01, balance: false });
       footTop = g.bottom - footL.h;
     }
     let subL = null;
@@ -182,7 +184,9 @@
       footTop = Math.min(footTop, footTop) - (footL ? 18 : 0) - subL.h;
     }
     let headL = null, headY = g.top;
-    if (slide.head) {
+    const cov = cover && COVERS[slide.cover];
+    if (cov && cov.replaceHead) { cov.build(scene, add, { g, th, brand, slide, W, H, reel, U: window.SixjulyRender.U }); }
+    else if (slide.head) {
       if (cover) {
         headL = fitRich(brand, slide.head, { maxW, maxH: H * (reel ? 0.34 : 0.4), size: reel ? 260 : 230, min: 70, weight: 800, lh: 0.96, track: -0.045, maxLines: 4 });
         headY = Math.round(H * (reel ? 0.31 : 0.265));
@@ -193,7 +197,9 @@
         headL = fitRich(brand, slide.head, { maxW, maxH: H * 0.3, size: g.headSize, min: 52, weight: 500, lh: 1.1, track: -0.035, maxLines: 4 });
       }
     }
+    if (headL && slide.header && !cover && !cta) headY = g.headerY + 74 * 0.84 + (reel ? 70 : 50);
     scene.headL = headL;
+    scene.headY = headY;
 
     // header (logo + handle) — on cover / closing slides, like the brand posts
     if (cover || cta || slide.header) {
@@ -208,14 +214,16 @@
     }
 
     // cover art: sits in the free band between the headline and the bottom text, bleeding off the right edge ---------------
-    if (cover && env.art && env.art !== 'none' && headL) {
+    if (cover && env.art && env.art !== 'none' && headL && !slide.cover) {
       const textTop = g.bottom - (footL ? footL.h + (subL ? 18 : 0) : 0) - (subL ? subL.h : 0);
       const free = textTop - (headY + headL.h) - 70;
       const size = clamp(free, 300, W * 0.72), cy = headY + headL.h + 35 + free / 2;
       const box = { x: W - size * 0.7, y: cy - size / 2, w: size, h: size };
-      if (env.art === 'spiral') add('art', box, (ctx, st) => { ctx.save(); ctx.translate(box.x + size / 2, box.y + size / 2); ctx.rotate(st.rot || 0); ctx.globalAlpha *= 0.16; drawLogo(ctx, -size / 2, -size * (window.SIXJULY_LOGO.h / 100) / 2, size, th.hi); ctx.restore(); }, { spin: true });
-      if (env.art === 'orb') add('art', box, (ctx, st) => drawOrb(ctx, box.x + size / 2, box.y + size / 2, size / 2 * 0.9, th.hi, th.sec, th.dark, st.rot || 0), { spin: true });
+      if (env.art === 'spiral') add('art', box, (ctx, st) => { ctx.save(); ctx.translate(box.x + size / 2, box.y + size / 2); ctx.rotate(st.spin || 0); ctx.globalAlpha *= 0.16; drawLogo(ctx, -size / 2, -size * (window.SIXJULY_LOGO.h / 100) / 2, size, th.hi); ctx.restore(); }, { spin: true });
+      if (env.art === 'orb') add('art', box, (ctx, st) => drawOrb(ctx, box.x + size / 2, box.y + size / 2, size / 2 * 0.9, th.hi, th.sec, th.dark, st.spin || 0), { spin: true });
     }
+
+    if (cov && !cov.replaceHead) { cov.build(scene, add, { g, th, brand, slide, W, H, reel, headL, headY, footTop, U: window.SixjulyRender.U }); }
 
     // sticker tag (cover) -------------------------------------------------------------------------------------------------
     if (cover && slide.tag && headL) {
@@ -246,7 +254,10 @@
     }
     if (footL) add('foot', { x: g.mx, y: footTop + (subL ? 0 : 0), w: maxW - 130, h: footL.h }, null, { text: footL, ox: g.mx, oy: g.bottom - footL.h });
     // arrow
-    if (kind !== 'cta' || slide.arrow) {
+    if (slide.handle) {
+      const ay0 = g.bottom;
+      add('arrow', { x: W - g.mx - 300, y: ay0 - 60, w: 300, h: 60 }, (ctx) => { ctx.fillStyle = th.ink; setFont(ctx, brand, 400, reel ? 26 : 23, 0); ctx.textAlign = 'right'; ctx.fillText(brand.handle || BRAND.handle, W - g.mx, ay0 - 28); ctx.fillText(brand.site || BRAND.site, W - g.mx, ay0 + 2); ctx.textAlign = 'left'; });
+    } else if (kind !== 'cta' || slide.arrow) {
       const ay = g.bottom - (footL ? Math.min(footL.h, g.footSize * 1.3) / 2 : 22);
       add('arrow', { x: W - g.mx - 64, y: ay - 24, w: 64, h: 48 }, (ctx, st) => {
         const p = st.draw == null ? 1 : st.draw;
@@ -307,6 +318,7 @@
 
   function buildVisual(scene, add, vis, env) {
     const { brand, theme: th, slide, g, W } = scene, kind = slide.kind, reel = g.reel;
+    if (LAYOUTS[kind]) return LAYOUTS[kind](scene, add, vis, env, window.SixjulyRender.U);
     const label = (ctx, text, cx, y, size) => { ctx.fillStyle = th.ink; setFont(ctx, brand, 400, size || (reel ? 28 : 25), 0.12); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(String(text).toUpperCase(), cx, y); ctx.textAlign = 'left'; };
     const centre = (h) => vis.y + (vis.h - h) / 2;
 
@@ -442,7 +454,7 @@
       const type = motionFor(m, role), dur = (ENTER_DUR[type] || 0.7) / speed;
       let units = 1;
       if (role === 'head' || role === 'sub' || role === 'foot') {
-        const L = its[0].text; units = type === 'words' ? L.words.length : type === 'reveal' ? L.lines : 1;
+        const L = its[0].text; units = !L ? 1 : type === 'words' ? L.words.length : type === 'reveal' ? L.lines : 1;
       } else units = Math.max(...its.map(i => i.unit)) + 1;
       const gap = type === 'type' ? 0 : stag / speed;
       const start = role === 'art' ? 0 : cursor, span = dur + gap * (units - 1);
@@ -458,7 +470,7 @@
   // animation state of one unit of a role at time t
   function unitState(tl, role, unit, t, motion, loopSeed) {
     const m = motion || DEFAULT_MOTION, T = tl[role];
-    const st = { a: 1, dx: 0, dy: 0, s: 1, rot: 0, blur: 0, wipe: 1, chars: 1, mask: 0, draw: 1 };
+    const st = { a: 1, dx: 0, dy: 0, s: 1, rot: 0, blur: 0, wipe: 1, chars: 1, mask: 0, draw: 1, spin: 0, t: t == null ? 0 : t };
     if (t == null || !T) return st;
     const raw = (t - T.start - T.gap * unit) / T.dur;
     const p = clamp(raw), e = (EASE[m.ease] || EASE.smooth)(p);
@@ -491,8 +503,7 @@
       if (m.loopArrow === 'draw') { st.draw = clamp(raw); st.a = raw > 0 ? 1 : 0; }
       else if (m.loopArrow === 'nudge' && raw > 0.8) st.dx += (Math.sin((t - T.start) * 4.2) * 0.5 + 0.5) * 10 * clamp((t - T.start - T.dur) * 2);
     }
-    if (role === 'art' && m.loopArt === 'spin') st.rot += t * 0.18;
-    if (role === 'art' && t != null && m.loopArt !== 'spin') st.rot += 0;
+    if (role === 'art' && m.loopArt === 'spin') st.spin = t * 0.18;
     return st;
   }
 
@@ -510,7 +521,7 @@
 
   function paintText(ctx, scene, item, tl, t, motion, ink) {
     const th = scene.theme, L = item.text, role = item.role, T = tl[role] || { type: 'fade' };
-    setFont(ctx, scene.brand, L.weight, L.size, L.track);
+    setFont(ctx, scene.brand, L.weight, L.size, L.track, L.fam);
     ctx.textBaseline = 'alphabetic';
     const total = L.words.reduce((a, w) => a + w.runs.reduce((b, r) => b + r.t.length, 0), 0);
     let seen = 0;
@@ -653,21 +664,27 @@
 
   // ---- fonts -----------------------------------------------------------------------------------------------------------------
   const fontLinks = new Set();
+  const EXTRA = 'https://fonts.googleapis.com/css2?family=Anton&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap';
+  function addLink(href) {
+    if (fontLinks.has(href)) return Promise.resolve(); fontLinks.add(href);
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l);
+    return new Promise(r => { l.onload = r; l.onerror = r; setTimeout(r, 4000); });
+  }
   async function loadFonts(brand) {
     const fam = (brand && brand.font) || BRAND.font;
-    if (!fontLinks.has(fam)) {
-      fontLinks.add(fam);
-      const l = document.createElement('link'); l.rel = 'stylesheet';
-      l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fam).replace(/%20/g, '+')}:wght@300..900&display=swap`;
-      document.head.appendChild(l);
-      await new Promise(r => { l.onload = r; l.onerror = r; setTimeout(r, 4000); });
-    }
-    try { await Promise.all([300, 400, 500, 600, 700, 800].map(w => document.fonts.load(`${w} 40px "${fam}"`, 'Aa Sixjuly 0123'))); await document.fonts.ready; } catch (e) { /* system fallback */ }
+    await Promise.all([addLink(`https://fonts.googleapis.com/css2?family=${encodeURIComponent(fam).replace(/%20/g, '+')}:wght@300..900&display=swap`), addLink(EXTRA)]);
+    try {
+      await Promise.all([300, 400, 500, 600, 700, 800].map(w => document.fonts.load(`${w} 40px "${fam}"`, 'Aa Sixjuly 0123')).concat([
+        document.fonts.load('400 40px "Anton"', 'Aa'), document.fonts.load('italic 400 40px "Instrument Serif"', 'Aa'), document.fonts.load('400 40px "Instrument Serif"', 'Aa'),
+        document.fonts.load('400 24px "Space Mono"', 'Aa'), document.fonts.load('700 24px "Space Mono"', 'Aa')]));
+      await document.fonts.ready;
+    } catch (e) { /* system fallback */ }
     sceneCache.clear();
   }
 
   window.SixjulyRender = {
     BRAND, themesFor, parseRich, plain, layoutSlide, paintScene, timeline, drawSlide, drawReel, reelPlan, slideDuration, sceneFor,
-    loadFonts, drawLogo, DEFAULT_MOTION, MOTION_PRESETS, ENTER_TYPES, LOOP_TYPES, HI_TYPES, ARROW_TYPES, TRANSITIONS, EASE, stack,
+    U: { rr, setFont, layoutRich, fitRich, fitLine, drawLogo, clamp, lerp, TAU, mc, mix, parseRich, plain, EASE, stack },
+    loadFonts, drawLogo, LAYOUTS, COVERS, FAM, imgs, DEFAULT_MOTION, MOTION_PRESETS, ENTER_TYPES, LOOP_TYPES, HI_TYPES, ARROW_TYPES, TRANSITIONS, EASE, stack,
   };
 })();

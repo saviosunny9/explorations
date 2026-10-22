@@ -26,7 +26,8 @@ Topics ─▶ Write ─▶ Design ─┬─▶ Carousel post
 | --- | --- | --- |
 | Topics | The list of things to post about | text |
 | Brand | Colours, font, handle, site (defaults are the Sixjuly brand file) | font, violet, orange, more colours |
-| Write | Topic → slide copy + caption + hashtags | engine (Auto / Claude / Patterns), model, format, slide count, voice notes |
+| Images | Your photos and work screenshots (optional) | upload; used by collage, posters, greeting |
+| Write | Topic → slide copy + caption + hashtags | engine (Auto / Claude / Patterns), model, format, layouts, slide count, voice notes |
 | Design | Lays copy out as brand slides | theme, cover / closer theme, alternate rhythm, cover art (halftone orb, spiral, none) |
 | Motion | Animates each element | style presets + per-element entrances, highlight, visual loop, transition, speed, easing, stagger, seconds per slide |
 | Carousel post | Static output | ratio (4:5, 1:1, 3:4), 1080 / 2160, PNG / JPG |
@@ -36,11 +37,37 @@ Wires are typed (Topics, Copy, Brand, Slides): drag from an output dot to an inp
 Backspace to remove it; drag an input dot away to pick a wire up. Scroll pans, ⌘/Ctrl + scroll zooms. **+ Node** adds nodes; **Flows** has
 starter flows, save and open (`.json`). The flow is also remembered in the browser.
 
-### Slide kinds
+### Layouts
 
-`cover` (huge title, optional orange sticker, sub-line), `statement`, `compare` (before → after, myth → truth), `stat` (one big number),
-`list`, `steps`, `quote`, `objects` (jelly button / chrome toggle / clay card), `cta` (closing line + pill button). Reels use the same
-slides on 1080 × 1920 with Instagram's top and bottom UI zones kept clear.
+Open **Flows → Layout showcase** and press Run to see every layout in one deck (26 slides, carousel and reel). Reels use the same slides on 1080 × 1920
+with Instagram's top and bottom UI zones kept clear.
+
+| Layout | What it is | Fields |
+| --- | --- | --- |
+| Cover (plain) | Huge title, orange sticker, sub-line, halftone orb or spiral art | `head`, `sub`, `foot`, `tag` |
+| Cover · annotate | Title with thin orange boxes and small labels around words | `callouts [{w, label}]` |
+| Cover · crt | Title over a torn-paper collage with a glitching CRT monitor | `tag`, `head` |
+| Cover · ripple | Big italic serif numeral and title over yellow ripples, mono stamp | `num`, `head` (lines), `stamp` |
+| `statement` | Text-only punchline | `head`, `foot` |
+| `art` | Statement over an illustration: retro computer on a grid, browser window, phone | `art` |
+| `collage` | Three overlapping work cards, orange / yellow handles and mono callouts | `words`, `labels` |
+| `posters` | Four staggered typographic posters with hard shadows, handle bottom-right | `words` |
+| `greeting` | Festival post: dashed crop frame, photo, marigold garland (auto for Diwali, Holi, Eid, Christmas …) | `label`, `title` |
+| `compare` | Before → after or myth → truth cards | `a`, `b` |
+| `split` | Full-bleed then / now halves | `a`, `b` |
+| `stat` | One giant number | `stat {value, label}` |
+| `list`, `steps`, `timeline` | Numbered rows, a dotted path, dated points | `items`, `points [{k, v}]` |
+| `tiles` | 2 × 2 colour tiles | `items` |
+| `checks` | Do (violet tick) and don't (orange cross) rows | `yes`, `no` |
+| `poster` | One giant word, rotated, with an orange shadow | `word` |
+| `chat` | Client / studio message bubbles | `chat [{who, text}]` |
+| `marquee` | Three diagonal tapes of scrolling text (moves in reels) | `band` |
+| `notes` | Three rotated sticky notes | `notes` |
+| `quote`, `objects` | Big quote mark; jelly button, chrome toggle, clay card | `quote`, `objects` |
+| `cta` | Closing line with a pill button | `btn` |
+
+Photo slots (collage, posters, greeting) show generated artwork until you connect an **Images** node to Design: add photos or work screenshots and they are placed in order.
+The Write node's **Layouts** switch picks *Rich mix* (all of the above, no kind repeated) or *Classic* (the original nine kinds).
 
 ### Motion
 
@@ -51,7 +78,8 @@ Hover a slide thumbnail to see its animation.
 
 ## Copy engines
 
-- **Claude**: Settings (⚙) → paste an Anthropic API key. It is stored only in this browser (`localStorage`) and requests go straight from the
+- **Claude inside Claude**: when the page runs as a claude.ai artifact it asks Claude through the `sample` capability, so no key is needed (the viewer is asked for consent once).
+- **Claude with a key**: Settings (⚙) → paste an Anthropic API key. It is stored only in this browser (`localStorage`) and requests go straight from the
   browser to `api.anthropic.com` (`anthropic-dangerous-direct-browser-access`). The system prompt in `copy.js` carries the Sixjuly voice from the brand
   file (expert, empathy, direct; short punchy beats; one violet idea per headline). Replies are validated and repaired (`normalizeStory`) before
   drawing. Default model `claude-sonnet-5-5`; Opus 5.5 and Haiku 5.5 are in the Write node.
@@ -84,12 +112,15 @@ Writes `out/<topic>/carousel/slide-01.png …`, `reel.mp4|webm` and `caption.txt
 | `vendor/` | JSZip, mp4-muxer, webm-muxer (same copies as `studio/vendor`) |
 | `tools/smoke_test.js` | Playwright test: run, rewire, presets, mocked Claude call, API export, video |
 | `tools/generate.js` | Headless batch generator |
-| `tools/render_sheet.js` | Dev contact sheet of every slide kind |
+| `layouts.js` | Extra layouts, illustrations and cover styles (hooks into `render.js`) |
+| `tools/layout_sheet.js`, `tools/render_sheet.js` | Dev contact sheets of every slide kind |
+| `tools/build_artifact.py` | Builds `dist/sixjuly-flow.html` (one file) or, with `--artifact DIR`, the page for a claude.ai artifact |
+| `tools/artifact_test.js` | Loads the built file with a stubbed `window.claude` (sample + downloads) |
 
 ## Notes
 
 - The font loads from Google Fonts (**Google Sans Flex**, the brand file's "Google Flex Sans"); offline it falls back to Inter / system sans.
 - Reels have no audio; add music in Instagram. Headless Chromium has no H.264, so it exports WebM; Chrome, Edge and Safari export MP4.
-- Brand rules were read from the Figma file "Sixjuly <> Assets" (colours, type, logo, two carousels). The Instagram account itself could not be
-  fetched, so reel ideas beyond that file are not in here yet.
+- Downloads inside an artifact go through the `downloads` capability (the viewer confirms each save). Brand rules were read from the Figma file "Sixjuly <> Assets" (colours, type, logo, two carousels). The Instagram account itself could not be
+  fetched; the extra layouts come from screenshots of its posts (annotated cover, CRT cover, grid-is-dead collage, Neo-Minimalism posters, festival post, numbered serif cover, retro illustration).
 - Slides never draw other companies' logos: before / after cards are text only.
