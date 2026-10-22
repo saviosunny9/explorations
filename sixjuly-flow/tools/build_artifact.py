@@ -6,6 +6,9 @@ Everything is inlined: stylesheet, scripts and the muxers / JSZip, because an ar
 import re, sys, os
 here = os.path.dirname(os.path.abspath(__file__)); root = os.path.dirname(here)
 rd = lambda p: open(os.path.join(root, p), encoding='utf-8').read()
+# keep the copy-able Google Apps Script in step with apps-script/Code.gs
+import json
+open(os.path.join(root, 'sheet-script.js'), 'w', encoding='utf-8').write('/* Generated from apps-script/Code.gs by tools/build_artifact.py (keep them in step). */\nwindow.SJ_APPS_SCRIPT = ' + json.dumps(rd('apps-script/Code.gs')) + ';\n')
 html = rd('index.html')
 art = '--artifact' in sys.argv
 outdir = sys.argv[sys.argv.index('--artifact') + 1] if art else os.path.join(root, 'dist')

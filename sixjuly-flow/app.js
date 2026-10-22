@@ -211,9 +211,30 @@
     draftsOf.set(i, d); return d;
   }
   function openInFocus(i, index, tab) {
-    const d = draftFromResult(i || 0); SixjulyEditor.open(d, { index: index || 0, tab, onClose: () => { renderResults(); } });
+    const d = draftFromResult(i || 0); SixjulyEditor.open(d, { index: index || 0, tab, onSaved: d2 => syncDraft(d2), onClose: () => { renderResults(); } });
   }
   $('#maxBtn').onclick = () => openInFocus(0);
+  const syncDraft = (() => { let t = 0; return d => { if (!SixjulySheet.connected || SixjulySheet.blocked) return; clearTimeout(t); t = setTimeout(() => SixjulySheet.pushDrafts([d]).catch(() => {}), 2500); }; })();
+  async function openDraft(id) {
+    const d = await SixjulyDrafts.load(id); if (!d) return toast('That draft could not be found');
+    SixjulyEditor.open(d, { onSaved: syncDraft, onClose: () => { if (SixjulyDash.st.view === 'drafts') SixjulyDash.renderDrafts(); if (SixjulyDash.st.view === 'topics') SixjulyDash.renderDash(); } });
+  }
+  // an approved topic becomes a draft: its title and the subtopics from the taxonomy go into the Topics node, the existing flow writes and designs it
+  async function createDraftFromTopic(t) {
+    if (state.busy) throw new Error('The flow is busy. Try again in a moment.');
+    const node = G.nodes.find(n => n.type === 'topics'); if (!node) throw new Error('Add a Topics node to the flow first.');
+    const tax = SixjulyTracker.data.taxonomy.find(x => x.topic === t.mainTopic), points = tax ? tax.subtopics.slice(0, 4).map(x => x.toLowerCase()) : [];
+    const name = t.title.replace(/[.!?\s]+$/, '').replace(/::/g, ' ');
+    node.params.text = name + (points.length ? ' :: ' + points.join('; ') : ''); G.rebuild(node);
+    F.refs = { [name]: SixjulyTracker.refsOf(t) }; state.refs = F.refs;
+    await run(); if (!state.outputs.length || !state.outputs[0].decks.length) throw new Error('The flow did not produce a post. Check the nodes for errors.');
+    const d = draftFromResult(0); d.topicId = t.id; d.title = t.title; d.refs = SixjulyTracker.refsOf(t); await SixjulyDrafts.save(d);
+    SixjulyTracker.updateTopic(t.id, { status: 'Draft ready', draftId: d.id }); syncDraft(d);
+    SixjulyEditor.open(d, { onSaved: syncDraft, onClose: () => { SixjulyDash.renderDash(); } }); toast('Draft ready. Review and edit it, then approve the post when you are happy.');
+  }
+  window.SixjulyApp = { createDraftFromTopic, openDraft, run };
+  document.querySelectorAll('.nav button').forEach(b => (b.onclick = () => SixjulyDash.show(b.dataset.view)));
+  SixjulyTracker.load().then(() => { /* tracker data is ready; the Topics view builds itself when opened */ });
 
   // ---- toolbar ------------------------------------------------------------------------------------------------------------------------
   function menu(id, btnId, items) {

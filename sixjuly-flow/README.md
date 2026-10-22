@@ -87,6 +87,53 @@ Hover a slide thumbnail to see its animation.
   Without specifics after `::` the copy is a sound skeleton, not finished writing: add points, edit the copy under the card, or use Claude.
 - **Auto** (default) uses Claude when a key is set and falls back to patterns if the call fails (the card says so).
 
+## Focus view and post editor
+
+Press **⤢ Maximize posts** (or **Edit ⤢** on a card, or click a thumbnail) to open the posts full screen. Nothing in the flow changes: **← Flow** returns to it exactly as you left it.
+
+- **Filmstrip** (left): click a slide, drag to reorder, hover for duplicate / delete, **+ Slide** adds any layout.
+- **Stage** (middle): *One slide* or *All slides*, zoom − / Fit / +, and a **Reel** tab with a large player. Click an element to select it, drag to move (it snaps to the centre and page margins), drag a corner to resize, double-click text (or press Enter) to type. Arrow keys nudge, Delete removes, ⌘/Ctrl + Z undoes, ⇧⌘Z redoes, ⌘/Ctrl + D duplicates.
+- **Inspector** (right): **Add** text, heading, sticker, rectangle, circle, pill, line, arrow or a photo; **Selected** options (font, weight, size, colour, alignment, line height, letter spacing, box colour, corners, rotation, order, align to slide); photo options (replace, crop with zoom and pan, brightness, contrast, saturation, corners, outline); **Slide** options (layout, cover style, theme, background colour, duplicate, delete, move); **Content** fields for every piece of copy on the slide plus the caption.
+- Brand fonts, colours, themes and layouts stay one click away; edits sit on top of the layout, so *Reset my edits on this slide* brings the original back and hidden layout elements can be restored from a list.
+- Edits are saved automatically as a **draft** (in this browser, photos included) and are listed under **Drafts**. **Approve post** marks the finished post as approved for export. Nothing is ever published for you.
+
+## Exports and the Figma hand-off
+
+From the editor's **Export** menu (or **Drafts → Download**):
+
+| Export | What you get |
+| --- | --- |
+| PNG / JPG | One slide at 2×, or every slide in a zip with the caption |
+| PDF | One page per slide (images, not selectable text) |
+| Editable SVG | One `.svg` per slide with real `<text>`, shapes and photos, grouped by layer name (Background, Headline, Footer text, Visual …) |
+| Figma pack | The SVG slides, `caption.txt` and a `README.txt` with the three import steps |
+| Copy this slide’s SVG | Puts the SVG on the clipboard; click in Figma and paste |
+| Everything (zip) | PNG, JPG, SVG, PDF, caption, `sources.txt`, the Figma pack and `post.json` |
+
+Figma cannot be written to from outside and has no way to open a `.fig` file produced elsewhere, so the supported route is SVG import (drag the files onto the canvas or paste). Fonts used are Google Fonts, which Figma includes; if a text layer shows a missing-font warning, pick the font by name (Google Sans Flex, Anton, Instrument Serif, Space Mono). Photo brightness / contrast edits travel as an image filter that Figma ignores.
+
+## Topics: sources, links and approval
+
+The **Topics** page turns the list of sources in your tracker workbook into reviewable topic ideas. The first version ships with the 74 sources from `design_intelligence_source_tracker.xlsx` and its 17-topic taxonomy (plus Typography and Motion).
+
+1. **Sources**: follow, pause, edit, add and remove sources, grouped by kind (studios, people, blogs and publications, news, newsletters, research, platforms). Each row shows how it is checked and when it was last checked, and whether that worked, with the error in plain words.
+2. **Check sources** reads each followed source that has a feed address (RSS / Atom). The browser can only read feeds that allow it; the rest need the **Google Sheet collector** (below) or **Add link**. Social profiles and newsletters are never read: their links open in a new tab for manual review. Nothing is scraped, no hidden browser, no logins.
+3. **Found links** shows title, source, date, link and a short plain note (at most 280 characters) for each new link, with a subject from the taxonomy and a relevance score from source priority, recency and keyword match. Search and filter by source, subject, status and date; add links by hand or import a CSV.
+4. **Suggested topics** groups links by subject and shared phrases and shows the links behind every idea. **Improve wording** (optional) asks Claude to rewrite titles using only what is on screen.
+5. **Approve / Save for later / Reject** each idea. Only an approved topic offers **Create draft**: it runs the existing flow (your Write, Design and Carousel nodes) with the topic and its subtopics, saves the result as a draft with the supporting links as references (they travel into `caption.txt` and the zip), and opens it in the editor. Approving the finished post is a second, separate step.
+
+No full articles or other people’s images are stored, and generated copy is written fresh by the writing engine (the reference titles are given to Claude as background with an instruction not to copy wording).
+
+### Google Sheet
+
+Optional. Connect one Sheet and the same data lives in four tabs: **Sources**, **Found links**, **Topics**, **Content drafts**, with statuses *New, Needs review, Approved, Rejected, Saved for later, Draft ready*. A small Apps Script (copy it from the app, or `apps-script/Code.gs`) runs in *your* Google account, reads the feeds on Google’s side (so there is no browser restriction), skips pages that robots.txt asks tools to avoid, and can check sources every morning. Setup takes about five minutes: see **[SETUP-GOOGLE-SHEET.md](SETUP-GOOGLE-SHEET.md)**. Without a Sheet the app says so and keeps everything in the browser; **Download CSV files** gives you the same four tabs as files.
+
+The Sheet connection and live feed checks need the downloaded app (`dist/sixjuly-flow.html`) opened in a normal browser. The copy running inside Claude cannot contact other websites.
+
+### Cost and AI
+
+Everything in Topics works without any paid service: feeds, Apps Script and Sheets are free for personal use, and suggestions use local keyword matching. Claude is used only when you press **Improve wording** or run a Write node on *Auto / Claude*. Inside Claude that uses Claude itself; in the downloaded app it needs your own API key in ⚙ (billed by Anthropic per use) and is otherwise skipped. The app never switches to paid calls on its own.
+
 ## Run it without the UI
 
 ```bash
@@ -107,7 +154,13 @@ Writes `out/<topic>/carousel/slide-01.png …`, `reel.mp4|webm` and `caption.txt
 | `copy.js` | Topic parsing, pattern banks, Claude call, story validation |
 | `render.js` | Slide renderer: layouts, brand themes, motion engine, reel timeline and transitions |
 | `export.js` | PNG / zip, WebCodecs video (H.264 MP4, VP9 / VP8 WebM), MediaRecorder fallback |
-| `app.js` | Toolbar, results cards, reel player, copy editor, downloads, `SixjulyFlow.api` |
+| `app.js` | Toolbar, results cards, copy editor, downloads, draft creation, `SixjulyFlow.api` |
+| `editor.js`, `player.js` | Focus view, post editor, reel player |
+| `drafts.js` | Drafts and tracker storage (IndexedDB) |
+| `svgctx.js` | Records the renderer's canvas calls as SVG (editable export) |
+| `tracker.js`, `sheet.js`, `dashboard.js` | Sources, links, topics, Google Sheet client, Topics and Drafts pages |
+| `apps-script/Code.gs`, `sheet-script.js` | The Google Apps Script collector (and the copy the app offers) |
+| `starter-data.js` | The 74 starter sources and topic taxonomy from your workbook |
 | `logo.js` | The spiral mark, traced from the brand file |
 | `vendor/` | JSZip, mp4-muxer, webm-muxer (same copies as `studio/vendor`) |
 | `tools/smoke_test.js` | Playwright test: run, rewire, presets, mocked Claude call, API export, video |
@@ -116,6 +169,9 @@ Writes `out/<topic>/carousel/slide-01.png …`, `reel.mp4|webm` and `caption.txt
 | `tools/layout_sheet.js`, `tools/render_sheet.js` | Dev contact sheets of every slide kind |
 | `tools/build_artifact.py` | Builds `dist/sixjuly-flow.html` (one file) or, with `--artifact DIR`, the page for a claude.ai artifact |
 | `tools/artifact_test.js` | Loads the built file with a stubbed `window.claude` (sample + downloads) |
+| `tools/editor_test.js`, `tools/tracker_test.js` | Drive the editor and the Topics dashboard like a person (mocked feeds and Sheet) |
+| `tools/apps_script_test.js` | Runs `Code.gs` against in-memory stand-ins for Google services |
+| `tools/svg_check.js` | Compares canvas and SVG renders of every layout |
 
 ## Notes
 

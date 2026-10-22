@@ -296,7 +296,7 @@
     el.append(slideSection(s, th), contentSection(s));
     const hidden = Object.entries(((s.o || {}).items) || {}).filter(([, v]) => v.hide).map(([k]) => k);
     if (hidden.length) el.append(sec('Hidden elements', hidden.map(k => h('div.ir', null, h('label', null, k.replace(/(\d+)$/, ' $1')), h('button.btn.sm', { type: 'button', onclick: () => change(() => delete s.o.items[k].hide) }, 'Show')))));
-    if (S.draft.refs && S.draft.refs.length) el.append(sec('Sources', h('ul.refs', null, S.draft.refs.map(r => h('li', null, h('a', { href: r.url, target: '_blank', rel: 'noopener' }, r.title || r.url), r.source ? h('span.muted', null, ' · ' + r.source) : null))), false));
+    if (S.draft.refs && S.draft.refs.length) el.append(sec('Sources', h('ul.refs', null, S.draft.refs.map(r => h('li', null, h('a', { href: /^https?:\/\//i.test(r.url) ? r.url : '#', target: '_blank', rel: 'noopener noreferrer' }, r.title || r.url), r.source ? h('span.muted', null, ' · ' + r.source) : null))), false));
   }
 
   function elementSection(it, lay, s, th) {

@@ -60,9 +60,9 @@
       const out = [], list = ins.topics;
       for (let i = 0; i < list.length; i++) {
         G.setStatus(node, 'running', `${i + 1}/${list.length}`);
-        const key = JSON.stringify([list[i], p.engine, p.model, p.format, p.layouts, p.slides, p.voice, p.seed, p.engine !== 'patterns' && await C.canUseClaude(ctx.apiKey)]);
+        const key = JSON.stringify([list[i], (window.SixjulyFlow.refs || {})[list[i].topic], p.engine, p.model, p.format, p.layouts, p.slides, p.voice, p.seed, p.engine !== 'patterns' && await C.canUseClaude(ctx.apiKey)]);
         let s = ctx.cache.get(key);
-        if (!s) { s = await C.write(list[i], { engine: p.engine, model: p.model, format: p.format, layouts: p.layouts, slides: p.slides, voice: p.voice, seed: p.seed, apiKey: ctx.apiKey }); ctx.cache.set(key, s); }
+        if (!s) { s = await C.write(Object.assign({}, list[i], { refs: (window.SixjulyFlow.refs || {})[list[i].topic] }), { engine: p.engine, model: p.model, format: p.format, layouts: p.layouts, slides: p.slides, voice: p.voice, seed: p.seed, apiKey: ctx.apiKey }); ctx.cache.set(key, s); }
         out.push(s);
       }
       const eng = [...new Set(out.map(s => String(s.engine).split(' ')[0]))].join(' + ');

@@ -20,7 +20,8 @@ const shots = process.argv.includes('--shots') ? process.argv[process.argv.index
   await p.mouse.move(g.x, g.y); await p.mouse.down(); await p.mouse.move(g.x + 40, g.y + 60, { steps: 6 }); await p.mouse.up();
   log.moved = await p.evaluate(() => JSON.stringify(SixjulyEditor._state().deck.slides[0].o));
   // double-click to type
-  g = await geo('head0'); await p.mouse.dblclick(g.x, g.y); await p.waitForSelector('textarea.inline');
+  g = await geo('head0'); await p.mouse.dblclick(g.x, g.y);
+  try { await p.waitForSelector('textarea.inline', { timeout: 4000 }); } catch (e) { console.log('DBLCLICK DID NOT OPEN', await p.evaluate(() => JSON.stringify({ key: SixjulyEditor._state().key, inline: !!SixjulyEditor._state().inline, active: document.activeElement.tagName + '.' + document.activeElement.className, dragging: !!SixjulyEditor._state().drag }))); await p.keyboard.press('Enter'); await p.waitForSelector('textarea.inline'); }
   await p.fill('textarea.inline', 'Edited [[headline]]'); await p.keyboard.press('Control+Enter');
   log.head = await p.evaluate(() => SixjulyEditor._state().deck.slides[0].head);
   // undo / redo
@@ -46,7 +47,7 @@ const shots = process.argv.includes('--shots') ? process.argv[process.argv.index
   if (shots) await p.screenshot({ path: path.join(shots, 'ed-2-edited.png') });
   // exports
   const names = ['This slide as PNG', 'All slides as PNG', 'PDF of the carousel', 'Editable SVG files', 'Figma pack', 'Everything (zip)'];
-  for (const n of names) { await p.click('.fb >> text=Export ▾'); await p.click(`#expMenu >> text=${n}`); const before = await p.evaluate(() => window.__dl.length); await p.waitForFunction(b => window.__dl.length > b, before, { timeout: 60000 }); }
+  for (const n of names) { await p.click('.fb >> text=Export ▾'); await p.click(`#expMenu >> text=${n}`); const before = await p.evaluate(() => window.__dl.length); try { await p.waitForFunction(b => window.__dl.length > b, before, { timeout: 60000 }); } catch (e) { console.log('EXPORT STALLED:', n, 'toast=', await p.evaluate(() => document.querySelector('#toast').textContent), 'menuOpen=', await p.evaluate(() => !!document.querySelector('#expMenu.open')), 'dl=', await p.evaluate(() => window.__dl.length)); throw e; } }
   log.downloads = await p.evaluate(() => window.__dl.map(d => d.name + ':' + Math.round(d.size / 1024) + 'KB').join(' | '));
   log.pdfHead = await p.evaluate(async () => { const b = Object.entries(window.__blobs).find(([n]) => n.endsWith('.pdf'))[1]; const t = await b.slice(0, 8).text(); const all = new Uint8Array(await b.arrayBuffer()); let s = new TextDecoder('latin1').decode(all.slice(-60)); return t.trim() + ' … ' + s.trim().split('\n').slice(-1)[0]; });
   log.svgInZip = await p.evaluate(async () => { const z = await JSZip.loadAsync(Object.entries(window.__blobs).find(([n]) => n.endsWith('-svg.zip'))[1]); const names = Object.keys(z.files); const first = names.find(n => n.endsWith('.svg')); const txt = await z.files[first].async('string'); return names.length + ' files; first has <text>: ' + /<text /.test(txt) + ', <path>: ' + /<path /.test(txt) + ', ' + (txt.match(/<g id="/g) || []).length + ' named groups'; });

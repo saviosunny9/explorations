@@ -335,7 +335,7 @@ Only claim facts you are confident are true. Never invent statistics or quotes a
 
   function userPrompt(item, o) {
     const fmt = o.format && o.format !== 'mix' ? `Format: ${FORMATS[o.format]}.` : 'Choose the format that suits the topic (hot take, before/after, list of rules, myth vs truth, how-to, or a single striking number).';
-    return `Topic: ${item.topic}\n${item.points && item.points.length ? 'Points to cover: ' + item.points.join('; ') + '\n' : ''}${fmt}\nSlide count: ${clampN(o.slides)} including cover and closing slide.${o.layouts === 'classic' ? ' Use only the classic kinds.' : ''}\n${o.voice ? 'Extra voice notes: ' + o.voice + '\n' : ''}${o.seed ? 'Variation #' + o.seed + ': take a different angle than the obvious one.\n' : ''}Return the JSON now.`;
+    return `Topic: ${item.topic}\n${item.points && item.points.length ? 'Points to cover: ' + item.points.join('; ') + '\n' : ''}${item.refs && item.refs.length ? 'Background reading, for context only. Write everything in your own words and never copy phrases from these titles:\n' + item.refs.slice(0, 6).map(r => '- ' + r.title + (r.source ? ' (' + r.source + ')' : '')).join('\n') + '\n' : ''}${fmt}\nSlide count: ${clampN(o.slides)} including cover and closing slide.${o.layouts === 'classic' ? ' Use only the classic kinds.' : ''}\n${o.voice ? 'Extra voice notes: ' + o.voice + '\n' : ''}${o.seed ? 'Variation #' + o.seed + ': take a different angle than the obvious one.\n' : ''}Return the JSON now.`;
   }
 
   let sampleP = null;
@@ -360,6 +360,17 @@ Only claim facts you are confident are true. Never invent statistics or quotes a
       text = r.text;
     }
     return normalizeStory(extractJSON(text), item, 'claude', o);
+  }
+
+  // optional: rewrite suggested topic titles in clearer words (Claude, or the API key if one is set)
+  async function rewordTopics(items, o) {
+    const prompt = 'You help a design studio choose Instagram post topics. For each item below write a clear, specific topic title (4 to 9 words, plain words, no hype) and a one-sentence angle (max 25 words) saying what a post could teach. Use only the information given, never invent facts, and do not copy phrases from the link titles.\nReturn ONLY a JSON array: [{"id": string, "title": string, "angle": string}].\n\n' + JSON.stringify(items);
+    let text;
+    if (o && o.apiKey) {
+      const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-5-5', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] }) });
+      const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error((body.error && body.error.message) || ('HTTP ' + res.status)); text = (body.content || []).map(c => c.text || '').join('');
+    } else { const sample = await getSample(); if (!sample) throw new Error('Claude is not available'); text = (await sample(prompt, { cache: false })).text; }
+    const t = String(text).replace(/```json|```/g, ''), a = t.indexOf('['), b = t.lastIndexOf(']'); if (a < 0) throw new Error('Claude did not return a list'); return JSON.parse(t.slice(a, b + 1));
   }
 
   function extractJSON(text) {
@@ -425,5 +436,5 @@ Only claim facts you are confident are true. Never invent statistics or quotes a
   }
   const canUseClaude = async key => !!key || !!(await getSample());
 
-  window.SixjulyCopy = { FORMATS, KINDS, CLASSIC, RICH, showcase, canUseClaude, parseTopics, write, writePatterns, writeClaude, normalizeStory, extractJSON, SYSTEM };
+  window.SixjulyCopy = { rewordTopics, FORMATS, KINDS, CLASSIC, RICH, showcase, canUseClaude, parseTopics, write, writePatterns, writeClaude, normalizeStory, extractJSON, SYSTEM };
 })();

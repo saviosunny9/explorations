@@ -44,7 +44,8 @@
       usedImages(draft.deck).forEach(id => { const im = R.imgs.get(id); if (im && im.src) images[id] = im.src; });
       draft.images = images; await KV.set('draft:' + draft.id, draft);
       const ix = ((await KV.get('drafts:index')) || []).filter(x => x.id !== draft.id);
-      ix.push({ id: draft.id, title: draft.title, status: draft.status, updated: draft.updated, topic: draft.deck.topic, slides: draft.deck.slides.length, topicId: draft.topicId || '', approved: !!draft.approved });
+      let thumb = ''; try { const [W, H] = String(draft.ratio || '1080x1350').split('x').map(Number), cv = document.createElement('canvas'); cv.width = 240; cv.height = Math.round(240 * H / W); R.drawSlide(cv.getContext('2d'), draft.deck, 0, { W, H, scale: 240 / W }); thumb = cv.toDataURL('image/jpeg', 0.78); } catch (e) { /* no preview */ }
+      ix.push({ thumb, id: draft.id, title: draft.title, status: draft.status, updated: draft.updated, topic: draft.deck.topic, slides: draft.deck.slides.length, topicId: draft.topicId || '', approved: !!draft.approved });
       await KV.set('drafts:index', ix); return draft;
     },
     async remove(id) { await KV.del('draft:' + id); await KV.set('drafts:index', ((await KV.get('drafts:index')) || []).filter(x => x.id !== id)); },
