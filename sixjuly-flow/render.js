@@ -158,7 +158,7 @@
 
   // ---- scene --------------------------------------------------------------------------------------------------------------
   // item = { role, unit, box, paint(ctx, st, ctxInfo) }; roles: header art tag head sub visual foot btn arrow
-  const ROLE_ORDER = ['art', 'header', 'tag', 'head', 'sub', 'visual', 'btn', 'foot', 'arrow'];
+  const ROLE_ORDER = ['art', 'header', 'tag', 'head', 'sub', 'visual', 'free', 'btn', 'foot', 'arrow'];
 
   function layoutSlide(slide, env) {
     const { W, H, brand } = env;
@@ -167,7 +167,14 @@
     const scene = { W, H, g, theme: th, brand, slide, items: [], units: {} };
     const add = (role, box, paint, extra) => { const it = Object.assign({ role, unit: 0, box, paint }, extra || {}); scene.items.push(it); return it; };
     const kind = slide.kind || 'statement';
-    const reel = g.reel;
+    const reel = g.reel, OV = slide.o || {};
+    // per-slide text overrides from the editor: size, weight, family, alignment, line height, tracking (colour is applied at paint time)
+    const ty = (key, src, opts, fit) => {
+      const o = OV[key] || {}, op = Object.assign({}, opts);
+      if (o.weight) op.weight = +o.weight; if (o.fam && FAM[o.fam]) op.fam = FAM[o.fam]; if (o.align) op.align = o.align; if (o.lh) op.lh = +o.lh; if (o.track != null && o.track !== '') op.track = +o.track;
+      if (o.size) { op.size = +o.size; delete op.maxH; delete op.maxLines; return layoutRich(brand, src, op); }
+      return fit ? fitRich(brand, src, op) : layoutRich(brand, src, op);
+    };
 
     // headline ------------------------------------------------------------------------------------------------------------
     const cover = kind === 'cover', cta = kind === 'cta';
@@ -175,12 +182,12 @@
     const maxW = W - 2 * g.mx;
     let footL = null, footTop = g.bottom - (slide.handle ? 0 : 56);
     if (slide.foot) {
-      footL = layoutRich(brand, slide.foot, { maxW: maxW - (slide.handle ? 330 : 130), size: g.footSize, weight: 400, lh: 1.3, track: -0.01, balance: false });
+      footL = ty('foot', slide.foot, { maxW: maxW - (slide.handle ? 330 : 130), size: g.footSize, weight: 400, lh: 1.3, track: -0.01, balance: false }, false);
       footTop = g.bottom - footL.h;
     }
     let subL = null;
     if (cover && slide.sub) {
-      subL = fitRich(brand, slide.sub, { maxW, size: reel ? 64 : 54, min: 36, weight: 600, lh: 1.12, track: -0.025, maxLines: 2 });
+      subL = ty('sub', slide.sub, { maxW, size: reel ? 64 : 54, min: 36, weight: 600, lh: 1.12, track: -0.025, maxLines: 2 }, true);
       footTop = Math.min(footTop, footTop) - (footL ? 18 : 0) - subL.h;
     }
     let headL = null, headY = g.top;
@@ -188,13 +195,13 @@
     if (cov && cov.replaceHead) { cov.build(scene, add, { g, th, brand, slide, W, H, reel, U: window.SixjulyRender.U }); }
     else if (slide.head) {
       if (cover) {
-        headL = fitRich(brand, slide.head, { maxW, maxH: H * (reel ? 0.34 : 0.4), size: reel ? 260 : 230, min: 70, weight: 800, lh: 0.96, track: -0.045, maxLines: 4 });
+        headL = ty('head', slide.head, { maxW, maxH: H * (reel ? 0.34 : 0.4), size: reel ? 260 : 230, min: 70, weight: 800, lh: 0.96, track: -0.045, maxLines: 4 }, true);
         headY = Math.round(H * (reel ? 0.31 : 0.265));
       } else if (cta || kind === 'statement' && !slide.visual) {
-        headL = fitRich(brand, slide.head, { maxW, maxH: H * 0.36, size: g.headSize * (cta ? 1.08 : 1.25), min: 56, weight: 500, lh: 1.08, track: -0.035, maxLines: 5 });
+        headL = ty('head', slide.head, { maxW, maxH: H * 0.36, size: g.headSize * (cta ? 1.08 : 1.25), min: 56, weight: 500, lh: 1.08, track: -0.035, maxLines: 5 }, true);
         headY = Math.round(H * (cta ? (reel ? 0.34 : 0.26) : (reel ? 0.34 : 0.3)));
       } else {
-        headL = fitRich(brand, slide.head, { maxW, maxH: H * 0.3, size: g.headSize, min: 52, weight: 500, lh: 1.1, track: -0.035, maxLines: 4 });
+        headL = ty('head', slide.head, { maxW, maxH: H * 0.3, size: g.headSize, min: 52, weight: 500, lh: 1.1, track: -0.035, maxLines: 4 }, true);
       }
     }
     if (headL && slide.header && !cover && !cta) headY = g.headerY + 74 * 0.84 + (reel ? 70 : 50);
@@ -243,16 +250,16 @@
     if (headL) {
       const box = { x: g.mx, y: headY, w: maxW, h: headL.h };
       scene.headBox = box;
-      add('head', box, null, { text: headL, ox: g.mx, oy: headY });
+      add('head', box, null, { text: headL, ox: g.mx, oy: headY, ink: (OV.head || {}).color });
     }
     const headBottom = headL ? headY + headL.h : g.top;
 
     // sub (cover) & foot -------------------------------------------------------------------------------------------------
     if (subL) {
       const y = g.bottom - (footL ? footL.h + 18 : 0) - subL.h;
-      add('sub', { x: g.mx, y, w: maxW, h: subL.h }, null, { text: subL, ox: g.mx, oy: y });
+      add('sub', { x: g.mx, y, w: maxW, h: subL.h }, null, { text: subL, ox: g.mx, oy: y, ink: (OV.sub || {}).color });
     }
-    if (footL) add('foot', { x: g.mx, y: footTop + (subL ? 0 : 0), w: maxW - 130, h: footL.h }, null, { text: footL, ox: g.mx, oy: g.bottom - footL.h });
+    if (footL) add('foot', { x: g.mx, y: footTop + (subL ? 0 : 0), w: maxW - 130, h: footL.h }, null, { text: footL, ox: g.mx, oy: g.bottom - footL.h, ink: (OV.foot || {}).color });
     // arrow
     if (slide.handle) {
       const ay0 = g.bottom;
@@ -283,6 +290,10 @@
         ctx.fillStyle = th.btnInk; setFont(ctx, brand, 700, reel ? 52 : 46, -0.01); ctx.textBaseline = 'middle'; ctx.fillText(label, g.mx + 60, by + bh / 2 + 3); ctx.textBaseline = 'alphabetic';
       });
     }
+    // free layers added in the editor (text, shapes, photos), drawn above the layout
+    (slide.layers || []).forEach((ly, k) => { const lay = prepLayer(ly, scene); add('free', lay.box, ctx => lay.paint(ctx), { unit: k, layer: ly.id, lay: ly }); });
+    // stable keys so edits (move / scale / hide) stay attached to the same element
+    const cnt = {}; scene.items.forEach(it => { cnt[it.role] = cnt[it.role] || 0; it.key = it.layer ? 'free:' + it.layer : it.role + cnt[it.role]; cnt[it.role]++; });
     scene.dots = cover || cta || slide.dots;
     return scene;
   }
@@ -294,6 +305,7 @@
   }
   function drawLogo(ctx, x, y, w, color) {
     const lg = window.SIXJULY_LOGO; if (!lg) return;
+    if (ctx.svgPath) { ctx.save(); ctx.translate(x, y); ctx.scale(w / lg.w, w / lg.w); ctx.svgPath(lg.d, color, 'evenodd'); ctx.restore(); return; }
     if (!lg._p) lg._p = new Path2D(lg.d);
     ctx.save(); ctx.translate(x, y); ctx.scale(w / lg.w, w / lg.w); ctx.fillStyle = color; ctx.fill(lg._p, 'evenodd'); ctx.restore();
   }
@@ -441,7 +453,7 @@
 
   function motionFor(motion, role) {
     const m = motion || DEFAULT_MOTION;
-    const map = { header: m.header, art: m.art, tag: m.tag, head: m.head, sub: m.head === 'words' || m.head === 'type' ? 'rise' : m.head, visual: m.visual, foot: m.foot, btn: m.btn, arrow: 'fade' };
+    const map = { header: m.header, art: m.art, tag: m.tag, head: m.head, sub: m.head === 'words' || m.head === 'type' ? 'rise' : m.head, visual: m.visual, free: m.visual, foot: m.foot, btn: m.btn, arrow: 'fade' };
     return map[role] || 'fade';
   }
 
@@ -569,23 +581,31 @@
     const tl = timeline(scene, motion);
     scene.tl = tl;
     const order = scene.items.slice().sort((a, b) => (ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)) || ((b.behind ? 1 : 0) - (a.behind ? 1 : 0)));
-    const seed = (scene.slide.head || '').length;
+    const seed = (scene.slide.head || '').length, IO = (scene.slide.o || {}).items || {}, svg = !!ctx.group;
     for (const it of order) {
-      if (it.text && (it.role === 'head' || it.role === 'sub' || it.role === 'foot')) {
-        if (it.role === 'foot' || it.role === 'sub') {
-          const st = unitState(tl, it.role, 0, t, motion);
-          const T = tl[it.role];
-          if (T && T.type === 'type') paintText(ctx, scene, it, tl, t, motion);
-          else withState(ctx, Object.assign({}, st, { mask: 0 }), it.box, () => paintText(ctx, scene, it, tl, null, motion));
-        } else paintText(ctx, scene, it, tl, t, motion);
-        continue;
-      }
-      const st = unitState(tl, it.role, it.unit, t, motion, seed);
-      withState(ctx, st, it.box, () => it.paint(ctx, st));
+      const io = IO[it.key]; if (io && io.hide) continue;
+      const draw = () => {
+        if (it.text && (it.role === 'head' || it.role === 'sub' || it.role === 'foot')) {
+          if (it.role === 'foot' || it.role === 'sub') {
+            const st = unitState(tl, it.role, 0, t, motion), T = tl[it.role];
+            if (T && T.type === 'type') paintText(ctx, scene, it, tl, t, motion, it.ink);
+            else withState(ctx, Object.assign({}, st, { mask: 0 }), it.box, () => paintText(ctx, scene, it, tl, null, motion, it.ink));
+          } else paintText(ctx, scene, it, tl, t, motion, it.ink);
+          return;
+        }
+        const st = unitState(tl, it.role, it.unit, t, motion, seed);
+        withState(ctx, st, it.box, () => it.paint(ctx, st));
+      };
+      if (svg) ctx.group(itemName(it));
+      if (io && (io.dx || io.dy || (io.s && io.s !== 1))) {
+        ctx.save(); const b = it.box, cx = b.x + b.w / 2, cy = b.y + b.h / 2; ctx.translate(cx + (io.dx || 0), cy + (io.dy || 0)); if (io.s && io.s !== 1) ctx.scale(io.s, io.s); ctx.translate(-cx, -cy); draw(); ctx.restore();
+      } else draw();
+      if (svg) ctx.endGroup();
     }
   }
 
   function paintDots(ctx, W, H, color) {
+    if (ctx.dotPattern) return ctx.dotPattern(36, color);
     ctx.save(); ctx.fillStyle = color; const s = 36;
     for (let y = s; y < H; y += s) for (let x = s; x < W; x += s) ctx.fillRect(x - 1, y - 1, 2.2, 2.2);
     ctx.restore();
@@ -599,7 +619,9 @@
     if (i === 0 && d.coverTheme) key = d.coverTheme;
     if (i === n - 1 && d.ctaTheme) key = d.ctaTheme;
     if (d.rhythm === 'alternate' && i > 0 && i < n - 1) key = i % 2 ? (d.theme || 'light') : (d.altTheme || 'cream');
-    return T[key] || T.light;
+    const sl = deck.slides[i] || {}; if (sl.theme && T[sl.theme]) key = sl.theme;
+    let th = T[key] || T.light; if (sl.bgColor) th = Object.assign({}, th, { bg: sl.bgColor });
+    return th;
   }
   const sceneCache = new Map();
   function sceneFor(deck, i, W, H) {
@@ -662,6 +684,84 @@
     return plan;
   }
 
+
+  // ---- free layers -----------------------------------------------------------------------------------------------------------------------------
+  function prepLayer(ly, scene) {
+    const brand = scene.brand, th = scene.theme;
+    const col = c => (c === 'ink' || !c ? th.ink : c === 'hi' ? th.hi : c === 'sec' ? th.sec : c === 'bg' ? th.bg : c);
+    const rot = ly.rot || 0;
+    const wrapRot = (ctx, box, fn) => { ctx.save(); if (rot) { ctx.translate(box.x + box.w / 2, box.y + box.h / 2); ctx.rotate(rot); ctx.translate(-(box.x + box.w / 2), -(box.y + box.h / 2)); } fn(); ctx.restore(); };
+    if (ly.type === 'text') {
+      const fam = ly.fam && FAM[ly.fam] ? FAM[ly.fam] : undefined, pad = ly.bg ? Math.round((ly.size || 48) * 0.3) : 0;
+      const L = layoutRich(brand, ly.text || '', { maxW: Math.max(40, (ly.w || 400) - pad * 2), size: ly.size || 48, weight: ly.weight || 600, lh: ly.lh || 1.12, track: ly.track != null ? ly.track : -0.025, align: ly.align || 'left', fam, balance: false });
+      const box = { x: ly.x, y: ly.y, w: ly.w || 400, h: Math.max(20, L.h + pad * 2) };
+      return { box, L, paint: ctx => wrapRot(ctx, box, () => {
+        if (ly.bg) { ctx.fillStyle = col(ly.bg); rr(ctx, box.x, box.y, box.w, box.h, ly.radius != null ? ly.radius : 0); ctx.fill(); }
+        setFont(ctx, brand, L.weight, L.size, L.track, L.fam); ctx.textBaseline = 'alphabetic'; const base = (L.lh - L.size) / 2 + L.size * 0.8;
+        L.words.forEach(w => w.runs.forEach(r => { ctx.fillStyle = r.c === 'hi' ? th.hi : r.c === 'sec' ? th.sec : col(ly.color); ctx.fillText(r.t, box.x + pad + w.x + r.x, box.y + pad + w.y + base); }));
+      }) };
+    }
+    if (ly.type === 'shape') {
+      const box = { x: ly.x, y: ly.y, w: ly.w || 200, h: ly.h || 200 };
+      return { box, paint: ctx => wrapRot(ctx, box, () => {
+        const fill = ly.fill === 'none' ? null : col(ly.fill || 'hi'), st = ly.stroke ? col(ly.stroke) : null; ctx.lineWidth = ly.sw || 4;
+        if (ly.shape === 'circle') { ctx.beginPath(); ctx.ellipse(box.x + box.w / 2, box.y + box.h / 2, box.w / 2, box.h / 2, 0, 0, TAU); }
+        else if (ly.shape === 'arrow') {
+          ctx.strokeStyle = col(ly.stroke || 'ink'); ctx.lineWidth = ly.sw || 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; const cy = box.y + box.h / 2, hd = Math.min(box.h * 0.45, box.w * 0.3);
+          ctx.beginPath(); ctx.moveTo(box.x, cy); ctx.lineTo(box.x + box.w, cy); ctx.moveTo(box.x + box.w - hd, cy - hd); ctx.lineTo(box.x + box.w, cy); ctx.lineTo(box.x + box.w - hd, cy + hd); ctx.stroke(); return;
+        } else rr(ctx, box.x, box.y, box.w, box.h, ly.shape === 'pill' ? 1e4 : (ly.radius || 0));
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (st) { ctx.strokeStyle = st; ctx.stroke(); }
+      }) };
+    }
+    // photo
+    const box = { x: ly.x, y: ly.y, w: ly.w || 400, h: ly.h || 400 };
+    return { box, paint: ctx => wrapRot(ctx, box, () => {
+      const im = imgs.get(ly.img);
+      ctx.save(); rr(ctx, box.x, box.y, box.w, box.h, ly.radius || 0); ctx.clip();
+      if (im && im.complete && im.naturalWidth) {
+        const z = Math.max(1, ly.zoom || 1), k = Math.max(box.w / im.naturalWidth, box.h / im.naturalHeight) * z, iw = im.naturalWidth * k, ih = im.naturalHeight * k;
+        const ox = clamp(ly.ox || 0, -1, 1) * (iw - box.w) / 2, oy = clamp(ly.oy || 0, -1, 1) * (ih - box.h) / 2;
+        const fl = []; if (ly.brightness != null && ly.brightness !== 1) fl.push(`brightness(${ly.brightness})`); if (ly.contrast != null && ly.contrast !== 1) fl.push(`contrast(${ly.contrast})`); if (ly.saturate != null && ly.saturate !== 1) fl.push(`saturate(${ly.saturate})`);
+        if (fl.length) ctx.filter = fl.join(' ');
+        ctx.drawImage(im, box.x + (box.w - iw) / 2 + ox, box.y + (box.h - ih) / 2 + oy, iw, ih);
+      } else { ctx.fillStyle = th.card; ctx.fillRect(box.x, box.y, box.w, box.h); ctx.fillStyle = th.mute; setFont(ctx, brand, 500, 28, 0); ctx.textAlign = 'center'; ctx.fillText('Photo', box.x + box.w / 2, box.y + box.h / 2); ctx.textAlign = 'left'; }
+      ctx.restore();
+      if (ly.stroke) { ctx.strokeStyle = col(ly.stroke); ctx.lineWidth = ly.sw || 4; rr(ctx, box.x, box.y, box.w, box.h, ly.radius || 0); ctx.stroke(); }
+    }) };
+  }
+  const ITEM_NAMES = { head: 'Headline', sub: 'Sub-line', foot: 'Footer text', arrow: 'Arrow', header: 'Logo and handle', tag: 'Sticker', btn: 'Button', art: 'Cover art', visual: 'Visual' };
+  function itemName(it, k) { if (it.lay) return it.lay.type === 'text' ? 'Text' : it.lay.type === 'image' ? 'Photo' : 'Shape'; return ITEM_NAMES[it.role] || it.role; }
+  // item box after the editor's move / scale overrides
+  function itemBox(scene, it) {
+    const io = ((scene.slide.o || {}).items || {})[it.key]; const b = it.box; if (!io) return b;
+    const s = io.s || 1, cx = b.x + b.w / 2 + (io.dx || 0), cy = b.y + b.h / 2 + (io.dy || 0); return { x: cx - b.w * s / 2, y: cy - b.h * s / 2, w: b.w * s, h: b.h * s };
+  }
+  // topmost selectable element under a point (canvas px)
+  function hitTest(scene, x, y) {
+    const order = scene.items.slice().sort((a, b) => (ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)) || ((b.behind ? 1 : 0) - (a.behind ? 1 : 0)));
+    const probe = soft => {
+      for (let i = order.length - 1; i >= 0; i--) {
+        const it = order[i]; if (!!it.soft !== soft) continue; const io = ((scene.slide.o || {}).items || {})[it.key]; if (io && io.hide) continue;
+        const b = itemBox(scene, it); if (b.w * b.h > scene.W * scene.H * 0.85 || b.w < 4 || b.h < 4) continue;
+        let px = x, py = y; const rot = it.lay && it.lay.rot; if (rot) { const cx = b.x + b.w / 2, cy = b.y + b.h / 2, c = Math.cos(-rot), s2 = Math.sin(-rot); px = cx + (x - cx) * c - (y - cy) * s2; py = cy + (x - cx) * s2 + (y - cy) * c; }
+        if (px >= b.x - 6 && px <= b.x + b.w + 6 && py >= b.y - 6 && py <= b.y + b.h + 6) return it;
+      }
+      return null;
+    };
+    return probe(false) || probe(true);
+  }
+
+
+  // one slide as editable SVG (needs svgctx.js)
+  function toSVG(deck, i, o) {
+    o = o || {}; const W = o.W || 1080, H = o.H || 1350, scene = sceneFor(deck, i, W, H), c = new window.SixjulySVG(W, H);
+    c.group('Background'); c.fillStyle = scene.theme.bg; c.fillRect(0, 0, W, H); c.endGroup();
+    if (scene.dots) { c.group('Dot grid'); paintDots(c, W, H, scene.theme.dot); c.endGroup(); }
+    paintScene(c, scene, null, null, { noBg: true });
+    const b = Object.assign({}, BRAND, deck.brand || {});
+    return c.toString({ fonts: [b.font, 'Anton', 'Instrument Serif', 'Space Mono'] });
+  }
+
   // ---- fonts -----------------------------------------------------------------------------------------------------------------
   const fontLinks = new Set();
   const EXTRA = 'https://fonts.googleapis.com/css2?family=Anton&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap';
@@ -685,6 +785,7 @@
   window.SixjulyRender = {
     BRAND, themesFor, parseRich, plain, layoutSlide, paintScene, timeline, drawSlide, drawReel, reelPlan, slideDuration, sceneFor,
     U: { rr, setFont, layoutRich, fitRich, fitLine, drawLogo, clamp, lerp, TAU, mc, mix, parseRich, plain, EASE, stack },
+    prepLayer, itemBox, hitTest, itemName, toSVG, sceneFor,
     loadFonts, drawLogo, LAYOUTS, COVERS, FAM, imgs, DEFAULT_MOTION, MOTION_PRESETS, ENTER_TYPES, LOOP_TYPES, HI_TYPES, ARROW_TYPES, TRANSITIONS, EASE, stack,
   };
 })();

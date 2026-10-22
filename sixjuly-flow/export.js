@@ -21,8 +21,9 @@
     for (let i = 0; i < deck.slides.length; i++) { files.push({ name: `slide-${pad(i + 1)}.${ext}`, blob: await slideBlob(deck, i, o) }); if (onProgress) onProgress((i + 1) / deck.slides.length); await sleep(0); }
     return files;
   }
-  function captionText(deck) {
-    return `${deck.caption || deck.topic}\n\n${(deck.hashtags || []).join(' ')}\n`;
+  function captionText(deck, draft) {
+    const refs = (draft && draft.refs) || deck.refs || [];
+    return `${deck.caption || deck.topic}\n\n${(deck.hashtags || []).join(' ')}\n` + (refs.length ? `\nSources\n${refs.map(r => `- ${r.title || r.url} (${r.source || 'source'}) ${r.url}`).join('\n')}\n` : '');
   }
 
   // ---- video ---------------------------------------------------------------------------------------------------------------------------
@@ -117,5 +118,77 @@
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
   }
 
-  window.SixjulyExport = { slug, pad, slideBlob, carouselFiles, captionText, reelVideo, zipFiles, download };
+
+  // ---- PDF (one JPEG page per slide, no extra libraries) -----------------------------------------------------------------------------------
+  function buildPDF(pages) {
+    const enc = new TextEncoder(), chunks = [], offs = []; let pos = 0;
+    const w = v => { const b = typeof v === 'string' ? enc.encode(v) : v; chunks.push(b); pos += b.length; };
+    const begin = id => { offs[id] = pos; w(`${id} 0 obj\n`); }, end = () => w('endobj\n'), n = pages.length;
+    w('%PDF-1.4\n');
+    begin(1); w('<< /Type /Catalog /Pages 2 0 R >>\n'); end();
+    begin(2); w(`<< /Type /Pages /Kids [${pages.map((_, k) => `${3 + 3 * k} 0 R`).join(' ')}] /Count ${n} >>\n`); end();
+    pages.forEach((p, k) => {
+      const pg = 3 + 3 * k, ct = 4 + 3 * k, im = 5 + 3 * k, content = `q ${p.w} 0 0 ${p.h} 0 0 cm /Im0 Do Q`;
+      begin(pg); w(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${p.w} ${p.h}] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${ct} 0 R >>\n`); end();
+      begin(ct); w(`<< /Length ${content.length} >>\nstream\n${content}\nendstream\n`); end();
+      begin(im); w(`<< /Type /XObject /Subtype /Image /Width ${p.iw} /Height ${p.ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`); w(p.jpeg); w('\nendstream\n'); end();
+    });
+    const xref = pos, total = 3 * n + 3;
+    w(`xref\n0 ${total}\n0000000000 65535 f \n`); for (let id = 1; id < total; id++) w(String(offs[id]).padStart(10, '0') + ' 00000 n \n');
+    w(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+  async function pdfBlob(deck, o) {
+    const [W, H] = String((o && o.ratio) || '1080x1350').split('x').map(Number), pages = [];
+    for (let i = 0; i < deck.slides.length; i++) {
+      const b = await slideBlob(deck, i, { ratio: o && o.ratio, scale: 2, format: 'jpg' }); pages.push({ w: W, h: H, iw: W * 2, ih: H * 2, jpeg: new Uint8Array(await b.arrayBuffer()) }); await sleep(0);
+    }
+    return buildPDF(pages);
+  }
+
+  // ---- SVG, Figma hand-off, everything ------------------------------------------------------------------------------------------------------
+  function svgFiles(deck, o) {
+    const [W, H] = String((o && o.ratio) || '1080x1350').split('x').map(Number);
+    return deck.slides.map((s, i) => ({ name: `slide-${pad(i + 1)}.svg`, blob: new Blob([R.toSVG(deck, i, { W, H })], { type: 'image/svg+xml' }) }));
+  }
+  const FIGMA_README = (deck) => `HOW TO CONTINUE THIS POST IN FIGMA
+=================================
+1. Open a Figma design file.
+2. Drag all the slide-XX.svg files from this folder onto the canvas (or paste one slide: in the app use Export > Copy this slide's SVG, then click in Figma and press Cmd/Ctrl + V).
+3. Every slide arrives at ${'its exact size'} with live text and shapes. Rename the frames, group them in a section and keep editing.
+
+Notes
+- Fonts: the posts use Google Sans Flex (body), Anton, Instrument Serif and Space Mono. All are Google Fonts and are built into Figma. If a text layer shows a missing-font warning, pick the Google font by name.
+- Photos are embedded inside the SVG as images. Brightness / contrast / saturation edits are applied as an image filter that Figma ignores; re-apply them in Figma if you need them.
+- Figma cannot open a .fig file from outside. Importing SVG is the supported route, and nothing here claims otherwise.
+- Layer names follow the slide: Background, Headline, Footer text, Visual, Logo and handle, and so on.
+
+Post: ${deck.topic}
+`;
+  async function figmaPack(deck, draft, o) {
+    const files = svgFiles(deck, o); files.push({ name: 'caption.txt', blob: new Blob([captionText(deck, draft)], { type: 'text/plain' }) }, { name: 'README.txt', blob: new Blob([FIGMA_README(deck)], { type: 'text/plain' }) }); return files;
+  }
+  async function everything(deck, draft, o) {
+    const out = [];
+    (await carouselFiles(deck, Object.assign({}, o, { format: 'png' }))).forEach(f => out.push({ name: 'png/' + f.name, blob: f.blob }));
+    (await carouselFiles(deck, Object.assign({}, o, { format: 'jpg' }))).forEach(f => out.push({ name: 'jpg/' + f.name, blob: f.blob }));
+    svgFiles(deck, o).forEach(f => out.push({ name: 'svg/' + f.name, blob: f.blob }));
+    out.push({ name: 'carousel.pdf', blob: await pdfBlob(deck, o) });
+    out.push({ name: 'caption.txt', blob: new Blob([captionText(deck, draft)], { type: 'text/plain' }) });
+    if (draft && draft.refs && draft.refs.length) out.push({ name: 'sources.txt', blob: new Blob([draft.refs.map(r => `${r.title || ''}\n${r.url}\n${r.source || ''}\n`).join('\n')], { type: 'text/plain' }) });
+    out.push({ name: 'figma/README.txt', blob: new Blob([FIGMA_README(deck)], { type: 'text/plain' }) });
+    svgFiles(deck, o).forEach(f => out.push({ name: 'figma/' + f.name, blob: f.blob }));
+    if (draft) out.push({ name: 'post.json', blob: new Blob([JSON.stringify({ title: draft.title, topic: deck.topic, status: draft.status, refs: draft.refs || [], slides: deck.slides }, null, 1)], { type: 'application/json' }) });
+    return out;
+  }
+  // downscale an uploaded photo to a sensible size (max 1400 px, JPEG)
+  function shrink(file) {
+    return new Promise((res, rej) => {
+      const fr = new FileReader(); fr.onerror = () => rej(new Error('Could not read ' + file.name));
+      fr.onload = () => { const im = new Image(); im.onerror = () => rej(new Error(file.name + ' is not an image')); im.onload = () => { const k = Math.min(1, 1400 / Math.max(im.naturalWidth, im.naturalHeight)), cv = document.createElement('canvas'); cv.width = Math.round(im.naturalWidth * k); cv.height = Math.round(im.naturalHeight * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); res(cv.toDataURL('image/jpeg', 0.86)); }; im.src = fr.result; };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  window.SixjulyExport = { slug, pad, slideBlob, carouselFiles, captionText, reelVideo, zipFiles, download, pdfBlob, svgFiles, figmaPack, everything, shrink };
 })();

@@ -41,6 +41,8 @@
   let toastT;
   function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'on' + (err ? ' err' : ''); clearTimeout(toastT); toastT = setTimeout(() => (t.className = ''), err ? 6000 : 2600); }
 
+  window.SixjulyToast = toast;
+
   // ---- state ---------------------------------------------------------------------------------------------------------------------
   const state = { outputs: [], busy: false, pending: false, auto: store.get(LS.auto) === '1', players: [] };
   F.apiKey = store.get(LS.key) || '';
@@ -61,7 +63,7 @@
     try {
       const outs = await F.run();
       await R.loadFonts(outs[0] && outs[0].decks[0] ? outs[0].decks[0].brand : {});
-      state.outputs = outs; renderResults();
+      state.outputs = outs; draftsOf.clear(); renderResults();
     } catch (e) { toast(e.message, true); }
     state.busy = false; btn.disabled = false; btn.lastChild.textContent = ' Run';
     if (state.pending) { state.pending = false; scheduleAuto(); }
@@ -73,7 +75,7 @@
     stopPlayers();
     const body = $('#rbody'); body.innerHTML = '';
     const max = Math.max(0, ...state.outputs.map(o => o.decks.length));
-    $('#allBtn').disabled = !max;
+    $('#allBtn').disabled = !max; $('#maxBtn').disabled = !max;
     $('#rsub').textContent = max ? `${max} topic${max === 1 ? '' : 's'}` : '';
     if (!max) return;
     for (let i = 0; i < max; i++) body.append(card(i));
@@ -83,23 +85,24 @@
     const first = state.outputs.map(o => o.decks[i]).find(Boolean);
     const rc = h('article.rc', { 'data-i': i });
     const eng = String(first.engine || '');
-    rc.append(h('div.rc-h', null, h('h3', { title: first.topic }, first.topic), h('span.chip' + (/failed/.test(eng) ? '.warn' : ''), { title: eng }, /failed/.test(eng) ? 'Claude failed → patterns' : eng.split(' ')[0]), h('span.chip', null, (C.FORMATS[first.format] || first.format))));
+    rc.append(h('div.rc-h', null, h('h3', { title: first.topic }, first.topic), h('span.chip' + (/failed/.test(eng) ? '.warn' : ''), { title: eng }, /failed/.test(eng) ? 'Claude failed → patterns' : eng.split(' ')[0]), h('span.chip', null, (C.FORMATS[first.format] || first.format)), h('button.btn.sm', { type: 'button', title: 'Edit this post and see it full screen', onclick: () => openInFocus(i) }, 'Edit ⤢')));
     for (const out of state.outputs) {
       const deck = out.decks[i]; if (!deck) continue;
-      if (out.node.type === 'carousel') rc.append(carouselSection(out.node, deck));
+      if (out.node.type === 'carousel') rc.append(carouselSection(out.node, deck, i));
       else if (out.node.type === 'reel') rc.append(reelSection(out.node, deck));
     }
     rc.append(editor(first, i, rc));
     return rc;
   }
 
-  function carouselSection(node, deck) {
+  function carouselSection(node, deck, deckIndex) {
     const [W, H] = String(node.params.ratio).split('x').map(Number), cw = 150, ch = Math.round(cw * H / W), dpr = 2;
     const strip = h('div.strip');
     const draw = (cv, i, t) => { const ctx = cv.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); R.drawSlide(ctx, deck, i, { W, H, scale: cv.width / W, t, motion: deck.motion || R.DEFAULT_MOTION }); };
     deck.slides.forEach((s, i) => {
       const cv = h('canvas', { width: cw * dpr, height: ch * dpr, style: { width: cw + 'px', height: ch + 'px' }, title: 'Hover to preview the motion' });
       draw(cv, i, null); cv._draw = t => draw(cv, i, t); strip.append(cv);
+      cv.addEventListener('click', () => openInFocus(deckIndex, i));
       let raf = 0;
       cv.addEventListener('mouseenter', () => { const t0 = performance.now(), m = deck.motion || R.DEFAULT_MOTION; const tick = () => { const t = (performance.now() - t0) / 1000; draw(cv, i, t); if (t < 5) raf = requestAnimationFrame(tick); else draw(cv, i, null); }; cancelAnimationFrame(raf); tick(); });
       cv.addEventListener('mouseleave', () => { cancelAnimationFrame(raf); draw(cv, i, null); });
@@ -197,6 +200,20 @@
     catch (e) { toast(e.message, true); }
     btn.disabled = false; btn.textContent = label;
   }
+
+  // ---- focus view ---------------------------------------------------------------------------------------------------------------------------------
+  const draftsOf = new Map();                  // result index -> draft created from it in this run
+  function draftFromResult(i) {
+    if (draftsOf.has(i)) return draftsOf.get(i);
+    const car = state.outputs.find(o => o.node.type === 'carousel' && o.decks[i]), reel = state.outputs.find(o => o.node.type === 'reel' && o.decks[i]);
+    const deck = (car || reel).decks[i], motion = reel ? reel.decks[i].motion : deck.motion;
+    const d = SixjulyDrafts.create(Object.assign({}, deck, { motion }), { title: deck.topic, ratio: car ? car.node.params.ratio : '1080x1350', refs: (state.refs || {})[deck.topic] || [] });
+    draftsOf.set(i, d); return d;
+  }
+  function openInFocus(i, index, tab) {
+    const d = draftFromResult(i || 0); SixjulyEditor.open(d, { index: index || 0, tab, onClose: () => { renderResults(); } });
+  }
+  $('#maxBtn').onclick = () => openInFocus(0);
 
   // ---- toolbar ------------------------------------------------------------------------------------------------------------------------
   function menu(id, btnId, items) {

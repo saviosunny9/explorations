@@ -25,7 +25,7 @@
     <div class="graph-ui legend"><span><i class="dot t-topics"></i>Topics</span><span><i class="dot t-images"></i>Images</span><span><i class="dot t-stories"></i>Copy</span><span><i class="dot t-brand"></i>Brand</span><span><i class="dot t-decks"></i>Slides</span></div>
   </section>
   <aside id="results">
-    <div class="rh"><b>Results</b><span class="rsub" id="rsub"></span><div class="spacer"></div><button class="btn sm" id="allBtn" disabled>Download all</button></div>
+    <div class="rh"><b>Results</b><span class="rsub" id="rsub"></span><div class="spacer"></div><button class="btn sm" id="maxBtn" disabled title="Open the posts full screen">⤢ Maximize posts</button><button class="btn sm" id="allBtn" disabled>Download all</button></div>
     <div id="rbody"><div class="empty"><h3>Turn a topic into posts</h3><p>Edit the nodes, then press <b>Run</b>. Each topic becomes a carousel and a reel in the Sixjuly look.</p></div></div>
   </aside>
 </main>
@@ -38,16 +38,21 @@
     <div class="row"><button class="btn" value="clear" id="keyClear">Remove key</button><div class="spacer"></div><button class="btn primary" value="save">Save</button></div>
   </form>
 </dialog>
+<div id="focus" class="focus" hidden></div>
 <div id="toast"></div>
 <input type="file" id="openFile" accept=".json,application/json" hidden>
 <script src="vendor/jszip.min.js"></script>
 <script src="logo.js"></script>
 <script src="render.js"></script>
 <script src="layouts.js"></script>
+<script src="svgctx.js"></script>
 <script src="copy.js"></script>
 <script src="graph.js"></script>
 <script src="nodes.js"></script>
 <script src="export.js"></script>
+<script src="drafts.js"></script>
+<script src="player.js"></script>
+<script src="editor.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

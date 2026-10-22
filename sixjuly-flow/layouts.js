@@ -357,7 +357,7 @@
           ctx.strokeStyle = th.sec; ctx.lineWidth = 2.5; ctx.strokeRect(bx, by, bw, bh); [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].forEach(([x, y]) => handle(ctx, x, y, th.sec, 4));
           ctx.fillStyle = th.ink; setFont(ctx, b, 400, o.reel ? 26 : 23, 0); ctx.textBaseline = 'alphabetic'; const lab = String(c.label || ''), lw = ctx.measureText(lab).width;
           if (bx + bw + 14 + lw < scene.W - g.mx + 20) ctx.fillText(lab, bx + bw + 14, by + 22); else ctx.fillText(lab, bx + 6, by - 14);
-        }, { unit: i });
+        }, { unit: i, soft: true });
       });
     },
   };
