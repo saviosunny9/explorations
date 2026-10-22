@@ -10,6 +10,9 @@ The repository is GitHub `saviosunny9/explorations`; work on the branch `main`. 
 from `savio-1/new-design`, branch `claude/charming-mendel-rchh9w`, with its full history.) Don't open pull
 requests unless asked.
 
+`sixjuly-flow/` (repo root) is a separate product: a node-based automation tool that turns topics into Sixjuly-branded carousels
+and reels (no dependency on `studio/`; see its `README.md`). Test it with `NODE_PATH=$(npm root -g) node sixjuly-flow/tools/smoke_test.js`.
+
 `HANDOFF.md` (repo root) has the links, history, open items and how to resume in a new chat.
 
 ## How the owner likes to work
