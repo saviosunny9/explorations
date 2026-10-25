@@ -43,6 +43,13 @@ function startWorld(host, BASE) {
   // HDR pipeline: scene -> bloom -> ACES tone map + sRGB in a final pass. Falls back to
   // the renderer's own tone mapping if the post-processing scripts fail to load.
   const POST = !!(THREE.EffectComposer && THREE.UnrealBloomPass && THREE.ShaderPass);
+  const GRADES = {
+    // espresso -> rust -> signal orange -> peach -> warm white
+    ember: { mix: 0.82, stops: [[0.030, 0.016, 0.013], [0.290, 0.080, 0.045], [0.878, 0.392, 0.227], [0.960, 0.765, 0.627], [1.0, 0.972, 0.945]] },
+    // night indigo -> twilight -> mauve -> rose lilac -> peach
+    dusk: { mix: 0.72, stops: [[0.028, 0.030, 0.075], [0.150, 0.140, 0.300], [0.520, 0.440, 0.600], [0.860, 0.660, 0.760], [0.995, 0.800, 0.680]] },
+  };
+  const GRADE = GRADES[host.dataset.grade] || GRADES.ember;
   if (POST) {
     renderer.toneMapping = THREE.NoToneMapping;
     renderer.outputEncoding = THREE.LinearEncoding;
@@ -66,10 +73,11 @@ function startWorld(host, BASE) {
     bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.38, 0.22, 1.0);
     composer.addPass(bloom);
     composer.addPass(new THREE.ShaderPass({
-      uniforms: { tDiffuse: { value: null }, uExposure: { value: EXPOSURE }, uWarm: { value: 0.82 } },
+      uniforms: { tDiffuse: { value: null }, uExposure: { value: EXPOSURE }, uWarm: { value: GRADE.mix },
+        uRamp: { value: GRADE.stops.map(c => new THREE.Vector3(...c)) } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: `
-        uniform sampler2D tDiffuse; uniform float uExposure; uniform float uWarm; varying vec2 vUv;
+        uniform sampler2D tDiffuse; uniform float uExposure; uniform float uWarm; uniform vec3 uRamp[5]; varying vec2 vUv;
         vec3 fit(vec3 v) { vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
         vec3 aces(vec3 c) {
           const mat3 inM = mat3(0.59719, 0.07600, 0.02840, 0.35458, 0.90834, 0.13383, 0.04823, 0.01566, 0.83777);
@@ -78,12 +86,11 @@ function startWorld(host, BASE) {
           return clamp(c, 0.0, 1.0);
         }
         vec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
-        // ODP grade: luminance mapped through espresso -> rust -> signal orange -> peach -> warm white
         vec3 ramp(float l) {
-          vec3 c = mix(vec3(0.030, 0.016, 0.013), vec3(0.290, 0.080, 0.045), smoothstep(0.00, 0.22, l));
-          c = mix(c, vec3(0.878, 0.392, 0.227), smoothstep(0.18, 0.55, l));
-          c = mix(c, vec3(0.960, 0.765, 0.627), smoothstep(0.50, 0.82, l));
-          return mix(c, vec3(1.0, 0.972, 0.945), smoothstep(0.80, 1.00, l));
+          vec3 c = mix(uRamp[0], uRamp[1], smoothstep(0.00, 0.22, l));
+          c = mix(c, uRamp[2], smoothstep(0.18, 0.55, l));
+          c = mix(c, uRamp[3], smoothstep(0.50, 0.82, l));
+          return mix(c, uRamp[4], smoothstep(0.80, 1.00, l));
         }
         void main() {
           vec3 c = srgb(aces(texture2D(tDiffuse, vUv).rgb));
@@ -515,7 +522,7 @@ function startWorld(host, BASE) {
     views.planet = { pos: new THREE.Vector3(0, 120, 330), target: new THREE.Vector3() };
     views.loom = { dynamic: loomView };
     // Default: the horizon view chosen from the viewer (planet only, night side at lower left).
-    views.horizon = { pos: new THREE.Vector3(-243.5, -13.9, 138.7), target: new THREE.Vector3(0, 88, 9.23) };
+    views.horizon = { pos: new THREE.Vector3(-243.5, -13.9, 138.7), target: new THREE.Vector3(0, 88 + (+host.dataset.aim || 0), 9.23) };
     setView('horizon', true);
     resize();
     setupOrbit();
@@ -660,7 +667,8 @@ function startWorld(host, BASE) {
     const cam = camera.clone();
     cam.position.copy(views.horizon.pos); cam.lookAt(views.horizon.target);
     cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-    const dir = V(-0.12, 1 - 2 * 0.24, 0.5).unproject(cam).sub(cam.position).normalize();
+    const st = (host.dataset.station || '-0.12 0.52').split(/\s+/).map(Number);
+    const dir = V(st[0], st[1], 0.5).unproject(cam).sub(cam.position).normalize();
     const P = cam.position.clone().add(dir.multiplyScalar(95));
     orbit.r = P.length();
     orbit.u = P.clone().normalize();

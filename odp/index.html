@@ -440,6 +440,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 }
 .tab__menu a::after { content: "↗"; opacity: 0; transform: translate(-4px, 4px); transition: opacity 200ms var(--ease), transform 300ms var(--ease); }
 .tab__menu a:hover { background: var(--odp-ember); }
+.tab__menu a[aria-current="page"] { background: var(--tab-on-bg); color: var(--tab-on-fg); }
+.tab__menu a[aria-current="page"]::after { content: "●"; opacity: 1; transform: none; font-size: 0.5rem; }
+.menu__subs a[aria-current="page"] { background: var(--odp-bone); color: var(--odp-text-on-light); border-color: transparent; }
 .tab__menu a:hover::after { opacity: 1; transform: none; }
 .tab.is-open .tab__menu { pointer-events: auto; }
 .tab.is-open .tab__menu a { opacity: 1; transform: none; }
@@ -1297,7 +1300,13 @@ html.lenis, html.lenis body { height: auto; }
           <a href="/the-future/financial-technology" style="--i:6">Financial Technology</a>
         </div>
       </div>
-      <a class="tab__btn" href="/how-we-invest"><span>How We Invest</span></a>
+      <div class="tab" data-tab>
+        <button class="tab__btn" type="button" aria-expanded="false" aria-controls="m-variations"><span>Variations</span><span class="tab__ind" aria-hidden="true"></span></button>
+        <div class="tab__menu" id="m-variations">
+          <a href="index.html" style="--i:0" aria-current="page">Variation 1 · Ember</a>
+          <a href="variation-2.html" style="--i:1">Variation 2 · Dusk</a>
+        </div>
+      </div>
       <div class="tab" data-tab>
         <button class="tab__btn" type="button" aria-expanded="false" aria-controls="m-firm"><span>The Firm</span><span class="tab__ind" aria-hidden="true"></span></button>
         <div class="tab__menu" id="m-firm">
@@ -1334,7 +1343,13 @@ html.lenis, html.lenis body { height: auto; }
         <a href="/the-future/financial-technology">Financial Technology</a>
       </div>
     </li>
-    <li style="--i:1"><a href="/how-we-invest">How We Invest</a></li>
+    <li style="--i:1" class="menu__group">
+      <p>Variations</p>
+      <div class="menu__subs">
+        <a href="index.html" aria-current="page">Variation 1 · Ember</a>
+        <a href="variation-2.html">Variation 2 · Dusk</a>
+      </div>
+    </li>
     <li style="--i:2"><a href="/the-firm">The Firm</a></li>
     <li style="--i:3"><a href="/institutional-relationships">Institutional Relationships</a></li>
     <li style="--i:4"><a href="/insights">Insights</a></li>
@@ -2032,9 +2047,18 @@ html.lenis, html.lenis body { height: auto; }
   const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
   tabs.forEach(t => {
     const btn = t.querySelector('.tab__btn');
-    btn.addEventListener('click', () => openTab(t, !t.classList.contains('is-open')));
-    let timer;
-    t.addEventListener('pointerenter', () => { if (finePointer.matches) { clearTimeout(timer); openTab(t, true); } });
+    // a click right after hover opened the menu keeps it open (otherwise hover-then-click would shut it)
+    let timer, hoverOpened = 0;
+    btn.addEventListener('click', () => {
+      const open = t.classList.contains('is-open');
+      openTab(t, open && performance.now() - hoverOpened < 600 ? true : !open);
+    });
+    t.addEventListener('pointerenter', () => {
+      if (!finePointer.matches) return;
+      clearTimeout(timer);
+      if (!t.classList.contains('is-open')) hoverOpened = performance.now();
+      openTab(t, true);
+    });
     t.addEventListener('pointerleave', () => { if (finePointer.matches) timer = setTimeout(() => openTab(t, false), 160); });
     t.addEventListener('focusout', e => { if (!t.contains(e.relatedTarget)) openTab(t, false); });
   });
