@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://images.unsplash.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
 <script>document.documentElement.classList.add('js');</script>
 
 <style>
@@ -128,6 +129,19 @@
   --t-slow: 1400ms;
   --stagger: 80ms;
   --rise: 16px;
+
+  --tab-h: 2rem;               /* nav tabs: 32px */
+  --tab-r: 4px;
+  --tab-gap: 6px;
+  --tab-bg: rgba(255,255,255,0.13);
+  --tab-bg-hover: rgba(255,255,255,0.22);
+  --tab-fg: var(--odp-white);
+  --tab-on-bg: var(--odp-bone);
+  --tab-on-fg: var(--odp-text-on-light);
+  --tab-sub-bg: rgba(28,16,13,0.64);
+  --glass-blur: blur(20px) saturate(1.4);
+  --fs-hero: clamp(3rem, 2.1rem + 4vw, 6rem);   /* 48 → 96 */
+  --fs-fill: clamp(2rem, 1.2rem + 3.4vw, 4.5rem); /* 32 → 72 */
 
   --z-nav: 50;
   --z-menu: 60;
@@ -364,141 +378,247 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 [data-parallax] { transform: translate3d(0, var(--py, 0px), 0); will-change: transform; }
 
 /* =====================================================================
-   6. NAVIGATION
+   6. NAVIGATION — a row of frosted tabs, equal widths, menus as stacked pills
    ===================================================================== */
 .nav {
   position: fixed; inset: 0 0 auto 0; z-index: var(--z-nav);
-  height: var(--nav-h);
-  border-bottom: var(--hair) solid transparent;
-  transition: background-color 400ms var(--ease), border-color 400ms var(--ease), backdrop-filter 400ms var(--ease), transform 500ms var(--ease);
+  padding: var(--s-12) max(var(--s-12), env(safe-area-inset-right, 0px)) 0 max(var(--s-12), env(safe-area-inset-left, 0px));
+  pointer-events: none;
 }
-.nav.is-solid {
-  background: rgba(44,25,20,0.86);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
-  border-bottom-color: var(--odp-line-dark);
+.nav.on-light {
+  --tab-bg: rgba(42,22,18,0.07);
+  --tab-bg-hover: rgba(42,22,18,0.13);
+  --tab-fg: var(--odp-text-on-light);
+  --tab-on-bg: var(--odp-espresso);
+  --tab-on-fg: var(--odp-white);
 }
-.nav.is-hidden { transform: translateY(-100%); }
-.nav__inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--s-32); }
-.nav__brand { --mark-w: 2.25rem; --word-fs: 0.9375rem; }
-.nav__links { display: flex; align-items: center; gap: var(--s-32); }
-.nav__link {
-  position: relative; font-size: var(--fs-nav); color: var(--odp-text-on-dark-soft);
-  padding-block: var(--s-8); transition: color var(--t-fast) var(--ease);
+.nav__bar { display: flex; align-items: flex-start; gap: var(--tab-gap); pointer-events: auto; }
+.nav__logo {
+  flex: none; display: grid; place-items: center; height: var(--tab-h); padding-inline: var(--s-12);
+  background: var(--odp-ember); color: var(--odp-white); border-radius: var(--tab-r);
+  --mark-w: 2.125rem; --mark-color: var(--odp-white);
+  transition: background-color var(--t-fast) var(--ease);
 }
-.nav__link::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: var(--hair);
-  background: var(--odp-orange); transform: scaleX(0); transform-origin: right;
-  transition: transform var(--t-hover) var(--ease);
+.nav__logo:hover { background: var(--odp-orange); }
+.nav__tabs { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--tab-gap); }
+.tab { position: relative; min-width: 0; }
+.tab__btn {
+  width: 100%; height: var(--tab-h); display: flex; align-items: center; justify-content: space-between; gap: var(--s-8);
+  padding-inline: var(--s-12); border-radius: var(--tab-r);
+  background: var(--tab-bg); color: var(--tab-fg);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  font-size: 0.75rem; font-weight: var(--fw-medium); letter-spacing: 0; line-height: 1; text-align: left;
+  transition: background-color 250ms var(--ease), color 250ms var(--ease);
 }
-.nav__link:hover { color: var(--odp-white); }
-.nav__link:hover::after { transform: scaleX(1); transform-origin: left; }
-.nav__right { display: flex; align-items: center; gap: var(--s-24); }
-.nav__toggle { display: none; width: 2.75rem; height: 2.75rem; position: relative; margin-right: calc(-1 * var(--s-8)); }
-.nav__toggle span {
-  position: absolute; left: 0.6875rem; right: 0.6875rem; height: var(--hair); background: var(--odp-white);
-  transition: transform 400ms var(--ease), top 400ms var(--ease);
+.tab__btn > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab__btn:hover { background: var(--tab-bg-hover); }
+.tab.is-open > .tab__btn { background: var(--tab-on-bg); color: var(--tab-on-fg); }
+/* indicator: the mark's two offset squares, they swap corners when a menu opens */
+.tab__ind { position: relative; flex: none; width: 0.5rem; height: 0.5rem; }
+.tab__ind::before, .tab__ind::after {
+  content: ""; position: absolute; width: 3px; height: 3px; background: currentColor;
+  transition: transform 350ms var(--ease);
 }
-.nav__toggle span:first-child { top: 1.125rem; }
-.nav__toggle span:last-child { top: 1.5625rem; }
-.menu-open .nav__toggle span:first-child { top: 1.34rem; transform: rotate(45deg); }
-.menu-open .nav__toggle span:last-child { top: 1.34rem; transform: rotate(-45deg); }
+.tab__ind::before { left: 0; top: 0; }
+.tab__ind::after { right: 0; bottom: 0; }
+.tab.is-open .tab__ind::before { transform: translate(5px, 0); }
+.tab.is-open .tab__ind::after { transform: translate(-5px, 0); }
+.tab__menu {
+  position: absolute; top: calc(100% + var(--tab-gap)); left: 0; right: 0;
+  display: flex; flex-direction: column; gap: var(--tab-gap); pointer-events: none;
+}
+.tab__menu a {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-8);
+  min-height: var(--tab-h); padding: var(--s-8) var(--s-12); border-radius: var(--tab-r);
+  background: var(--tab-sub-bg); color: var(--odp-white);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  font-size: 0.75rem; font-weight: var(--fw-medium); line-height: 1.2;
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity 260ms var(--ease), transform 420ms var(--ease), background-color 200ms var(--ease);
+  transition-delay: calc(var(--i, 0) * 30ms);
+}
+.tab__menu a::after { content: "↗"; opacity: 0; transform: translate(-4px, 4px); transition: opacity 200ms var(--ease), transform 300ms var(--ease); }
+.tab__menu a:hover { background: var(--odp-ember); }
+.tab__menu a:hover::after { opacity: 1; transform: none; }
+.tab.is-open .tab__menu { pointer-events: auto; }
+.tab.is-open .tab__menu a { opacity: 1; transform: none; }
+.nav__cta {
+  flex: none; display: inline-flex; align-items: center; gap: var(--s-8); height: var(--tab-h); padding-inline: var(--s-16);
+  background: var(--odp-ember); color: var(--odp-white); border-radius: var(--tab-r);
+  font-size: 0.75rem; font-weight: var(--fw-semibold); letter-spacing: 0; white-space: nowrap;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.nav__cta:hover { background: var(--odp-orange); }
+.nav__menu-btn {
+  display: none; align-items: center; justify-content: space-between; gap: var(--s-12);
+  height: var(--tab-h); min-width: 6.5rem; padding-inline: var(--s-12); margin-left: auto;
+  border-radius: var(--tab-r); background: var(--tab-bg); color: var(--tab-fg);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  font-size: 0.75rem; font-weight: var(--fw-medium);
+}
+.menu-open .nav__menu-btn { background: var(--odp-bone); color: var(--odp-text-on-light); }
+.menu-open .nav__menu-btn .tab__ind::before { transform: translate(5px, 0); }
+.menu-open .nav__menu-btn .tab__ind::after { transform: translate(-5px, 0); }
 
 .menu {
-  position: fixed; inset: 0; z-index: var(--z-menu); display: flex; flex-direction: column;
-  background: var(--grad-hero);
-  padding: calc(var(--nav-h) + var(--s-32)) var(--gutter-x) var(--s-32);
-  visibility: hidden; opacity: 0; transition: opacity 500ms var(--ease), visibility 0s linear 500ms;
+  position: fixed; inset: 0; z-index: var(--z-menu); display: flex; flex-direction: column; gap: var(--s-8);
+  background: rgba(18,11,9,0.78);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3); backdrop-filter: blur(28px) saturate(1.3);
+  padding: calc(var(--tab-h) + var(--s-24) + env(safe-area-inset-top, 0px)) max(var(--s-12), env(safe-area-inset-right, 0px)) calc(var(--s-12) + env(safe-area-inset-bottom, 0px)) max(var(--s-12), env(safe-area-inset-left, 0px));
+  overflow-y: auto;
+  visibility: hidden; opacity: 0; transition: opacity 400ms var(--ease), visibility 0s linear 400ms;
 }
-.menu-open .menu { visibility: visible; opacity: 1; transition: opacity 500ms var(--ease); }
-.menu-open .nav { z-index: calc(var(--z-menu) + 1); background: transparent; border-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
-.menu__list { display: flex; flex-direction: column; border-top: var(--hair) solid var(--odp-line-dark); }
-.menu__list a {
-  display: flex; justify-content: space-between; align-items: center;
-  padding-block: var(--s-16); border-bottom: var(--hair) solid var(--odp-line-dark);
-  font-size: var(--fs-h2); font-weight: var(--fw-light); letter-spacing: var(--tr-h2); line-height: var(--lh-h2);
+.menu-open .menu { visibility: visible; opacity: 1; transition: opacity 400ms var(--ease); }
+.menu-open .nav { z-index: calc(var(--z-menu) + 1); }
+.menu__list { display: flex; flex-direction: column; gap: var(--tab-gap); }
+.menu__list > li > a, .menu__group > p {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--s-12);
+  padding: var(--s-16); border-radius: var(--tab-r); background: rgba(255,255,255,0.08);
+  font-size: var(--fs-h3); font-weight: var(--fw-light); letter-spacing: var(--tr-h3); line-height: var(--lh-h3);
+}
+.menu__group { display: flex; flex-direction: column; gap: var(--tab-gap); }
+.menu__subs { display: flex; flex-wrap: wrap; gap: var(--tab-gap); }
+.menu__subs a { padding: var(--s-8) var(--s-12); border-radius: var(--tab-r); background: rgba(255,255,255,0.06); border: var(--hair) solid var(--odp-line-dark); font-size: var(--fs-small); color: var(--odp-text-on-dark-soft); }
+.menu__list > li {
   opacity: 0; transform: translateY(var(--rise));
-  transition: opacity 600ms var(--ease), transform 600ms var(--ease);
-  transition-delay: calc(var(--i, 0) * 60ms + 120ms);
+  transition: opacity 500ms var(--ease), transform 600ms var(--ease);
+  transition-delay: calc(var(--i, 0) * 50ms + 80ms);
 }
-.menu-open .menu__list a { opacity: 1; transform: none; }
-.menu__foot { margin-top: auto; padding-top: var(--s-32); }
-.menu__foot .btn { width: 100%; justify-content: center; padding-block: var(--s-16); }
+.menu-open .menu__list > li { opacity: 1; transform: none; }
+.menu__foot { margin-top: auto; padding-top: var(--s-24); }
+.menu__foot .btn { width: 100%; justify-content: center; padding-block: var(--s-16); border-radius: var(--tab-r); }
 
 @media (max-width: 1080px) {
-  .nav__links, .nav__right .btn { display: none; }
-  .nav__toggle { display: block; }
+  .nav__tabs { display: none; }
+  .nav__menu-btn { display: inline-flex; }
 }
+@media (max-width: 520px) { .nav__cta { display: none; } }
 @media (min-width: 1081px) { .menu { display: none; } }
 
 /* =====================================================================
-   7. HERO
+   7. HERO — full-screen film, held in place while the statement slides over it
    ===================================================================== */
+.hero-wrap { position: relative; }
 .hero {
-  position: relative; min-height: 100vh; min-height: 100svh;
-  display: flex; padding: calc(var(--nav-h) + var(--s-16)) 0 var(--s-48);
-  background: var(--odp-espresso); overflow: hidden;
+  position: sticky; top: 0; height: 100vh; height: 100svh; min-height: 34rem;
+  overflow: hidden; background: var(--odp-ink); isolation: isolate;
 }
-.hero__glow {
-  position: absolute; inset: -20%; background: var(--grad-hero);
-  background-size: 140% 140%;
+.hero__media {
+  position: absolute; inset: 0;
+  transform: scale(calc(1 + var(--hp, 0) * 0.08)); transform-origin: 50% 40%;
 }
-.js .hero__glow { animation: glow-drift 26s var(--ease-io) infinite alternate; }
-@keyframes glow-drift {
-  0%   { background-position: 0% 0%;   transform: translate3d(-2%, 0, 0) scale(1); }
-  50%  { background-position: 60% 20%; transform: translate3d(3%, 2%, 0) scale(1.04); }
-  100% { background-position: 100% 0%; transform: translate3d(0, -1%, 0) scale(1.02); }
+.hero__video, .hero__poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; }
+.hero__tint { position: absolute; inset: 0; background: var(--odp-rust-glow); mix-blend-mode: soft-light; opacity: 0.45; }
+.hero__shade {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(0deg, rgba(18,11,9,0.94) 0%, rgba(18,11,9,0.6) 30%, rgba(18,11,9,0) 62%),
+    linear-gradient(90deg, rgba(44,25,20,0.7) 0%, rgba(44,25,20,0) 58%),
+    linear-gradient(180deg, rgba(18,11,9,0.55) 0%, rgba(18,11,9,0) 18%);
 }
-.hero__stage { position: relative; z-index: 2; display: flex; width: 100%; }
-.hero__grid { flex: 1; align-items: stretch; row-gap: var(--s-48); }
-.hero__copy {
-  grid-column: 1 / span 7; display: flex; flex-direction: column; justify-content: space-between;
-  padding-top: clamp(var(--s-32), 8vh, var(--s-96)); gap: var(--s-64);
+.hero__dim { position: absolute; inset: 0; background: var(--odp-ink); opacity: calc(var(--hp, 0) * 0.7); pointer-events: none; }
+.hero__content {
+  position: relative; z-index: 2; height: 100%;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--s-48);
+  padding-bottom: clamp(var(--s-48), 9vh, var(--s-96));
+  transform: translate3d(0, calc(var(--hp, 0) * -6vh), 0); opacity: calc(1 - var(--hp, 0) * 1.4);
 }
-.hero__title { max-width: 11.5em; }
-.hero__foot { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-32); }
-.hero__lead { max-width: 30rem; color: var(--odp-text-on-dark-soft); }
-.hero__media { grid-column: 8 / span 5; display: flex; flex-direction: column; gap: var(--s-12); padding-top: clamp(var(--s-32), 8vh, var(--s-96)); }
-.frame {
-  position: relative; flex: 1; min-height: 22rem;
-  border: var(--hair) solid var(--odp-line-dark); padding: var(--s-12);
+.hero__eyebrow { display: flex; align-items: center; gap: var(--s-8); margin-bottom: var(--s-24); color: var(--odp-text-on-dark-soft); }
+.hero__eyebrow .squares { color: var(--odp-orange); }
+.hero__title {
+  font-size: var(--fs-hero); font-weight: var(--fw-light); line-height: 0.98; letter-spacing: -0.045em;
+  max-width: 11em; text-wrap: balance;
 }
-.frame__inner { position: relative; height: 100%; overflow: hidden; }
-.frame__inner img {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  filter: grayscale(0.7) sepia(0.35) saturate(1.3) brightness(0.9) contrast(1.08);
+.hero__row { display: flex; align-items: flex-end; gap: var(--s-48); margin-top: var(--s-48); flex-wrap: wrap; }
+.hero__lead { max-width: 28rem; color: var(--odp-text-on-dark-soft); }
+.hero__actions { display: flex; gap: var(--s-12); flex-wrap: wrap; }
+.hero__card {
+  position: relative; display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: var(--s-16);
+  width: 21rem; padding: var(--s-8); border-radius: var(--tab-r);
+  background: rgba(255,255,255,0.1); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: var(--hair) solid rgba(255,255,255,0.12);
+  transition: background-color 300ms var(--ease), transform 500ms var(--ease);
 }
-.js .frame__inner img { animation: slow-zoom 30s linear infinite alternate; }
-@keyframes slow-zoom { from { transform: scale(1.04) translate3d(0,0,0); } to { transform: scale(1.16) translate3d(-2%, 1%, 0); } }
-.frame__inner::after {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(ellipse 80% 60% at 75% 30%, rgba(224,100,58,0.28), transparent 60%), linear-gradient(0deg, rgba(44,25,20,0.65), transparent 50%);
+.hero__card:hover { background: rgba(255,255,255,0.16); transform: translateY(-3px); }
+.hero__card-img { aspect-ratio: 1; overflow: hidden; border-radius: 2px; }
+.hero__card-img img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(0.6) sepia(0.35) brightness(0.85); transition: transform 1.2s var(--ease); }
+.hero__card:hover .hero__card-img img { transform: scale(1.08); }
+.hero__card-body { display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-4) var(--s-32) var(--s-4) 0; }
+.hero__card-kicker { display: flex; align-items: center; gap: var(--s-8); color: var(--odp-amber); }
+.hero__card-kicker::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+.hero__card-title { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--odp-white); }
+.hero__card .arrow-circle { position: absolute; right: var(--s-12); bottom: var(--s-12); }
+.hero__foot {
+  position: absolute; z-index: 3; left: 0; right: 0; bottom: var(--s-16);
+  display: flex; justify-content: space-between; align-items: center; pointer-events: none;
+  opacity: calc(1 - var(--hp, 0) * 2);
 }
-.frame__caption {
-  position: absolute; left: var(--s-24); bottom: var(--s-24); z-index: 2;
-  display: flex; align-items: center; gap: var(--s-8); color: var(--odp-text-on-dark-soft);
+.hero__foot > * { pointer-events: auto; }
+.hero__scrollcue { display: inline-flex; align-items: center; gap: var(--s-12); color: var(--odp-text-on-dark-muted); }
+.hero__scrollcue i { position: relative; display: block; width: 3rem; height: var(--hair); background: var(--odp-line-dark); overflow: hidden; }
+.hero__scrollcue i::after { content: ""; position: absolute; inset: 0; background: var(--odp-orange); transform: translateX(-100%); animation: cue 2.4s var(--ease-io) infinite; }
+@keyframes cue { 60%, 100% { transform: translateX(100%); } }
+.film-toggle {
+  display: inline-flex; align-items: center; gap: var(--s-8); height: 1.75rem; padding-inline: var(--s-12);
+  border-radius: var(--tab-r); background: rgba(255,255,255,0.1); color: var(--odp-text-on-dark-soft);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  font-size: var(--fs-micro); font-weight: var(--fw-medium); letter-spacing: var(--tr-micro);
 }
-.frame__caption .squares { color: var(--odp-orange); }
-.frame__corner { position: absolute; width: 0.5rem; height: 0.5rem; background: var(--odp-orange); }
-.frame__corner--tl { top: -0.25rem; left: -0.25rem; }
-.frame__corner--br { bottom: -0.25rem; right: -0.25rem; }
-.hero__thumbs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-12); }
-.hero__scroll {
-  position: absolute; left: 50%; bottom: var(--s-16); z-index: 3; translate: -50% 0;
-  width: var(--hair); height: var(--s-48); background: var(--odp-line-dark); overflow: hidden;
+.film-toggle:hover { background: rgba(255,255,255,0.18); color: var(--odp-white); }
+.film-toggle__icon { display: inline-flex; gap: 2px; }
+.film-toggle__icon::before, .film-toggle__icon::after { content: ""; width: 2px; height: 8px; background: currentColor; }
+.film-toggle[aria-pressed="true"] .film-toggle__icon::after { display: none; }
+.film-toggle[aria-pressed="true"] .film-toggle__icon::before { width: 0; height: 0; background: none; border-left: 7px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+
+/* entrance, after the loader lifts */
+.js .hero__title, .js .hero__eyebrow, .js .hero__row, .js .hero__card, .js .hero__foot > * {
+  opacity: 0; transform: translate3d(0, 28px, 0); filter: blur(10px);
+  transition: opacity 1.2s var(--ease), transform 1.4s var(--ease), filter 1.2s var(--ease);
 }
-.hero__scroll::after {
-  content: ""; position: absolute; left: 0; top: -40%; width: 100%; height: 40%; background: var(--odp-orange);
-  animation: scroll-cue 2.4s var(--ease-io) infinite;
+.js .is-loaded .hero__eyebrow { transition-delay: 0.15s; }
+.js .is-loaded .hero__title { transition-delay: 0.25s; }
+.js .is-loaded .hero__row { transition-delay: 0.55s; }
+.js .is-loaded .hero__card { transition-delay: 0.75s; }
+.js .is-loaded .hero__foot > * { transition-delay: 0.95s; }
+.js .is-loaded .hero__title, .js .is-loaded .hero__eyebrow, .js .is-loaded .hero__row, .js .is-loaded .hero__card, .js .is-loaded .hero__foot > * {
+  opacity: 1; transform: none; filter: none;
 }
-@keyframes scroll-cue { to { top: 100%; } }
+.js .hero__media { opacity: 0; transition: opacity 1.6s var(--ease); }
+.js .is-loaded .hero__media { opacity: 1; }
+.js .fade-text { animation: none; --fade: 0%; transition: --fade 2.6s var(--ease) 0.6s; }
+.js .is-loaded .fade-text { --fade: 45%; }
 
 @media (max-width: 1080px) {
-  .hero__copy { grid-column: 1 / -1; gap: var(--s-48); }
-  .hero__media { grid-column: 1 / -1; padding-top: 0; }
-  .frame { min-height: 0; aspect-ratio: 16 / 10; flex: none; }
-  .hero__scroll { display: none; }
+  .hero__content { grid-template-columns: minmax(0, 1fr); }
+  .hero__card { width: min(100%, 22rem); }
 }
-@media (max-width: 520px) { .hero__thumbs { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .hero__video, .hero__poster { object-position: 50% 40%; }
+  .hero__row { margin-top: var(--s-32); gap: var(--s-24); }
+  .hero__card { display: none; }
+  .hero__content { padding-bottom: calc(var(--s-64) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* =====================================================================
+   7b. STATEMENT — an orange panel that slides over the film
+   ===================================================================== */
+.statement {
+  position: relative; z-index: 2; min-height: 100vh; min-height: 100svh;
+  display: flex; background: var(--grad-bloom); color: var(--odp-white);
+}
+.statement__inner { display: flex; flex-direction: column; justify-content: space-between; gap: var(--s-96); padding-block: var(--s-128) var(--s-64); }
+.statement__top { display: flex; justify-content: space-between; align-items: center; color: rgba(255,255,255,0.8); }
+.statement__top .mark { --mark-w: 2.75rem; --mark-color: var(--odp-white); }
+.statement__text {
+  font-size: var(--fs-fill); font-weight: var(--fw-light); line-height: 1.04; letter-spacing: -0.04em;
+  max-width: 15em; text-wrap: balance;
+}
+.statement__text .fw { color: rgba(255,255,255,0.3); transition: color 500ms var(--ease); }
+.statement__text .fw.is-lit { color: var(--odp-white); }
+.statement__foot { align-items: end; row-gap: var(--s-32); }
+.statement__foot p { grid-column: 1 / span 5; color: var(--odp-text-on-light); }
+.statement__foot .link-arrow { grid-column: 10 / span 3; justify-self: end; color: var(--odp-text-on-light); }
+@media (max-width: 760px) { .statement__foot .link-arrow { justify-self: start; } .statement__inner { gap: var(--s-64); padding-top: var(--s-96); } }
 
 /* =====================================================================
    8. THE DESCENT — one line per panel, pinned while the page scrolls
@@ -606,15 +726,10 @@ html:not(.js) .descent__hud { display: none; }
 }
 .perspective__copy .accent { color: var(--odp-orange); }
 .perspective__photo { height: 100%; }
-.perspective__text { margin-top: var(--s-128); align-items: end; row-gap: var(--s-48); }
-.perspective__text > p { grid-column: 1 / span 5; color: var(--odp-text-on-light-muted); }
-.perspective__claim { grid-column: 7 / span 6; display: flex; flex-direction: column; gap: var(--s-32); align-items: flex-start; }
 @media (max-width: 760px) {
   .perspective__panel { grid-template-columns: 1fr; aspect-ratio: auto; }
   .perspective__brand { aspect-ratio: 1 / 1; }
   .perspective__photo { aspect-ratio: 4 / 5; }
-  .perspective__text { margin-top: var(--s-64); }
-  .perspective__text > p, .perspective__claim { grid-column: 1 / -1; }
 }
 
 /* =====================================================================
@@ -821,7 +936,7 @@ html:not(.js) .descent__hud { display: none; }
 .about__pair > div + div { padding-left: var(--s-32); border-left: var(--hair) solid var(--odp-line-light); }
 .about__pair .t-micro { color: var(--odp-text-on-light-muted); min-width: 3rem; }
 .about__orbit {
-  position: absolute; right: -12%; top: 50%; width: min(70vw, 62rem); translate: 0 -50%;
+  position: absolute; right: -22%; top: 74%; width: min(70vw, 62rem); translate: 0 -50%;
   color: var(--odp-orange); pointer-events: none; z-index: 1;
 }
 .about__orbit .orbit-path { fill: none; stroke: currentColor; stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 1; stroke-dashoffset: var(--draw, 0); }
@@ -863,21 +978,36 @@ html:not(.js) .descent__hud { display: none; }
 @media (max-width: 420px) { .team__grid { gap: var(--s-12); } .person__info { flex-direction: column; align-items: flex-start; gap: var(--s-4); } }
 
 /* =====================================================================
-   14. BRAND MOMENT
+   14. BRAND MOMENT — the photograph opens from a framed window to full bleed
    ===================================================================== */
-.moment { position: relative; min-height: 80vh; min-height: 80svh; display: grid; overflow: hidden; background: var(--odp-ink); }
-.moment__photo { position: absolute; inset: -12% 0; }
-.moment__photo img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.15) brightness(0.72); }
+.moment { position: relative; height: 220vh; height: 220svh; background: var(--odp-ink); }
+.moment__sticky { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; display: grid; }
+.moment__photo {
+  position: absolute; inset: 0;
+  clip-path: inset(calc(var(--m, 1) * 18%) calc(var(--m, 1) * 26%));
+}
+.moment__photo img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.15) brightness(0.72); transform: scale(calc(1 + var(--m, 1) * 0.18)); }
 .moment__photo::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(90deg, rgba(18,11,9,0.6), rgba(18,11,9,0.15) 50%, rgba(18,11,9,0.55)), linear-gradient(0deg, rgba(44,25,20,0.7), transparent 40%);
 }
+.moment__caption {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 1; width: max-content; max-width: 90vw;
+  text-align: center; color: var(--odp-text-on-dark-muted); opacity: calc(var(--m, 1) * 1.6 - 0.6);
+}
 .moment__inner { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--s-32); }
 .moment .mark { --mark-w: clamp(4.5rem, 8vw, 7rem); --mark-color: var(--odp-white); }
 .moment__word { font-size: var(--fs-h1); font-weight: var(--fw-regular); letter-spacing: var(--tr-h1); line-height: var(--lh-h1); text-align: right; }
-.js .moment .mark { transform: translateX(calc(var(--mx, 0) * -1px)); }
-.js .moment__word { transform: translateX(calc(var(--mx, 0) * 1px)); }
-@media (max-width: 640px) { .moment__inner { flex-direction: column; align-items: flex-start; justify-content: flex-end; padding-bottom: var(--s-64); } .moment__word { text-align: left; } }
+.moment .mark, .moment__word {
+  opacity: calc(1 - var(--m, 1) * 2.2);
+  transition: none;
+}
+.moment .mark { transform: translateX(calc(var(--m, 1) * -12vw)); }
+.moment__word { transform: translateX(calc(var(--m, 1) * 12vw)); }
+@media (max-width: 640px) {
+  .moment__inner { flex-direction: column; align-items: flex-start; justify-content: flex-end; padding-bottom: var(--s-64); }
+  .moment__word { text-align: left; }
+}
 
 /* =====================================================================
    15. EVIDENCE — light streaks
@@ -1038,6 +1168,47 @@ html:not(.js) .descent__hud { display: none; }
 }
 
 /* =====================================================================
+   18b. PINNED SECTORS — on wide screens the card row moves sideways as you scroll
+   ===================================================================== */
+.future.is-pinned { padding-block: 0; }
+.future.is-pinned .future__pin { height: var(--pin-h, 300vh); }
+.future.is-pinned .future__sticky {
+  position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; padding-top: calc(var(--tab-h) + var(--s-32));
+}
+.future.is-pinned .future__head { margin-bottom: var(--s-48); }
+.future.is-pinned .scroller {
+  overflow: visible; scroll-snap-type: none; cursor: auto;
+  transform: translate3d(var(--sx, 0px), 0, 0); will-change: transform;
+}
+.future.is-pinned .card { width: min(21.25rem, calc((100svh - 21rem) * 0.6)); }
+.future.is-pinned .future__arrows { display: none; }
+.future.is-pinned .track { margin-top: var(--s-32); }
+
+/* =====================================================================
+   18c. LOADER — the mark, a line of light, then the curtain lifts
+   ===================================================================== */
+.loader {
+  position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+  background: var(--odp-ink); color: var(--odp-white);
+  transition: clip-path 1.1s var(--ease-io), visibility 0s linear 1.1s;
+  clip-path: inset(0 0 0 0);
+}
+.loader__inner { display: flex; flex-direction: column; align-items: center; gap: var(--s-24); }
+.loader .mark { --mark-w: 4rem; animation: loader-mark 1.4s var(--ease) both; }
+.loader__bar { position: relative; width: 9rem; height: var(--hair); background: var(--odp-line-dark); overflow: hidden; }
+.loader__bar::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--odp-amber), var(--odp-white)); transform: scaleX(var(--lp, 0)); transform-origin: left; transition: transform 400ms var(--ease); }
+@keyframes loader-mark { from { opacity: 0; transform: scale(0.9); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+.is-loaded .loader { clip-path: inset(0 0 100% 0); visibility: hidden; }
+html:not(.js) .loader { display: none; }
+
+/* Lenis smooth scroll */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+/* =====================================================================
    19. SECTION-LEVEL RESPONSIVE GRID FALLBACKS
    ===================================================================== */
 @media (max-width: 760px) {
@@ -1055,7 +1226,15 @@ html:not(.js) .descent__hud { display: none; }
   .js .descent__panel .w > span, .js .descent__panel .descent__num, .js .descent__intro .t-body-lg { transform: none !important; }
   .descent__bg, .descent__bg img { transform: none !important; }
   .streak { display: none; }
-  .fade-text { --fade: 45%; }
+  .fade-text { --fade: 45% !important; }
+  .js .hero__title, .js .hero__eyebrow, .js .hero__row, .js .hero__card, .js .hero__foot > *, .js .hero__media { opacity: 1 !important; transform: none !important; filter: none !important; }
+  .hero__media, .hero__content { transform: none !important; }
+  .loader { display: none; }
+  .moment { height: auto; }
+  .moment__sticky { position: relative; height: 80vh; }
+  .moment__photo { clip-path: none !important; }
+  .moment .mark, .moment__word { opacity: 1 !important; transform: none !important; }
+  .moment__caption { display: none; }
 }
 </style>
 </head>
@@ -1084,89 +1263,130 @@ html:not(.js) .descent__hud { display: none; }
   </defs>
 </svg>
 
+<!-- ================= LOADER ================= -->
+<div class="loader" aria-hidden="true">
+  <div class="loader__inner"><svg class="mark" viewBox="0 0 120 76" aria-hidden="true"><use href="#odp-mark"/></svg><span class="loader__bar"></span></div>
+</div>
+
 <!-- ================= NAVIGATION ================= -->
 <header class="nav" id="nav">
-  <div class="container nav__inner">
-    <a class="lockup nav__brand" href="/" aria-label="Open Doors Partners — home">
-      <svg class="mark" viewBox="0 0 120 76" aria-hidden="true"><use href="#odp-mark"/></svg>
-      <span class="lockup__word" aria-hidden="true"><span>Open Doors</span><span>Partners</span></span>
-    </a>
-    <nav class="nav__links" aria-label="Primary">
-      <a class="nav__link" href="/the-future">The Future</a>
-      <a class="nav__link" href="/how-we-invest">How We Invest</a>
-      <a class="nav__link" href="/the-firm">The Firm</a>
-      <a class="nav__link" href="/institutional-relationships">Institutional Relationships</a>
-      <a class="nav__link" href="/insights">Insights</a>
+  <div class="nav__bar">
+    <a class="nav__logo" href="/" aria-label="Open Doors Partners — home"><svg class="mark" viewBox="0 0 120 76" aria-hidden="true"><use href="#odp-mark"/></svg></a>
+    <nav class="nav__tabs" aria-label="Primary">
+      <div class="tab" data-tab>
+        <button class="tab__btn" type="button" aria-expanded="false" aria-controls="m-future"><span>The Future</span><span class="tab__ind" aria-hidden="true"></span></button>
+        <div class="tab__menu" id="m-future">
+          <a href="/the-future" style="--i:0">Overview</a>
+          <a href="/the-future/artificial-intelligence" style="--i:1">Artificial Intelligence</a>
+          <a href="/the-future/physical-ai-and-compute-infrastructure" style="--i:2">Physical AI and Compute</a>
+          <a href="/the-future/aerospace" style="--i:3">Aerospace</a>
+          <a href="/the-future/defense" style="--i:4">Defense</a>
+          <a href="/the-future/next-generation-energy" style="--i:5">Next-Generation Energy</a>
+          <a href="/the-future/financial-technology" style="--i:6">Financial Technology</a>
+        </div>
+      </div>
+      <a class="tab__btn" href="/how-we-invest"><span>How We Invest</span></a>
+      <div class="tab" data-tab>
+        <button class="tab__btn" type="button" aria-expanded="false" aria-controls="m-firm"><span>The Firm</span><span class="tab__ind" aria-hidden="true"></span></button>
+        <div class="tab__menu" id="m-firm">
+          <a href="/the-firm" style="--i:0">Overview</a>
+          <a href="/institutional-relationships" style="--i:1">Institutional Relationships</a>
+          <a href="/the-firm#partners" style="--i:2">Partners</a>
+        </div>
+      </div>
+      <a class="tab__btn" href="/institutional-relationships"><span>Institutional Relationships</span></a>
+      <div class="tab" data-tab>
+        <button class="tab__btn" type="button" aria-expanded="false" aria-controls="m-insights"><span>Insights</span><span class="tab__ind" aria-hidden="true"></span></button>
+        <div class="tab__menu" id="m-insights">
+          <a href="/insights/blog" style="--i:0">Blog</a>
+          <a href="/insights/news" style="--i:1">News</a>
+        </div>
+      </div>
     </nav>
-    <div class="nav__right">
-      <a class="btn" href="/institutional-relationships#express-interest">Express Interest</a>
-      <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu"><span></span><span></span></button>
-    </div>
+    <button class="nav__menu-btn" type="button" aria-expanded="false" aria-controls="menu"><span>Menu</span><span class="tab__ind" aria-hidden="true"></span></button>
+    <a class="nav__cta" href="/institutional-relationships#express-interest">Express Interest</a>
   </div>
 </header>
 
-<div class="menu" id="menu" aria-label="Menu">
+<div class="menu" id="menu" aria-label="Menu" data-lenis-prevent>
   <ul class="menu__list">
-    <li><a href="/the-future" style="--i:0">The Future</a></li>
-    <li><a href="/how-we-invest" style="--i:1">How We Invest</a></li>
-    <li><a href="/the-firm" style="--i:2">The Firm</a></li>
-    <li><a href="/institutional-relationships" style="--i:3">Institutional Relationships</a></li>
-    <li><a href="/insights" style="--i:4">Insights</a></li>
-    <li><a href="/contact" style="--i:5">Contact</a></li>
+    <li style="--i:0" class="menu__group">
+      <p>The Future</p>
+      <div class="menu__subs">
+        <a href="/the-future">Overview</a>
+        <a href="/the-future/artificial-intelligence">Artificial Intelligence</a>
+        <a href="/the-future/physical-ai-and-compute-infrastructure">Physical AI and Compute</a>
+        <a href="/the-future/aerospace">Aerospace</a>
+        <a href="/the-future/defense">Defense</a>
+        <a href="/the-future/next-generation-energy">Next-Generation Energy</a>
+        <a href="/the-future/financial-technology">Financial Technology</a>
+      </div>
+    </li>
+    <li style="--i:1"><a href="/how-we-invest">How We Invest</a></li>
+    <li style="--i:2"><a href="/the-firm">The Firm</a></li>
+    <li style="--i:3"><a href="/institutional-relationships">Institutional Relationships</a></li>
+    <li style="--i:4"><a href="/insights">Insights</a></li>
+    <li style="--i:5"><a href="/contact">Contact</a></li>
   </ul>
   <div class="menu__foot"><a class="btn" href="/institutional-relationships#express-interest">Express Interest</a></div>
 </div>
 
 <main id="main">
 
-<!-- ================= 1. HERO ================= -->
-<section class="hero" aria-labelledby="hero-title">
-  <div class="hero__glow grain" aria-hidden="true"></div>
-  <div class="container hero__stage">
-    <div class="grid12 hero__grid">
-      <div class="hero__copy">
-        <div>
-          <span class="rule" data-reveal="line" style="--rule-w:13.75rem"></span>
-          <h1 class="t-display hero__title" id="hero-title" data-reveal style="--i:1"><span class="fade-text">Backing the Foundations of the Future</span></h1>
-        </div>
-        <div class="hero__foot">
-          <p class="t-body-lg hero__lead" data-reveal style="--i:4">A private investment firm focused on the technologies and infrastructure shaping the foundations of the next economy.</p>
-          <a class="btn" href="/institutional-relationships#express-interest" data-reveal style="--i:5">Express Interest <svg class="btn__arrow" width="10" height="10" aria-hidden="true"><use href="#i-arrow-ur"/></svg></a>
-        </div>
-      </div>
-
-      <div class="hero__media">
-        <div class="frame" data-reveal="wipe" style="--i:2">
-          <span class="frame__corner frame__corner--tl" aria-hidden="true"></span>
-          <span class="frame__corner frame__corner--br" aria-hidden="true"></span>
-          <div class="frame__inner">
-            <!-- PLACEHOLDER (replace): Earth's limb from orbit at night — vast, unpeopled, slow. Can be swapped for a slow looping video. -->
-            <img src="https://images.unsplash.com/photo-1534996858221-380b92700493?auto=format&fit=crop&w=1400&q=75"
-                 srcset="https://images.unsplash.com/photo-1534996858221-380b92700493?auto=format&fit=crop&w=800&q=75 800w, https://images.unsplash.com/photo-1534996858221-380b92700493?auto=format&fit=crop&w=1400&q=75 1400w"
-                 sizes="(max-width: 1080px) 100vw, 40vw" width="1400" height="1000"
-                 alt="The curve of the Earth seen from orbit, a thin line of light at the horizon against black space." fetchpriority="high">
-          </div>
-          <p class="frame__caption t-micro"><span class="squares" aria-hidden="true"></span>Private investment, deep technology</p>
-        </div>
-        <div class="hero__thumbs">
-          <a class="thumb-card has-arrow" href="/the-future" data-reveal style="--i:4">
-            <!-- PLACEHOLDER (replace) -->
-            <span class="thumb-card__img photo"><img src="https://images.unsplash.com/photo-1454789548928-9efd52dc4031?auto=format&fit=crop&w=240&h=240&q=70" width="120" height="120" alt="An astronaut drifting above the Earth's horizon." loading="lazy"></span>
-            <span class="thumb-card__body"><span class="thumb-card__title">The Future</span><span class="thumb-card__meta">Six questions shaping the next economy</span></span>
-            <span class="arrow-circle" aria-hidden="true"><svg><use href="#i-arrow-ur"/></svg></span>
-          </a>
-          <a class="thumb-card has-arrow" href="/how-we-invest" data-reveal style="--i:5">
-            <!-- PLACEHOLDER (replace) -->
-            <span class="thumb-card__img photo"><img src="https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=240&h=240&q=70" width="120" height="120" alt="A dark trading screen with price charts." loading="lazy"></span>
-            <span class="thumb-card__body"><span class="thumb-card__title">How We Invest</span><span class="thumb-card__meta">Evidence before the narrative</span></span>
-            <span class="arrow-circle" aria-hidden="true"><svg><use href="#i-arrow-ur"/></svg></span>
-          </a>
+<div class="hero-wrap">
+<!-- ================= 1. HERO (full-screen film) ================= -->
+<section class="hero" aria-labelledby="hero-title" data-hero>
+  <div class="hero__media" aria-hidden="true">
+    <!-- Hero film: rendered for ODP (media/hero.*), a 24 s seamless loop. Poster = first frame. -->
+    <video class="hero__video" autoplay muted loop playsinline preload="auto" poster="media/hero-poster.jpg">
+      <source src="media/hero-720.mp4" type="video/mp4" media="(max-width: 760px)">
+      <source src="media/hero.webm" type="video/webm">
+      <source src="media/hero.mp4" type="video/mp4">
+    </video>
+    <div class="hero__tint"></div>
+    <div class="hero__shade"></div>
+    <div class="hero__dim"></div>
+  </div>
+  <div class="container hero__content">
+    <div class="hero__copy">
+      <p class="hero__eyebrow t-micro"><span class="squares" aria-hidden="true"></span>Private investment in deep technology</p>
+      <h1 class="hero__title" id="hero-title"><span class="fade-text">Backing the Foundations of the Future</span></h1>
+      <div class="hero__row">
+        <p class="t-body-lg hero__lead">A private investment firm focused on the technologies and infrastructure shaping the foundations of the next economy.</p>
+        <div class="hero__actions">
+          <a class="btn" href="/institutional-relationships#express-interest">Express Interest <svg class="btn__arrow" width="10" height="10" aria-hidden="true"><use href="#i-arrow-ur"/></svg></a>
+          <a class="btn btn--ghost" href="#the-future">Explore The Future</a>
         </div>
       </div>
     </div>
+    <a class="hero__card has-arrow" href="/how-we-invest">
+      <!-- PLACEHOLDER (replace) -->
+      <span class="hero__card-img"><img src="https://images.unsplash.com/photo-1454789548928-9efd52dc4031?auto=format&fit=crop&w=240&h=240&q=70" width="120" height="120" alt="An astronaut drifting above the Earth's horizon."></span>
+      <span class="hero__card-body">
+        <span class="hero__card-kicker t-micro">How We Invest</span>
+        <span class="hero__card-title">We map where the evidence is pointing, before the narrative catches up.</span>
+      </span>
+      <span class="arrow-circle" aria-hidden="true"><svg><use href="#i-arrow-ur"/></svg></span>
+    </a>
   </div>
-  <span class="hero__scroll" aria-hidden="true"></span>
+  <div class="container hero__foot">
+    <span class="hero__scrollcue t-micro" aria-hidden="true"><i></i>Scroll</span>
+    <button class="film-toggle" type="button" aria-pressed="false" data-film-toggle><span class="film-toggle__icon" aria-hidden="true"></span><span data-film-label>Pause film</span></button>
+  </div>
 </section>
+
+<!-- ================= 1b. STATEMENT (slides over the film) ================= -->
+<section class="statement grain" aria-labelledby="statement-title">
+  <div class="container statement__inner">
+    <div class="statement__top t-micro"><span>Our view</span><svg class="mark" viewBox="0 0 120 76" aria-hidden="true"><use href="#odp-mark"/></svg></div>
+    <h2 class="statement__text" id="statement-title" data-fill>Open Doors Partners backs the systems the future will depend on.</h2>
+    <div class="grid12 statement__foot">
+      <p class="t-body-lg" data-reveal>The future is constrained by physics, economics, infrastructure, regulation and human behavior. If you understand those systems deeply enough, you can see where the world is going before the narrative catches up.</p>
+      <a class="link-arrow" href="/the-firm" data-reveal style="--i:1">About the Firm <span class="arrow-circle" aria-hidden="true"><svg><use href="#i-arrow-ur"/></svg></span></a>
+    </div>
+  </div>
+</section>
+</div>
 
 <!-- ================= 2. THE DESCENT (pinned, one line per scroll step) ================= -->
 <section class="descent" id="descent" aria-labelledby="descent-title" style="--steps:5">
@@ -1217,7 +1437,7 @@ html:not(.js) .descent__hud { display: none; }
 </section>
 
 <!-- ================= 3. PERSPECTIVE STATEMENT ================= -->
-<section class="sec sec--bone perspective" aria-labelledby="perspective-title">
+<section class="sec sec--bone perspective" aria-label="Progress begins with perspective" data-nav="light">
   <div class="container">
     <div class="perspective__panel">
       <div class="perspective__brand">
@@ -1235,20 +1455,13 @@ html:not(.js) .descent__hud { display: none; }
              alt="Portrait of a woman with long hair in a black top, lit softly from the side against a dark background.">
       </figure>
     </div>
-
-    <div class="grid12 perspective__text">
-      <p class="t-body-lg" data-reveal>The future is constrained by physics, economics, infrastructure, regulation and human behavior. If you understand those systems deeply enough, you can see where the world is going before the narrative catches up.</p>
-      <div class="perspective__claim">
-        <span class="rule" data-reveal="line" aria-hidden="true"></span>
-        <h2 class="t-h1" id="perspective-title" data-reveal style="--i:1">Open Doors Partners backs the systems the future will <span class="accent">depend on.</span></h2>
-        <a class="link-arrow" href="/the-firm" data-reveal style="--i:2">About the Firm <span class="arrow-circle" aria-hidden="true"><svg><use href="#i-arrow-ur"/></svg></span></a>
-      </div>
-    </div>
   </div>
 </section>
 
 <!-- ================= 4. THE FUTURE (card scroller) ================= -->
-<section class="sec sec--ink future" id="the-future" aria-labelledby="future-title">
+<section class="sec sec--ink future" id="the-future" aria-labelledby="future-title" data-pin>
+  <div class="future__pin">
+  <div class="future__sticky">
   <div class="container">
     <div class="grid12 future__head">
       <div class="future__title">
@@ -1375,6 +1588,8 @@ html:not(.js) .descent__hud { display: none; }
   <div class="future__track-wrap">
     <div class="track" aria-hidden="true"><span class="track__thumb" data-track-for="future-cards"></span></div>
   </div>
+  </div>
+  </div>
 </section>
 
 <!-- ================= 5. HORIZON + PORTFOLIO ================= -->
@@ -1395,7 +1610,7 @@ html:not(.js) .descent__hud { display: none; }
     </div>
   </div>
 
-  <div class="sec sec--white portfolio">
+  <div class="sec sec--white portfolio" data-nav="light">
     <div class="container">
       <div class="grid12 portfolio__head">
         <div>
@@ -1421,7 +1636,7 @@ html:not(.js) .descent__hud { display: none; }
 </section>
 
 <!-- ================= 6. ABOUT THE FIRM ================= -->
-<section class="sec sec--bone about" aria-labelledby="about-title">
+<section class="sec sec--bone about" aria-labelledby="about-title" data-nav="light">
   <div class="grid-lines" aria-hidden="true"></div>
   <svg class="about__orbit" viewBox="0 0 1000 420" aria-hidden="true" data-draw>
     <ellipse class="orbit-path" cx="500" cy="210" rx="480" ry="170" pathLength="1" transform="rotate(-8 500 210)"/>
@@ -1490,14 +1705,17 @@ html:not(.js) .descent__hud { display: none; }
 </section>
 
 <!-- ================= 8. BRAND MOMENT ================= -->
-<section class="moment" aria-label="Open Doors Partners">
-  <div class="moment__photo" data-parallax="0.08" aria-hidden="true">
-    <!-- PLACEHOLDER (replace): silhouettes of people and aircraft against an overcast or dusk sky -->
-    <img src="https://images.unsplash.com/photo-1474302770737-173ee21bab63?auto=format&fit=crop&w=2000&q=70" width="2000" height="1333" loading="lazy" alt="">
-  </div>
-  <div class="container moment__inner" data-moment>
-    <svg class="mark" viewBox="0 0 120 76" aria-hidden="true" data-reveal><use href="#odp-mark"/></svg>
-    <p class="moment__word" data-reveal style="--i:2">Open Doors Partners</p>
+<section class="moment" aria-label="Open Doors Partners" data-moment>
+  <div class="moment__sticky">
+    <div class="moment__photo" aria-hidden="true">
+      <!-- PLACEHOLDER (replace): silhouettes of people and aircraft against an overcast or dusk sky -->
+      <img src="https://images.unsplash.com/photo-1474302770737-173ee21bab63?auto=format&fit=crop&w=2000&q=70" width="2000" height="1333" loading="lazy" alt="">
+    </div>
+    <p class="moment__caption t-micro" aria-hidden="true">Different perspectives. Deeper understanding.</p>
+    <div class="container moment__inner">
+      <svg class="mark" viewBox="0 0 120 76" aria-hidden="true"><use href="#odp-mark"/></svg>
+      <p class="moment__word">Open Doors Partners</p>
+    </div>
   </div>
 </section>
 
@@ -1538,7 +1756,7 @@ html:not(.js) .descent__hud { display: none; }
 </section>
 
 <!-- ================= 10. INSIGHTS ================= -->
-<section class="sec sec--bone insights" aria-labelledby="insights-title">
+<section class="sec sec--bone insights" aria-labelledby="insights-title" data-nav="light">
   <div class="container">
     <div class="grid12 insights__head">
       <div>
@@ -1679,12 +1897,14 @@ html:not(.js) .descent__hud { display: none; }
 
 <script>
 (() => {
+  const root = document.documentElement;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const wide = matchMedia('(min-width: 1081px)');
   const vh = () => window.innerHeight;
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
   /* ---------- word splitting (keeps inline <em>) ---------- */
-  document.querySelectorAll('[data-split]').forEach(el => {
+  const splitWords = (el, cls) => {
     let n = 0;
     const wrap = node => {
       [...node.childNodes].forEach(child => {
@@ -1693,9 +1913,10 @@ html:not(.js) .descent__hud { display: none; }
           child.textContent.split(/(\s+)/).forEach(part => {
             if (!part) return;
             if (/^\s+$/.test(part)) { frag.append(' '); return; }
-            const w = document.createElement('span'); w.className = 'w';
-            const s = document.createElement('span'); s.textContent = part; s.style.setProperty('--wi', n++);
-            w.append(s); frag.append(w);
+            const s = document.createElement('span');
+            s.textContent = part; s.style.setProperty('--wi', n++);
+            if (cls === 'w') { const w = document.createElement('span'); w.className = 'w'; w.append(s); frag.append(w); }
+            else { s.className = cls; frag.append(s); }
           });
           child.replaceWith(frag);
         } else if (child.nodeType === 1) wrap(child);
@@ -1703,8 +1924,12 @@ html:not(.js) .descent__hud { display: none; }
     };
     el.setAttribute('aria-label', el.textContent.replace(/\s+/g, ' ').trim());
     wrap(el);
-    el.querySelectorAll('.w').forEach(w => w.setAttribute('aria-hidden', 'true'));
-  });
+    [...el.children].forEach(c => c.setAttribute('aria-hidden', 'true'));
+  };
+  document.querySelectorAll('[data-split]').forEach(el => splitWords(el, 'w'));
+  const fill = document.querySelector('[data-fill]');
+  if (fill) splitWords(fill, 'fw');
+  const fillWords = fill ? [...fill.querySelectorAll('.fw')] : [];
 
   /* ---------- reveal on scroll (once) ---------- */
   const revealEls = document.querySelectorAll('[data-reveal]');
@@ -1728,20 +1953,111 @@ html:not(.js) .descent__hud { display: none; }
     });
   } else revealEls.forEach(el => el.classList.add('is-in'));
 
-  /* ---------- navigation ---------- */
+  /* ---------- smooth scroll ---------- */
+  let lenis = null;
+  if (window.Lenis && !reduce.matches) {
+    lenis = new Lenis({ lerp: 0.085, wheelMultiplier: 0.95, smoothWheel: true });
+    const raf = time => { lenis.raf(time); requestAnimationFrame(raf); };
+    requestAnimationFrame(raf);
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || a.getAttribute('href').length < 2) return;
+    const target = document.querySelector(a.getAttribute('href'));
+    if (!target) return;
+    e.preventDefault();
+    closeAll(); setMenu(false);
+    if (lenis) lenis.scrollTo(target, { duration: 1.6 });
+    else target.scrollIntoView({ behavior: reduce.matches ? 'auto' : 'smooth' });
+  });
+
+  /* ---------- loader → hero entrance ---------- */
+  const loader = document.querySelector('.loader');
+  const video = document.querySelector('.hero__video');
+  const started = performance.now();
+  let loaded = false;
+  const finish = () => {
+    if (loaded) return; loaded = true;
+    loader?.style.setProperty('--lp', 1);
+    setTimeout(() => document.body.classList.add('is-loaded'), reduce.matches ? 0 : 250);
+  };
+  if (reduce.matches) finish();
+  else {
+    loader?.style.setProperty('--lp', 0.35);
+    const ready = Promise.all([
+      document.fonts ? document.fonts.ready : Promise.resolve(),
+      new Promise(r => { if (!video || video.readyState >= 3) r(); else { video.addEventListener('canplay', r, { once: true }); video.addEventListener('error', r, { once: true }); } }),
+    ]).then(() => loader?.style.setProperty('--lp', 0.8));
+    Promise.race([ready, new Promise(r => setTimeout(r, 3200))])
+      .then(() => setTimeout(finish, Math.max(0, 1300 - (performance.now() - started))));
+  }
+
+  /* ---------- hero film: pause button, reduced motion, off-screen ---------- */
+  const filmBtn = document.querySelector('[data-film-toggle]');
+  const filmLabel = document.querySelector('[data-film-label]');
+  let userPaused = reduce.matches;
+  const syncFilm = () => {
+    filmBtn.setAttribute('aria-pressed', String(userPaused));
+    filmLabel.textContent = userPaused ? 'Play film' : 'Pause film';
+  };
+  if (video) {
+    if (userPaused) { video.removeAttribute('autoplay'); video.pause(); }
+    syncFilm();
+    filmBtn.addEventListener('click', () => {
+      userPaused = !userPaused;
+      if (userPaused) video.pause(); else video.play().catch(() => {});
+      syncFilm();
+    });
+    new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) video.pause();
+      else if (!userPaused) video.play().catch(() => {});
+    }).observe(document.querySelector('[data-hero]'));
+  }
+
+  /* ---------- navigation: tabs with stacked menus ---------- */
   const nav = document.getElementById('nav');
-  const toggle = nav.querySelector('.nav__toggle');
+  const tabs = [...nav.querySelectorAll('[data-tab]')];
+  const closeAll = except => tabs.forEach(t => {
+    if (t === except) return;
+    t.classList.remove('is-open');
+    t.querySelector('.tab__btn').setAttribute('aria-expanded', 'false');
+  });
+  const openTab = (t, open) => {
+    closeAll(t);
+    t.classList.toggle('is-open', open);
+    t.querySelector('.tab__btn').setAttribute('aria-expanded', String(open));
+  };
+  const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
+  tabs.forEach(t => {
+    const btn = t.querySelector('.tab__btn');
+    btn.addEventListener('click', () => openTab(t, !t.classList.contains('is-open')));
+    let timer;
+    t.addEventListener('pointerenter', () => { if (finePointer.matches) { clearTimeout(timer); openTab(t, true); } });
+    t.addEventListener('pointerleave', () => { if (finePointer.matches) timer = setTimeout(() => openTab(t, false), 160); });
+    t.addEventListener('focusout', e => { if (!t.contains(e.relatedTarget)) openTab(t, false); });
+  });
+  document.addEventListener('click', e => { if (!nav.contains(e.target)) closeAll(); });
+
+  const menuBtn = nav.querySelector('.nav__menu-btn');
   const menu = document.getElementById('menu');
   const setMenu = open => {
-    document.documentElement.classList.toggle('menu-open', open);
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    document.body.style.overflow = open ? 'hidden' : '';
+    if (open === root.classList.contains('menu-open')) return;
+    root.classList.toggle('menu-open', open);
+    menuBtn.setAttribute('aria-expanded', String(open));
+    menuBtn.querySelector('span').textContent = open ? 'Close' : 'Menu';
+    if (lenis) open ? lenis.stop() : lenis.start();
+    else document.body.style.overflow = open ? 'hidden' : '';
     if (open) menu.querySelector('a').focus({ preventScroll: true });
   };
-  toggle.addEventListener('click', () => setMenu(toggle.getAttribute('aria-expanded') !== 'true'));
+  menuBtn.addEventListener('click', () => setMenu(!root.classList.contains('menu-open')));
   menu.addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
-  addEventListener('keydown', e => { if (e.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') { setMenu(false); toggle.focus(); } });
+  addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (root.classList.contains('menu-open')) { setMenu(false); menuBtn.focus(); }
+    const open = tabs.find(t => t.classList.contains('is-open'));
+    if (open) { openTab(open, false); open.querySelector('.tab__btn').focus(); }
+  });
+  const lightSecs = [...document.querySelectorAll('[data-nav="light"]')];
 
   /* ---------- the descent ---------- */
   const descent = document.getElementById('descent');
@@ -1750,6 +2066,7 @@ html:not(.js) .descent__hud { display: none; }
   const dTicks = [...descent.querySelectorAll('.descent__ticks li')];
   const dCount = descent.querySelector('[data-count]');
   const dStage = descent.querySelector('.descent__stage');
+  const dBar = descent.querySelector('.descent__bar span');
   const steps = dPanels.length;
   let dStep = -1;
   const setStep = s => {
@@ -1761,41 +2078,75 @@ html:not(.js) .descent__hud { display: none; }
     dCount.textContent = String(s).padStart(2, '0');
   };
 
+  /* ---------- pinned sectors (wide screens) ---------- */
+  const future = document.querySelector('[data-pin]');
+  const fScroller = future.querySelector('[data-scroller]');
+  const fThumb = future.querySelector('.track__thumb');
+  let pinShift = 0;
+  const layoutPin = () => {
+    const on = wide.matches && !reduce.matches;
+    future.classList.toggle('is-pinned', on);
+    if (!on) { future.style.removeProperty('--pin-h'); fScroller.style.removeProperty('--sx'); return; }
+    const cards = fScroller.querySelectorAll('li');
+    const last = cards[cards.length - 1];
+    const pad = parseFloat(getComputedStyle(fScroller).paddingLeft);
+    pinShift = Math.max(0, last.offsetLeft + last.offsetWidth + pad - fScroller.clientWidth);
+    future.style.setProperty('--pin-h', (vh() + pinShift * 1.15) + 'px');
+  };
+
   /* ---------- scroll-linked pieces ---------- */
+  const hero = document.querySelector('[data-hero]');
   const parallax = [...document.querySelectorAll('[data-parallax]')];
   const orbit = document.querySelector('[data-orbit]');
   const draw = document.querySelector('[data-draw]');
   const moment = document.querySelector('[data-moment]');
-  let lastY = scrollY;
-
   const progressOf = el => {               // 0 when the element's top enters the bottom, 1 when its bottom leaves the top
     const r = el.getBoundingClientRect();
     return clamp((vh() - r.top) / (vh() + r.height), 0, 1);
   };
 
   const frame = () => {
-    const y = scrollY;
-    // nav: solid after the hero starts to scroll, hides while scrolling down, returns on the way up
-    nav.classList.toggle('is-solid', y > 24);
-    nav.classList.toggle('is-hidden', y > vh() * 0.9 && y > lastY + 2 && !document.documentElement.classList.contains('menu-open'));
-    if (y < lastY - 2) nav.classList.remove('is-hidden');
-    lastY = y;
+    const H = vh();
+
+    // nav colour follows the section under it
+    const onLight = lightSecs.some(sec => { const r = sec.getBoundingClientRect(); return r.top <= 28 && r.bottom >= 28; });
+    nav.classList.toggle('on-light', onLight && !root.classList.contains('menu-open'));
+
+    // hero: the film recedes as the statement slides over it
+    const hp = clamp(scrollY / H, 0, 1);
+    hero.style.setProperty('--hp', reduce.matches ? 0 : hp.toFixed(4));
+
+    // statement words light up as they reach the middle of the screen
+    if (fill) {
+      const r = fill.getBoundingClientRect();
+      const p = reduce.matches ? 1 : clamp((H * 0.88 - r.top) / (H * 0.55), 0, 1);
+      const lit = Math.round(p * fillWords.length);
+      fillWords.forEach((w, i) => w.classList.toggle('is-lit', i < lit));
+    }
 
     // descent: one step per stretch of scroll
-    const r = descent.getBoundingClientRect();
-    const run = r.height - vh();
-    const p = clamp(-r.top / run, 0, 1);
-    const pos = p * steps;
+    const dr = descent.getBoundingClientRect();
+    const dp = clamp(-dr.top / (dr.height - H), 0, 1);
+    const pos = dp * steps;
     setStep(Math.min(steps - 1, Math.floor(pos)));
-    dStage.style.setProperty('--p', p.toFixed(4));
     dStage.style.setProperty('--local', (pos - Math.floor(Math.min(pos, steps - 0.0001))).toFixed(3));
-    descent.querySelector('.descent__bar span').style.setProperty('--p', p.toFixed(4));
+    dBar.style.setProperty('--p', dp.toFixed(4));
+
+    // pinned sectors
+    if (future.classList.contains('is-pinned')) {
+      const fr = future.getBoundingClientRect();
+      const fp = clamp(-fr.top / (fr.height - H), 0, 1);
+      fScroller.style.setProperty('--sx', (-fp * pinShift).toFixed(1) + 'px');
+      const w = fScroller.clientWidth / (fScroller.clientWidth + pinShift);
+      fThumb.style.setProperty('--thumb-w', (w * 100).toFixed(2) + '%');
+      fThumb.style.setProperty('--thumb-x', (fp * (1 / w - 1) * 100).toFixed(2) + '%');
+    }
 
     if (reduce.matches) return;
 
     parallax.forEach(el => {
       const rr = el.getBoundingClientRect();
-      const offset = (rr.top + rr.height / 2 - vh() / 2) * parseFloat(el.dataset.parallax);
+      const offset = (rr.top + rr.height / 2 - H / 2) * parseFloat(el.dataset.parallax);
       el.style.setProperty('--py', offset.toFixed(1) + 'px');
     });
     if (orbit) {
@@ -1804,24 +2155,34 @@ html:not(.js) .descent__hud { display: none; }
       orbit.style.setProperty('--sc', (0.94 + op * 0.08).toFixed(3));
     }
     if (draw) {
-      const dp = clamp(progressOf(draw.parentElement) * 1.7 - 0.2, 0, 1);
-      draw.style.setProperty('--draw', (1 - dp).toFixed(3));
-      draw.style.setProperty('--sq-o', dp > 0.6 ? 1 : 0);
+      const p = clamp(progressOf(draw.parentElement) * 1.7 - 0.2, 0, 1);
+      draw.style.setProperty('--draw', (1 - p).toFixed(3));
+      draw.style.setProperty('--sq-o', p > 0.6 ? 1 : 0);
     }
-    if (moment) moment.style.setProperty('--mx', ((progressOf(moment.parentElement) - 0.5) * -60).toFixed(1));
+    if (moment) {
+      const mr = moment.getBoundingClientRect();
+      const mp = clamp(-mr.top / ((mr.height - H) * 0.8), 0, 1);
+      const eased = 1 - Math.pow(1 - mp, 2);
+      moment.style.setProperty('--m', (1 - eased).toFixed(4));
+    }
   };
 
   let ticking = false;
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; frame(); }); } };
   addEventListener('scroll', onScroll, { passive: true });
-  addEventListener('resize', onScroll);
+  if (lenis) lenis.on('scroll', onScroll);
+  addEventListener('resize', () => { layoutPin(); onScroll(); });
+  layoutPin();
   frame();
+  document.fonts?.ready.then(() => { layoutPin(); frame(); });
 
-  /* ---------- horizontal scroller: track, arrows, drag ---------- */
+  /* ---------- horizontal scroller (narrow screens): track, arrows, drag ---------- */
   document.querySelectorAll('[data-scroller]').forEach(sc => {
     const thumb = document.querySelector(`[data-track-for="${sc.id}"]`);
     const btns = document.querySelectorAll(`[aria-controls="${sc.id}"]`);
+    const pinned = () => sc.closest('.is-pinned');
     const update = () => {
+      if (pinned()) return;
       const max = sc.scrollWidth - sc.clientWidth;
       const w = sc.clientWidth / sc.scrollWidth;
       const x = max > 0 ? sc.scrollLeft / max : 0;
@@ -1837,7 +2198,7 @@ html:not(.js) .descent__hud { display: none; }
 
     let down = null, moved = false;
     sc.addEventListener('pointerdown', e => {
-      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      if (pinned() || e.pointerType !== 'mouse' || e.button !== 0) return;
       down = { x: e.clientX, left: sc.scrollLeft }; moved = false;
     });
     addEventListener('pointermove', e => {
@@ -1851,9 +2212,8 @@ html:not(.js) .descent__hud { display: none; }
       down = null;
       if (moved) {
         const s = step();
-        const target = Math.round(sc.scrollLeft / s) * s;
         sc.classList.remove('is-dragging');
-        sc.scrollTo({ left: target, behavior: reduce.matches ? 'auto' : 'smooth' });
+        sc.scrollTo({ left: Math.round(sc.scrollLeft / s) * s, behavior: reduce.matches ? 'auto' : 'smooth' });
       }
     });
     sc.addEventListener('click', e => { if (moved) { e.preventDefault(); moved = false; } }, true);
