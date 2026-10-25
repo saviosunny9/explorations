@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://images.unsplash.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
+<script src="world.js" defer></script>
 <script>document.documentElement.classList.add('js');</script>
 
 <style>
@@ -496,7 +497,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 @media (min-width: 1081px) { .menu { display: none; } }
 
 /* =====================================================================
-   7. HERO — full-screen film, held in place while the statement slides over it
+   7. HERO — the live world, held in place while the statement slides over it
    ===================================================================== */
 .hero-wrap { position: relative; }
 .hero {
@@ -507,8 +508,18 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   position: absolute; inset: 0;
   transform: scale(calc(1 + var(--hp, 0) * 0.08)); transform-origin: 50% 40%;
 }
-.hero__video, .hero__poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; }
-.hero__tint { position: absolute; inset: 0; background: var(--odp-rust-glow); mix-blend-mode: soft-light; opacity: 0.45; }
+.hero__world { position: absolute; inset: 0; }
+.hero__poster, .hero__world canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hero__world canvas { opacity: 0; transition: opacity 2.4s var(--ease); }
+.hero__world.is-ready canvas { opacity: 1; }
+/* the orange wash over the world: warm light from the lower right, deepening toward the corners */
+.hero__tint {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 60% at 78% 70%, rgba(242,160,94,0.30), transparent 70%),
+    linear-gradient(200deg, rgba(224,100,58,0) 10%, rgba(224,100,58,0.22) 55%, rgba(194,77,38,0.42) 100%);
+  mix-blend-mode: screen;
+}
 .hero__shade {
   position: absolute; inset: 0;
   background:
@@ -565,6 +576,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   font-size: var(--fs-micro); font-weight: var(--fw-medium); letter-spacing: var(--tr-micro);
 }
 .film-toggle:hover { background: rgba(255,255,255,0.18); color: var(--odp-white); }
+.film-toggle[hidden] { display: none; }
 .film-toggle__icon { display: inline-flex; gap: 2px; }
 .film-toggle__icon::before, .film-toggle__icon::after { content: ""; width: 2px; height: 8px; background: currentColor; }
 .film-toggle[aria-pressed="true"] .film-toggle__icon::after { display: none; }
@@ -593,14 +605,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .hero__card { width: min(100%, 22rem); }
 }
 @media (max-width: 640px) {
-  .hero__video, .hero__poster { object-position: 50% 40%; }
+  .hero__poster { object-position: 62% 50%; }
   .hero__row { margin-top: var(--s-32); gap: var(--s-24); }
   .hero__card { display: none; }
   .hero__content { padding-bottom: calc(var(--s-64) + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* =====================================================================
-   7b. STATEMENT — an orange panel that slides over the film
+   7b. STATEMENT — an orange panel that slides over the hero
    ===================================================================== */
 .statement {
   position: relative; z-index: 2; min-height: 100vh; min-height: 100svh;
@@ -1334,15 +1346,13 @@ html.lenis, html.lenis body { height: auto; }
 <main id="main">
 
 <div class="hero-wrap">
-<!-- ================= 1. HERO (full-screen film) ================= -->
+<!-- ================= 1. HERO (live world) ================= -->
 <section class="hero" aria-labelledby="hero-title" data-hero>
   <div class="hero__media" aria-hidden="true">
-    <!-- Hero film: rendered for ODP (media/hero.*), a 24 s seamless loop. Poster = first frame. -->
-    <video class="hero__video" autoplay muted loop playsinline preload="auto" poster="media/hero-poster.jpg">
-      <source src="media/hero-720.mp4" type="video/mp4" media="(max-width: 760px)">
-      <source src="media/hero.webm" type="video/webm">
-      <source src="media/hero.mp4" type="video/mp4">
-    </video>
+    <!-- Hero world: the planet Halcyra and its ring station, drawn live by world.js over a still -->
+    <div class="hero__world" data-world="media/world/">
+      <img class="hero__poster" src="media/world/poster.jpg" alt="" width="1920" height="1080" fetchpriority="high">
+    </div>
     <div class="hero__tint"></div>
     <div class="hero__shade"></div>
     <div class="hero__dim"></div>
@@ -1371,11 +1381,11 @@ html.lenis, html.lenis body { height: auto; }
   </div>
   <div class="container hero__foot">
     <span class="hero__scrollcue t-micro" aria-hidden="true"><i></i>Scroll</span>
-    <button class="film-toggle" type="button" aria-pressed="false" data-film-toggle><span class="film-toggle__icon" aria-hidden="true"></span><span data-film-label>Pause film</span></button>
+    <button class="film-toggle" type="button" aria-pressed="false" data-film-toggle><span class="film-toggle__icon" aria-hidden="true"></span><span data-film-label>Pause motion</span></button>
   </div>
 </section>
 
-<!-- ================= 1b. STATEMENT (slides over the film) ================= -->
+<!-- ================= 1b. STATEMENT (slides over the hero) ================= -->
 <section class="statement grain" aria-labelledby="statement-title">
   <div class="container statement__inner">
     <div class="statement__top t-micro"><span>Our view</span><svg class="mark" viewBox="0 0 120 76" aria-hidden="true"><use href="#odp-mark"/></svg></div>
@@ -1973,7 +1983,7 @@ html.lenis, html.lenis body { height: auto; }
 
   /* ---------- loader → hero entrance ---------- */
   const loader = document.querySelector('.loader');
-  const video = document.querySelector('.hero__video');
+  const world = document.querySelector('[data-world]');
   const started = performance.now();
   let loaded = false;
   const finish = () => {
@@ -1986,32 +1996,24 @@ html.lenis, html.lenis body { height: auto; }
     loader?.style.setProperty('--lp', 0.35);
     const ready = Promise.all([
       document.fonts ? document.fonts.ready : Promise.resolve(),
-      new Promise(r => { if (!video || video.readyState >= 3) r(); else { video.addEventListener('canplay', r, { once: true }); video.addEventListener('error', r, { once: true }); } }),
+      new Promise(r => { if (!world || world.classList.contains('is-ready') || world.classList.contains('is-failed')) r(); else world.addEventListener('world:ready', r, { once: true }); }),
     ]).then(() => loader?.style.setProperty('--lp', 0.8));
-    Promise.race([ready, new Promise(r => setTimeout(r, 3200))])
+    Promise.race([ready, new Promise(r => setTimeout(r, 3600))])
       .then(() => setTimeout(finish, Math.max(0, 1300 - (performance.now() - started))));
   }
 
-  /* ---------- hero film: pause button, reduced motion, off-screen ---------- */
+  /* ---------- hero world: pause button (reduced motion starts paused inside world.js) ---------- */
   const filmBtn = document.querySelector('[data-film-toggle]');
   const filmLabel = document.querySelector('[data-film-label]');
-  let userPaused = reduce.matches;
-  const syncFilm = () => {
-    filmBtn.setAttribute('aria-pressed', String(userPaused));
-    filmLabel.textContent = userPaused ? 'Play film' : 'Pause film';
-  };
-  if (video) {
-    if (userPaused) { video.removeAttribute('autoplay'); video.pause(); }
-    syncFilm();
+  if (world && filmBtn) {
+    let paused = false;
+    if (reduce.matches) filmBtn.hidden = true;
     filmBtn.addEventListener('click', () => {
-      userPaused = !userPaused;
-      if (userPaused) video.pause(); else video.play().catch(() => {});
-      syncFilm();
+      paused = !paused;
+      world.setPaused?.(paused);
+      filmBtn.setAttribute('aria-pressed', String(paused));
+      filmLabel.textContent = paused ? 'Play motion' : 'Pause motion';
     });
-    new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting) video.pause();
-      else if (!userPaused) video.play().catch(() => {});
-    }).observe(document.querySelector('[data-hero]'));
   }
 
   /* ---------- navigation: tabs with stacked menus ---------- */
@@ -2112,7 +2114,7 @@ html.lenis, html.lenis body { height: auto; }
     const onLight = lightSecs.some(sec => { const r = sec.getBoundingClientRect(); return r.top <= 28 && r.bottom >= 28; });
     nav.classList.toggle('on-light', onLight && !root.classList.contains('menu-open'));
 
-    // hero: the film recedes as the statement slides over it
+    // hero: the world recedes as the statement slides over it
     const hp = clamp(scrollY / H, 0, 1);
     hero.style.setProperty('--hp', reduce.matches ? 0 : hp.toFixed(4));
 
