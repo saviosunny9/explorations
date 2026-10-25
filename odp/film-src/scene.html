@@ -1,0 +1,312 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// Open Doors Partners — hero film. A slow flight down an avenue of monoliths
+// toward a gateway of light. Everything loops on LOOP seconds: the city repeats
+// every PERIOD cells along z and the camera travels exactly one period.
+const W = +(new URLSearchParams(location.search).get('w') || 1920);
+const H = +(new URLSearchParams(location.search).get('h') || 1080);
+const SS = +(new URLSearchParams(location.search).get('ss') || 1.5);   // supersampling of the scene pass
+const c = document.getElementById('c');
+c.width = W; c.height = H;
+const gl = c.getContext('webgl2', { preserveDrawingBuffer: true, antialias: false });
+gl.getExtension('EXT_color_buffer_float');
+
+const VS = `#version 300 es
+in vec2 p; out vec2 uv; void main(){ uv = p*.5+.5; gl_Position = vec4(p,0,1); }`;
+
+const SCENE = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 o;
+uniform vec2 res; uniform float t; uniform float loopT;
+#define C 4.0
+#define PERIOD 20.0
+const vec3 SUN = normalize(vec3(0.0, 0.055, 1.0));
+
+float h11(float n){ return fract(sin(n*127.1)*43758.5453); }
+float h21(vec2 p){ p = vec2(p.x, mod(p.y, PERIOD)); return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+float h21b(vec2 p){ p = vec2(p.x, mod(p.y, PERIOD)); return fract(sin(dot(p, vec2(269.5,183.3)))*43758.5453); }
+
+// building in a cell: x = main height, y = tower height (setback), z = margin
+vec3 cellB(vec2 id){
+  if (id.x == -1.0 || id.x == 0.0) return vec3(0.0);          // the avenue
+  float r = h21(id), r2 = h21b(id);
+  float ax = abs(id.x + .5);
+  float h = 1.0 + 7.0*r*r*r + 3.0*exp(-ax*.08)*r;
+  if (r2 > .988 && ax > 4.0) h = 30.0 + 26.0*h11(r*91.0);                    // monoliths
+  if (ax < 3.0) h = min(h, 2.5 + 6.0*r);                         // keep the avenue's edge low
+  if (r < .06) h = 0.0;                                          // empty lots
+  float th = (r2 > .6 && r2 < .85) ? h*(1.25 + .6*h11(r2*13.)) : 0.0;
+  float m = .35 + .25*h11(r*7.0);
+  return vec3(h, th, m);
+}
+
+// slab test: box min/max
+vec2 box(vec3 ro, vec3 rd, vec3 bmin, vec3 bmax, out vec3 n){
+  vec3 inv = 1.0/rd;
+  vec3 t0 = (bmin-ro)*inv, t1 = (bmax-ro)*inv;
+  vec3 tmin = min(t0,t1), tmax = max(t0,t1);
+  float tn = max(max(tmin.x,tmin.y),tmin.z), tf = min(min(tmax.x,tmax.y),tmax.z);
+  n = -sign(rd)*step(tmin.yzx,tmin.xyz)*step(tmin.zxy,tmin.xyz);
+  return vec2(tn, tf);
+}
+
+// march the grid; returns t (1e9 = nothing), normal, cell id, local hit
+float trace(vec3 ro, vec3 rd, float tmax, out vec3 nor, out vec2 hid, out float kind){
+  float tbest = 1e9; kind = 0.0;
+  // ground
+  if (rd.y < 0.0) { float tg = -ro.y/rd.y; if (tg < tbest) { tbest = tg; nor = vec3(0,1,0); kind = 1.0; } }
+  vec2 cell = floor(ro.xz / C);
+  vec2 stp = sign(rd.xz);
+  vec2 tDelta = abs(C / rd.xz);
+  vec2 nextB = (cell + max(stp, 0.0)) * C;
+  vec2 tNext = (nextB - ro.xz) / rd.xz;
+  float tc = 0.0;
+  for (int i = 0; i < 160; i++) {
+    if (tc > tbest || tc > tmax) break;
+    vec3 b = cellB(cell);
+    if (b.x > 0.0) {
+      vec3 n; vec2 lo = cell*C + b.z, hi = (cell+1.0)*C - b.z;
+      vec2 r = box(ro, rd, vec3(lo.x,0,lo.y), vec3(hi.x,b.x,hi.y), n);
+      if (r.x < r.y && r.y > 0.0 && r.x < tbest) { tbest = r.x; nor = n; hid = cell; kind = 2.0; }
+      if (b.y > 0.0) {
+        vec2 ins = vec2(.28*(hi.x-lo.x), .28*(hi.y-lo.y));
+        r = box(ro, rd, vec3(lo.x+ins.x,0,lo.y+ins.y), vec3(hi.x-ins.x,b.y,hi.y-ins.y), n);
+        if (r.x < r.y && r.y > 0.0 && r.x < tbest) { tbest = r.x; nor = n; hid = cell; kind = 2.0; }
+      }
+    }
+    if (tNext.x < tNext.y) { tc = tNext.x; tNext.x += tDelta.x; cell.x += stp.x; }
+    else { tc = tNext.y; tNext.y += tDelta.y; cell.y += stp.y; }
+  }
+  return tbest;
+}
+
+float shadow(vec3 p){
+  vec3 n; vec2 id; float k;
+  float d = trace(p, SUN, 160.0, n, id, k);
+  return (k == 2.0 && d < 160.0) ? 0.0 : 1.0;
+}
+
+vec3 sky(vec3 rd, out float glow){
+  float el = rd.y;
+  float az = atan(rd.x, rd.z);
+  float s = max(dot(rd, SUN), 0.0);
+  vec3 top = vec3(.014,.008,.007), mid = vec3(.07,.025,.016), hor = mix(vec3(.16,.055,.03), vec3(.70,.26,.10), pow(s, 12.0));
+  vec3 col = mix(hor, mid, smoothstep(-.02, .14, el));
+  col = mix(col, top, smoothstep(.10, .55, el));
+  col += vec3(1.0,.50,.24) * pow(s, 24.0) * 1.0;
+  col += vec3(1.0,.70,.45) * pow(s, 160.0) * 2.0;
+  // the gateway: two monumental doors far away, ajar, light pouring through the gap
+  float gw = .07, gh = .165, slit = .0042;
+  float aa = abs(az);
+  float door = step(aa, gw) * step(slit, aa) * smoothstep(gh+.002, gh-.002, el);
+  vec3 doorCol = mix(vec3(.05,.02,.014), vec3(.16,.06,.03), smoothstep(gh, -.02, el));
+  float rim = exp(-pow((aa - slit)/.0035, 2.0)) * step(el, gh) * step(slit, aa);
+  col = mix(col, doorCol, door);
+  col += vec3(1.0,.62,.36) * rim * door * 1.6;
+  float inSlit = step(aa, slit) * step(el, gh);
+  float core = exp(-pow(az/.012, 2.0)) * smoothstep(gh+.12, gh*.3, el);
+  col += vec3(1.0,.86,.70) * (inSlit*(4.0 + 3.0*smoothstep(gh, 0.0, el)) + core*1.2);
+  // a faint orbit round the gate
+  vec3 ax1 = normalize(vec3(.0, .10, 1.0));
+  float a1 = acos(clamp(dot(rd, ax1), -1.0, 1.0));
+  float ring = exp(-pow((a1 - .30)/.0018, 2.0));
+  col += vec3(1.0,.58,.32) * ring * .32 * smoothstep(-.01, .08, el);
+  glow = inSlit*2.0 + core*.35;
+  return col;
+}
+
+vec3 fogCol(vec3 rd){
+  float s = max(dot(rd, SUN), 0.0);
+  return mix(vec3(.035,.015,.011), vec3(.62,.24,.10), pow(s, 36.0)) + vec3(1.,.6,.35)*pow(s, 260.0)*.6;
+}
+
+// light trails along the avenue: glowing dashes on lanes, moving with time
+vec3 trails(vec3 ro, vec3 rd, float tmax){
+  vec3 acc = vec3(0);
+  for (int i = 0; i < 6; i++) {
+    float fi = float(i);
+    float x = -3.1 + fi*1.24;
+    float y = .14 + .03*h11(fi);
+    float dir = i < 3 ? -1.0 : 1.0;              // oncoming / outgoing
+    float v = (8.0 + 6.0*h11(fi+3.0)) ;
+    // closest approach between the ray and the lane line (x, y, z)
+    vec3 w = ro - vec3(x, y, 0);
+    float b = rd.z, d = w.x*rd.x + w.y*rd.y + w.z*rd.z, e = w.z;
+    float den = 1.0 - b*b;
+    float sr = (b*e - d) / max(den, 1e-4);
+    sr = clamp(sr, 0.0, tmax);
+    vec3 pr = ro + rd*sr;
+    float zl = pr.z;
+    vec2 dxy = pr.xy - vec2(x, y);
+    float dist = length(dxy);
+    float per = 7.0 + 8.0*h11(fi+11.0);
+    float ve = max(round(v*loopT/per), 1.0)*per/loopT;          // whole dash periods per loop
+    float ph = fract((zl - dir*ve*t) / per + h11(fi+7.0));
+    // dashes: long smear with a bright head
+    float dash = smoothstep(0.0, .55, ph) * (1.0 - smoothstep(.55, .62, ph));
+    float head = exp(-pow((ph-.585)/.02, 2.0));
+    float core = exp(-dist*dist/(.0009 + sr*sr*.0000006));
+    float halo = exp(-dist*dist/(.012 + sr*sr*.00002)) * .22;
+    vec3 tint = dir > 0.0 ? vec3(1.0,.42,.16) : vec3(1.0,.82,.62);
+    acc += tint * (dash*.9 + head*2.4) * (core + halo) * exp(-sr*.012);
+  }
+  return acc;
+}
+
+void main(){
+  vec2 p = (gl_FragCoord.xy - .5*res) / res.y;
+  float ph = t / loopT * 6.2831853;
+  float L = PERIOD*C;
+  vec3 ro = vec3(1.2*sin(ph), 22.0 + 1.2*sin(ph*2.0+1.0), t/loopT*L);
+  vec3 ta = ro + vec3(.25*sin(ph+.7), -.72 + .05*sin(ph*2.0), 6.0);
+  vec3 fw = normalize(ta - ro);
+  float roll = .012*sin(ph);
+  vec3 rt = normalize(cross(vec3(sin(roll),cos(roll),0), fw));
+  vec3 up = cross(fw, rt);
+  vec3 rd = normalize(p.x*rt + p.y*up + 1.35*fw);
+
+  vec3 nor; vec2 id; float kind;
+  float d = trace(ro, rd, 420.0, nor, id, kind);
+  vec3 col; float glow = 0.0;
+  if (kind == 0.0 || d > 420.0) {
+    col = sky(rd, glow);
+  } else {
+    vec3 pos = ro + rd*d;
+    float sh = 1.0;
+    float dif = max(dot(nor, SUN), 0.0);
+    vec3 alb;
+    if (kind == 1.0) {
+      // wet stone avenue: dark, reflects the sky toward the gate
+      alb = vec3(.035,.028,.025);
+      float seams = smoothstep(.02,.0,abs(fract(pos.z/2.0)-.5)-.47) * .3;
+      vec3 rr = reflect(rd, nor);
+      float g2; vec3 refl = sky(rr, g2);
+      float fr = .08 + .55*pow(1.0 - max(dot(-rd, nor), 0.0), 4.0);
+      col = alb*(.3+seams) + refl*fr*(.35 + .65*sh);
+      col += vec3(1.,.55,.3)*dif*sh*.15;
+      glow = g2*fr*.25;
+    } else {
+      float u = (abs(nor.x) > .5) ? pos.z : pos.x;
+      float fins = smoothstep(.0,.06,abs(fract(u*3.0)-.5)-.38);
+      float floors = smoothstep(.0,.05,abs(fract(pos.y*2.6)-.5)-.44);
+      alb = vec3(.20,.17,.155) * (.82 + .18*fins) * (.9 + .1*floors);
+      // facade toward the camera is in shadow, sides catch grazing sun
+      vec3 amb = vec3(.07,.045,.038) * (.6 + .4*nor.y);
+      vec3 bounce = vec3(.35,.13,.06) * max(-nor.y*.0 + (1.0-abs(nor.y))*.5, 0.0) * .25;
+      col = alb * (amb + bounce + vec3(2.6,1.25,.62)*dif*sh);
+      // fill from the glowing horizon on the sides and roofs, so the city reads in depth
+      vec3 hz = fogCol(normalize(vec3(nor.x*.6, .04, 1.0)));
+      col += alb * hz * (.55*(1.0-abs(nor.z))*(1.0-abs(nor.y)) + .35*max(nor.y,0.0));
+      // rim of light on edges facing the sun
+      col += vec3(1.,.5,.25) * pow(max(dot(nor, SUN),0.0), 8.0) * sh * .35;
+      // a few lit windows
+      vec2 wq = vec2(u*7.0, pos.y*5.0);
+      vec2 wcell = floor(wq);
+      float lit = step(.992, fract(sin(dot(wcell + id*17.0, vec2(12.9898,78.233)))*43758.5453));
+      vec2 wf = abs(fract(wq) - .5);
+      col += vec3(1.,.55,.25) * lit * 1.2 * step(wf.x, .3) * step(wf.y, .32);
+    }
+    // haze: thicker low down, warm toward the light
+    float fb = .055, fa = .05;
+    float ry = abs(rd.y) < 1e-3 ? 1e-3 : rd.y;
+    float fd = 1.0 - exp(-(fa/fb) * exp(-ro.y*fb) * (1.0 - exp(-d*ry*fb)) / ry - d*.0016);
+    col = mix(col, fogCol(rd), fd);
+  }
+  col += trails(ro, rd, min(d, 420.0));
+  // in-scatter toward the gate even in clear air
+  col += vec3(1.,.5,.25) * pow(max(dot(rd,SUN),0.),90.0) * .10;
+  o = vec4(col, glow);
+}`;
+
+const POST = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 o;
+uniform sampler2D sc; uniform vec2 sunUV; uniform vec2 res; uniform float t;
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14), 0., 1.); }
+void main(){
+  vec4 base = texture(sc, uv);
+  // god rays: radial blur of the bright gate toward its screen position
+  vec2 dlt = (uv - sunUV) / 72.0 * .92;
+  vec2 q = uv; float dec = 1.0; vec3 rays = vec3(0);
+  for (int i = 0; i < 72; i++) {
+    q -= dlt;
+    vec4 s = texture(sc, q);
+    float b = s.a;
+    rays += vec3(1.,.62,.36) * b * dec;
+    dec *= .972;
+  }
+  vec3 col = base.rgb + rays * .03;
+  // bloom-ish lift around the light
+  col *= 1.05;
+  col = aces(col * 1.0);
+  // grade: warm shadows, keep blacks deep
+  col = pow(col, vec3(1.06, 1.02, 1.0));
+  col = mix(vec3(dot(col, vec3(.3,.59,.11))), col, 1.22);
+  col = max(col, 0.0);
+  float v = smoothstep(1.25, .35, length((uv - .5)*vec2(res.x/res.y, 1.0)*.9));
+  col *= mix(.55, 1.0, v);
+  o = vec4(col, 1.0);
+}`;
+
+function prog(fs) {
+  const p = gl.createProgram();
+  for (const [type, src] of [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, fs]]) {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    gl.attachShader(p, s);
+  }
+  gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+const scene = prog(SCENE), post = prog(POST);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+const SW = Math.round(W*SS), SH = Math.round(H*SS);
+const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, SW, SH, 0, gl.RGBA, gl.HALF_FLOAT, null);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+
+window.LOOP = 24;
+function sunUVAt(t) {
+  const ph = t / window.LOOP * Math.PI * 2;
+  const n = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
+  const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  const dot = (a, b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const fw = n([.25*Math.sin(ph+.7), -.72 + .05*Math.sin(ph*2), 6]);
+  const roll = .012*Math.sin(ph);
+  const rt = n(cross([Math.sin(roll), Math.cos(roll), 0], fw));
+  const up = cross(fw, rt);
+  const sun = n([0, .055, 1]);
+  const z = dot(sun, fw), x = dot(sun, rt) / z * 1.35, y = dot(sun, up) / z * 1.35;
+  return [.5 + x * H / W, .5 + y];
+}
+window.renderFrame = (t, sunUV = sunUVAt(t)) => {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, SW, SH);
+  gl.useProgram(scene);
+  gl.uniform2f(gl.getUniformLocation(scene, 'res'), SW, SH);
+  gl.uniform1f(gl.getUniformLocation(scene, 't'), t);
+  gl.uniform1f(gl.getUniformLocation(scene, 'loopT'), window.LOOP);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+  gl.useProgram(post);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.uniform1i(gl.getUniformLocation(post, 'sc'), 0);
+  gl.uniform2f(gl.getUniformLocation(post, 'sunUV'), sunUV[0], sunUV[1]);
+  gl.uniform2f(gl.getUniformLocation(post, 'res'), W, H);
+  gl.uniform1f(gl.getUniformLocation(post, 't'), t);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.finish();
+  return c.toDataURL('image/jpeg', 0.95);
+};
+window.ready = true;
+</script></body></html>
