@@ -18,7 +18,7 @@
   function show(view) {
     st.view = view; document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
     document.getElementById('flowView').hidden = view !== 'flow'; document.getElementById('topicsView').hidden = view !== 'topics'; document.getElementById('draftsView').hidden = view !== 'drafts';
-    ['runBtn', 'auto', 'addBtn', 'exBtn'].forEach(id => { const el = document.getElementById(id); const w = el && (el.closest('.menuwrap') || el.closest('label') || el); if (w) w.style.visibility = view === 'flow' ? '' : 'hidden'; });
+    ['runBtn', 'auto', 'addBtn', 'exBtn', 'gUndo'].forEach(id => { const el = document.getElementById(id); const w = el && (el.closest('.menuwrap') || el.closest('label') || el); if (w) w.style.visibility = view === 'flow' ? '' : 'hidden'; });
     if (view === 'topics') renderDash(); if (view === 'drafts') renderDrafts();
   }
 

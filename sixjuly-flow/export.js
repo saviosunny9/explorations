@@ -151,7 +151,40 @@
     const [W, H] = String((o && o.ratio) || '1080x1350').split('x').map(Number);
     return deck.slides.map((s, i) => ({ name: `slide-${pad(i + 1)}.svg`, blob: new Blob([R.toSVG(deck, i, { W, H })], { type: 'image/svg+xml' }) }));
   }
-  const FIGMA_README = (deck) => `HOW TO CONTINUE THIS POST IN FIGMA
+  // ---- Figma: a post as live-text frames for the "Sixjuly Flow importer" plugin (figma-plugin/) ----------------------------------------------------
+  function figmaData(deck, draft, o) {
+    const [W, H] = String((o && o.ratio) || '1080x1350').split('x').map(Number), name = (draft && draft.title) || deck.topic || 'Sixjuly post';
+    return { kind: 'sixjuly-figma', version: 1, name, slides: deck.slides.map((s, i) => Object.assign({ name: `${name} — ${pad(i + 1)}` }, R.toFigma(deck, i, { W, H }))) };
+  }
+  const figmaJSON = (deck, draft, o) => JSON.stringify(figmaData(deck, draft, o));
+  // copy the post for the Figma importer; when the clipboard is blocked, save it as a .sixjuly.json file instead
+  async function addToFigma(deck, draft, o) {
+    const text = figmaJSON(deck, draft, o), name = slug((draft && draft.title) || deck.topic) + '.sixjuly.json';
+    try { await navigator.clipboard.writeText(text); return 'Copied for Figma. In Figma run “Sixjuly Flow importer” and paste. (First time? Export → Figma pack has the plugin.)'; }
+    catch (e) { await download(new Blob([text], { type: 'application/json' }), name); return 'Saved ' + name + '. In Figma run “Sixjuly Flow importer” and open this file.'; }
+  }
+  function pluginFiles(prefix) { const P = window.SIXJULY_FIGMA_PLUGIN; if (!P) return []; return [['manifest.json', P.manifest], ['code.js', P.code], ['ui.html', P.ui]].map(([n, t]) => ({ name: prefix + n, blob: new Blob([t], { type: 'text/plain' }) })); }
+  const FIGMA_README = (deck) => `HOW TO CONTINUE THIS POST IN FIGMA (live text)
+==============================================
+Once: install the importer
+1. In the Figma desktop app: Plugins → Development → Import plugin from manifest…
+2. Pick figma-plugin/manifest.json from this folder. It is now listed as "Sixjuly Flow importer". It runs on your computer and sends nothing anywhere.
+
+Every post
+1. In Sixjuly Flow click "Figma" on a post (or Export → Add to Figma in the editor). The post is copied.
+2. In Figma run Plugins → Development → Sixjuly Flow importer, paste (Cmd/Ctrl + V) and press "Add to Figma".
+   You can also open the .sixjuly.json file in this folder from the plugin instead of pasting.
+3. Each slide becomes a frame. Headlines, labels and paragraphs are real text layers (font, size, line height, letter spacing and
+   highlight colours kept). Rules, panels, shapes and photos come in as vectors and images in named groups.
+
+Fonts: Google Sans Flex, Geist Mono, Instrument Serif and Anton are Google Fonts and available in Figma. If one is missing the plugin
+uses Inter for that layer and lists the missing font.
+The slide-XX.svg files are also here for other tools; SVG text keeps its <text> elements, but Figma's own SVG import may outline it,
+which is why the plugin route exists. Figma does not accept outside .fig files, and nothing here claims to make one.
+
+Post: ${deck.topic}
+`;
+  const FIGMA_README_OLD = (deck) => `HOW TO CONTINUE THIS POST IN FIGMA
 =================================
 1. Open a Figma design file.
 2. Drag all the slide-XX.svg files from this folder onto the canvas (or paste one slide: in the app use Export > Copy this slide's SVG, then click in Figma and press Cmd/Ctrl + V).
@@ -166,7 +199,7 @@ Notes
 Post: ${deck.topic}
 `;
   async function figmaPack(deck, draft, o) {
-    const files = svgFiles(deck, o); files.push({ name: 'caption.txt', blob: new Blob([captionText(deck, draft)], { type: 'text/plain' }) }, { name: 'README.txt', blob: new Blob([FIGMA_README(deck)], { type: 'text/plain' }) }); return files;
+    const files = svgFiles(deck, o); files.push({ name: 'caption.txt', blob: new Blob([captionText(deck, draft)], { type: 'text/plain' }) }, { name: 'README.txt', blob: new Blob([FIGMA_README(deck)], { type: 'text/plain' }) }, { name: slug((draft && draft.title) || deck.topic) + '.sixjuly.json', blob: new Blob([figmaJSON(deck, draft, o)], { type: 'application/json' }) }, ...pluginFiles('figma-plugin/')); return files;
   }
   async function everything(deck, draft, o) {
     const out = [];
@@ -176,7 +209,7 @@ Post: ${deck.topic}
     out.push({ name: 'carousel.pdf', blob: await pdfBlob(deck, o) });
     out.push({ name: 'caption.txt', blob: new Blob([captionText(deck, draft)], { type: 'text/plain' }) });
     if (draft && draft.refs && draft.refs.length) out.push({ name: 'sources.txt', blob: new Blob([draft.refs.map(r => `${r.title || ''}\n${r.url}\n${r.source || ''}\n`).join('\n')], { type: 'text/plain' }) });
-    out.push({ name: 'figma/README.txt', blob: new Blob([FIGMA_README(deck)], { type: 'text/plain' }) });
+    out.push({ name: 'figma/README.txt', blob: new Blob([FIGMA_README(deck)], { type: 'text/plain' }) }, { name: 'figma/' + slug((draft && draft.title) || deck.topic) + '.sixjuly.json', blob: new Blob([figmaJSON(deck, draft, o)], { type: 'application/json' }) }, ...pluginFiles('figma/figma-plugin/'));
     svgFiles(deck, o).forEach(f => out.push({ name: 'figma/' + f.name, blob: f.blob }));
     if (draft) out.push({ name: 'post.json', blob: new Blob([JSON.stringify({ title: draft.title, topic: deck.topic, status: draft.status, refs: draft.refs || [], slides: deck.slides }, null, 1)], { type: 'application/json' }) });
     return out;
@@ -190,5 +223,5 @@ Post: ${deck.topic}
     });
   }
 
-  window.SixjulyExport = { slug, pad, slideBlob, carouselFiles, captionText, reelVideo, zipFiles, download, pdfBlob, svgFiles, figmaPack, everything, shrink };
+  window.SixjulyExport = { figmaData, figmaJSON, pluginFiles, addToFigma, slug, pad, slideBlob, carouselFiles, captionText, reelVideo, zipFiles, download, pdfBlob, svgFiles, figmaPack, everything, shrink };
 })();

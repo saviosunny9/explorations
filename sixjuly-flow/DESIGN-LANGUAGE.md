@@ -1,6 +1,6 @@
 # Sixjuly design language library
 
-Sixjuly Flow now has **seven style packs** and **thirteen extra layouts** that take their ideas from how leading design studios and product companies lay things out. This page says where each idea came from, what we kept, and where it shows up.
+Sixjuly Flow has **eight style packs**, a **structured 12-column grid** under all but one of them, and **seventeen extra layouts** that take their ideas from how leading design studios and product companies lay things out. This page says where each idea came from, what we kept, and where it shows up.
 
 ## What this is, and what it is not
 
@@ -15,13 +15,24 @@ Pick one on the **Design** node (or per post in the editor: **Style**, plus **Th
 
 | Style | Looks like | Principle borrowed from | What it changes |
 | --- | --- | --- | --- |
-| **Sixjuly house** | The current brand posts | The Sixjuly brand file | Violet highlight, orange accent, dot grid, arrow. Unchanged default. |
+| **Sixjuly grid** (default) | A studio publication | The Sixjuly brand file on a Swiss-style grid | 12 columns, top bar (mark, series, page), numbered section labels, hairline rules, one violet accent per slide, mono meta text. |
+| **Sixjuly classic** | The earlier brand posts | The Sixjuly brand file | Dot grid, rounded cards, halftone cover art, arrow. Kept for old drafts and when you want that look. |
 | **Swiss grid** | Studio notes, a printed specimen | Pentagram's editorial type work; IBM Carbon (grid and type tokens); the International Typographic Style | Flush-left bold grotesk with tight tracking, hairline rules top and bottom, mono folio (`03 / 09`), square corners, one short violet bar as the only accent. |
 | **Editorial** | A magazine page | Collins and similar editorial brand work (*secondary*) | Serif display type on cream paper, running head with issue number, thin rules, softer corners. |
 | **Mono terminal** | A spec sheet or developer docs | Porto Rocha's mono-led identities; Vercel's Geist system | Black field, mono headlines, hard outlines, crop marks, coordinates in the corners, tiny radii. |
 | **Bento** | A product feature grid | Apple-style feature grids, Notion, Linear (*secondary* analyses) | Soft rounded tiles, calm medium-weight type, large corner radius, progress dots. |
 | **Colour poster** | A campaign poster | Spotify "Wrapped"-type campaigns, bold flat-colour poster work (*secondary*) | Flat violet / orange / white fields that cycle per slide, heavy uppercase type, a giant ghost slide number. |
 | **Glow** | A product landing page | Stripe and Linear dark pages (*secondary*) | Near-black with soft violet / orange light, light-weight display type, a hairline frame. |
+
+## The grid
+
+The structured look is a system, not a template: every slide shares the same frame so a carousel reads as one publication.
+
+- **Grid:** 12 columns, 72 px margins, 24 px gutters on 1080 px. Content hangs off column edges; nothing is centred unless it is a single big figure.
+- **Frame:** top bar (mark, series name, `03 / 07`) above a full-width rule; bottom bar (handle, site, *Next →*) below another. Reels keep the same frame inside Instagram's safe zones.
+- **Hierarchy:** numbered section label (mono, 22 px) → headline (80 px, −4% tracking) → content (40–60 px) → footer (32 px). One violet highlight in the headline, one orange phrase in the footer.
+- **Elements:** hairlines instead of boxes; one filled panel per slide at most (the "strong" cell is always the first); labels in Geist Mono caps; numbers as type, not decoration.
+- **Covers:** *Big type* (headline fills the width), *Colour block* (a full-bleed highlight panel), *Big number* (a giant count beside the title).
 
 ## Layouts
 
@@ -42,6 +53,10 @@ Every layout works in every style and in both formats (carousel 4:5 and reel 9:1
 | **Process flow** (`flow`) | Zig-zag process diagrams | How-tos |
 | **Giant figure** (`wrapped`) | Year-in-review campaign posters | One big number |
 | **Gradient hero** (`mesh`) | Soft gradient product heroes | Openers and closers |
+| **Bento** (`bento`) | Modular product feature grids | An overview, one highlighted point |
+| **Table** (`table`) | Comparison tables in product and consulting decks | Two ways of doing something |
+| **Feature** (`feature`) | Editorial figure + caption + text column | One idea with a picture |
+| **Columns** (`columns`) | Case-study problem / approach / result | A short story in three parts |
 
 ## How it fits the product
 

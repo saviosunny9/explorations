@@ -117,7 +117,8 @@
       catch (e) { toast(e.message, true); }
       btn.disabled = false; btn.textContent = label;
     } }, 'Download slides');
-    sec.append(strip, h('div.dl', null, btn));
+    const fbtn = h('button.btn.sm', { title: 'Copy this post for the Figma importer plugin (live text layers)', onclick: async () => { try { toast(await X.addToFigma(deck, null, node.params)); } catch (e) { toast(e.message, true); } } }, 'Add to Figma');
+    sec.append(strip, h('div.dl', null, btn, fbtn));
     sec._redraw = () => strip.querySelectorAll('canvas').forEach(cv => cv._draw && cv._draw(null));
     return sec;
   }
@@ -272,6 +273,8 @@
 
   // ---- boot ---------------------------------------------------------------------------------------------------------------------------
   G.init($('#graph'));
+  const paintHist = () => { $('#undoBtn').disabled = !G.canUndo(); $('#redoBtn').disabled = !G.canRedo(); };
+  G.on('history', paintHist); $('#undoBtn').onclick = () => G.undo(); $('#redoBtn').onclick = () => G.redo();
   G.on('change', ev => {
     if (ev.node && ev.node.type === 'motion') {
       if (ev.field === 'preset') G.applyPreset(ev.node);

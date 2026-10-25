@@ -1,8 +1,9 @@
 # Sixjuly Flow
 
 Node-based automation for Sixjuly brand posts and reels. Put a topic in, get a carousel (4:5 PNGs), a reel (9:16 MP4 / WebM)
-and a caption out, in the Sixjuly look (white pages, Google Sans Flex, violet highlight, orange footer accent, dot-grid
-cover, arrow). Everything runs in the browser: open `index.html` in Chrome. No server, no build step.
+and a caption out, in the Sixjuly look: a structured 12-column grid with a top bar (mark, series, page number), numbered section
+labels, Google Sans Flex, one violet highlight and an orange footer accent. Everything runs in the browser: open `index.html` in
+Chrome. No server, no build step.
 
 ```
 Topics ─▶ Write ─▶ Design ─┬─▶ Carousel post
@@ -15,9 +16,9 @@ Topics ─▶ Write ─▶ Design ─┬─▶ Carousel post
    (`Pricing pages :: anchor the middle tier -> the default; hide the toggle -> show the price`). `old -> new` pairs become
    before / after cards. Lines starting with `#` are skipped.
 2. Press **Run** (⌘/Ctrl + Enter). Every topic becomes a card on the right with its slides, a playable reel and an editable caption.
-3. Change any node and run again. Turn **Auto-run** on to re-run on every change; Claude copy is cached per topic + settings,
+3. Change any node and run again. Every change to the flow can be undone: ⌘/Ctrl + Z, ⇧⌘Z or the ↶ ↷ buttons in the top bar. Turn **Auto-run** on to re-run on every change; Claude copy is cached per topic + settings,
    so tweaking Design or Motion never calls the API again. **↻ New angle** on the Write node asks for a different take.
-4. **Download slides** (zip of PNG / JPG + caption), **Download video**, or **Download all** (one zip: a folder per topic).
+4. **Download slides** (zip of PNG / JPG + caption), **Add to Figma** (live text layers, see below), **Download video**, or **Download all** (one zip: a folder per topic).
    **Edit copy & caption** under a card fixes wording by hand: `[[words]]` = violet highlight, `{{words}}` = orange accent.
 
 ## Nodes
@@ -70,10 +71,20 @@ with Instagram's top and bottom UI zones kept clear.
 | `casestudy`, `release`, `metrics` | Image plus detail table, tagged changelog, big figures | `meta [{k, v}]`; `version`, `changes [{tag, text}]`; `stats [{value, label}]` |
 | `matrix`, `wrapped`, `mesh` | 2 × 2 with dots, giant repeated figure, gradient hero with chips | `axes`, `dots`; `value`, `label`; `tags` |
 
+### The structured grid (default)
+
+Every slide sits on a 12-column grid (72 px margins, 24 px gutters on a 1080 canvas): a top bar with the mark, the series name (Design node
+→ *Series name*, default the topic) and `03 / 07`; a numbered section label (`02  PROCESS`, editable as *Section label*); the headline; the
+content block; a bottom bar with handle, site and *Next →*. Grid versions exist for statement, list, steps, compare, stat, quote, tiles, split,
+checks, timeline, chat, notes, poster, marquee, flow and metrics, plus four structured layouts: **bento** (`items`, `value`), **table**
+(`cols`, `rows`), **feature** (`caption`, `kicker`, `body`, a photo slot) and **columns** (`cols [{k, v}]`). Covers: *Big type*, *Colour block*,
+*Big number* (`num`). The Write node's **Layouts** switch picks *Structured* (default: grid-friendly kinds, the user's points used once, a
+contents slide on longer decks), *Expressive* (the earlier illustrated mix) or *Classic*.
+
 ### Style packs
 
-Seven looks that sit on top of every layout (Design node → **Style**, or the editor's **Style** / **This slide**): *Sixjuly house* (default), *Swiss grid*, *Editorial*,
-*Mono terminal*, *Bento*, *Colour poster*, *Glow*. A style sets the type profile, the rules / folio / frame around the slide, corner roundness and, with **Theme → Auto**,
+Eight looks that sit on top of every layout (Design node → **Style**, or the editor's **Style** / **This slide**): *Sixjuly grid* (default), *Swiss grid*, *Editorial*,
+*Mono terminal*, *Bento*, *Colour poster*, *Glow* (all on the structured grid) and *Sixjuly classic* (the original dot-grid look). A style sets the type profile, the rules / folio / frame around the slide, corner roundness and, with **Theme → Auto**,
 its own background colours. **Write → Format → Style packs** (or *Flows → Style packs*) makes a deck that shows all seven. Where each idea comes from, what it
 does and does not copy, and how to add a style: see [`DESIGN-LANGUAGE.md`](DESIGN-LANGUAGE.md).
 
@@ -103,8 +114,8 @@ Hover a slide thumbnail to see its animation.
 Press **⤢ Maximize posts** (or **Edit ⤢** on a card, or click a thumbnail) to open the posts full screen. Nothing in the flow changes: **← Flow** returns to it exactly as you left it.
 
 - **Filmstrip** (left): click a slide, drag to reorder, hover for duplicate / delete, **+ Slide** adds any layout.
-- **Stage** (middle): *One slide* or *All slides*, zoom − / Fit / +, and a **Reel** tab with a large player. Click an element to select it, drag to move (it snaps to the centre and page margins), drag a corner to resize, double-click text (or press Enter) to type. Arrow keys nudge, Delete removes, ⌘/Ctrl + Z undoes, ⇧⌘Z redoes, ⌘/Ctrl + D duplicates.
-- **Inspector** (right): **Add** text, heading, sticker, rectangle, circle, pill, line, arrow or a photo; **Selected** options (font, weight, size, colour, alignment, line height, letter spacing, box colour, corners, rotation, order, align to slide); photo options (replace, crop with zoom and pan, brightness, contrast, saturation, corners, outline); **Slide** options (layout, cover style, theme, background colour, duplicate, delete, move); **Content** fields for every piece of copy on the slide plus the caption.
+- **Stage** (middle): *One slide* or *All slides*, zoom − / Fit / +, and a **Reel** tab with a large player. Every element of every layout can be selected: drag to move (it snaps to the centre and page margins), drag a corner to resize, drag the round handle to rotate (Shift snaps to 15°), drag the side of a headline or footer to re-wrap it, or type exact X / Y / scale / rotation (W / H for added layers) in the **Selected** panel. Double-click text (or press Enter) to type. Arrow keys nudge, Delete removes, ⌘/Ctrl + Z undoes and ⇧⌘Z redoes (also right after using a dropdown or slider), ⌘/Ctrl + D duplicates.
+- **Inspector** (right): **Add** text, heading, sticker, rectangle, circle, pill, line, arrow or a photo; **Selected** options (font, weight, size, colour, alignment, line height, letter spacing, box colour, corners, rotation, order, align to slide); photo options (replace, crop with zoom and pan, brightness, contrast, saturation, corners, outline); **Slide** options (layout, cover style, style for the post and for this slide, theme, background colour, duplicate, delete, move); **Content** fields for every piece of copy on the slide plus the caption.
 - Brand fonts, colours, themes and layouts stay one click away; edits sit on top of the layout, so *Reset my edits on this slide* brings the original back and hidden layout elements can be restored from a list.
 - Edits are saved automatically as a **draft** (in this browser, photos included) and are listed under **Drafts**. **Approve post** marks the finished post as approved for export. Nothing is ever published for you.
 
@@ -117,11 +128,19 @@ From the editor's **Export** menu (or **Drafts → Download**):
 | PNG / JPG | One slide at 2×, or every slide in a zip with the caption |
 | PDF | One page per slide (images, not selectable text) |
 | Editable SVG | One `.svg` per slide with real `<text>`, shapes and photos, grouped by layer name (Background, Headline, Footer text, Visual …) |
-| Figma pack | The SVG slides, `caption.txt` and a `README.txt` with the three import steps |
-| Copy this slide’s SVG | Puts the SVG on the clipboard; click in Figma and paste |
+| Add to Figma | Copies the post for the **Sixjuly Flow importer** plugin (or saves `<post>.sixjuly.json` if the clipboard is blocked) |
+| Figma pack | The importer plugin (`figma-plugin/`), the post file, the SVG slides, `caption.txt` and a `README.txt` |
+| Copy this slide’s SVG | Puts the SVG on the clipboard, for other tools |
 | Everything (zip) | PNG, JPG, SVG, PDF, caption, `sources.txt`, the Figma pack and `post.json` |
 
-Figma cannot be written to from outside and has no way to open a `.fig` file produced elsewhere, so the supported route is SVG import (drag the files onto the canvas or paste). Fonts used are Google Fonts, which Figma includes; if a text layer shows a missing-font warning, pick the font by name (Google Sans Flex, Anton, Instrument Serif, Space Mono). Photo brightness / contrast edits travel as an image filter that Figma ignores.
+**Figma with live text.** Figma's own SVG import can turn text into outlines, so posts go in through a small plugin in `figma-plugin/`
+(install once: Figma desktop → Plugins → Development → Import plugin from manifest → `figma-plugin/manifest.json`; it is also inside every
+Figma pack). Click **Add to Figma** on a post, run *Sixjuly Flow importer* in Figma and paste. Each slide becomes a frame; headlines, labels and
+paragraphs are real text layers (one layer per line or paragraph, not per word, with font, size, line height, letter spacing and the violet /
+orange ranges kept), and rules, panels, shapes and photos come in as vectors and images in groups named after the layout (Top bar, Headline,
+Section label, Visual …). Fonts are Google Fonts available in Figma (Google Sans Flex, Geist Mono, Instrument Serif, Anton); a missing one falls back
+to Inter and the plugin lists it. The plugin runs locally and has no network access. Figma still has no way to open a `.fig` made elsewhere, and
+nothing here claims to make one. Photo brightness / contrast edits travel as an image filter that Figma ignores.
 
 ## Topics: sources, links and approval
 
@@ -177,6 +196,9 @@ Writes `out/<topic>/carousel/slide-01.png …`, `reel.mp4|webm` and `caption.txt
 | `tools/smoke_test.js` | Playwright test: run, rewire, presets, mocked Claude call, API export, video |
 | `tools/generate.js` | Headless batch generator |
 | `layouts.js` | Extra layouts, illustrations and cover styles (hooks into `render.js`) |
+| `layouts3.js` | The structured grid: style packs on the grid, meta bars, grid covers, grid versions of the core layouts, bento / table / feature / columns |
+| `figma-plugin/`, `figma-plugin.js` | The Figma importer plugin (manifest, code, UI) and its generated copy that the app puts into Figma packs |
+| `tools/figma_test.js`, `tools/transform_test.js` | Figma export + the plugin against a stand-in for the Figma API; undo, rotate, resize and number fields |
 | `layouts2.js` | Design-language library: style packs (`R.STYLES`), their chrome painters, and thirteen more layouts |
 | `DESIGN-LANGUAGE.md` | Where the styles and layouts come from, limits, how to add one |
 | `tools/style_sheet.js`, `tools/styles_test.js` | Contact sheet of the new layouts in a style; test of every style × every layout, the styles deck and the copy engine |

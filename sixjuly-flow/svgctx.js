@@ -114,12 +114,14 @@
       return { style: m[1] || 'normal', weight: m[2] === 'bold' ? 700 : (m[2] && m[2] !== 'normal' ? m[2] : 400), size: parseFloat(m[3]) || 16, family: (m[4] || 'sans-serif').trim() };
     }
     fillText(text, x, y) {
-      const ft = this._font(), mt = this.measureText(text); let yy = y;
-      const asc = mt.fontBoundingBoxAscent != null ? mt.fontBoundingBoxAscent : ft.size * 0.8, desc = mt.fontBoundingBoxDescent != null ? mt.fontBoundingBoxDescent : ft.size * 0.2;
-      if (this.textBaseline === 'top' || this.textBaseline === 'hanging') yy = y + asc; else if (this.textBaseline === 'middle') yy = y + (asc - desc) / 2; else if (this.textBaseline === 'bottom') yy = y - desc;
-      const p = this._paint(this.fillStyle), anchor = this.textAlign === 'center' ? 'middle' : (this.textAlign === 'right' || this.textAlign === 'end') ? 'end' : 'start', ls = parseFloat(this.letterSpacing) || 0;
-      // letter-spacing is added after the last glyph on canvas as well, so shift the anchor the same way for centred / right-aligned text
-      this._wrap(`<text x="${f(x)}" y="${f(yy)}" transform="${this._matrix()}" font-family="${esc(ft.family)}" font-size="${f(ft.size)}" font-weight="${ft.weight}"${ft.style !== 'normal' ? ` font-style="${ft.style}"` : ''}${ls ? ` letter-spacing="${f(ls)}"` : ''}${anchor !== 'start' ? ` text-anchor="${anchor}"` : ''} fill="${esc(p.fill)}"${p.op < 1 ? ` fill-opacity="${p.op}"` : ''}${this.globalAlpha < 1 ? ` opacity="${f(this.globalAlpha)}"` : ''} xml:space="preserve">${esc(text)}</text>`);
+      text = String(text); if (!text) return;
+      const ft = this._font(), mt = this.measureText(text), size = ft.size;
+      const asc = mt.fontBoundingBoxAscent != null ? mt.fontBoundingBoxAscent : size * 0.8, desc = mt.fontBoundingBoxDescent != null ? mt.fontBoundingBoxDescent : size * 0.2;
+      let base = y; if (this.textBaseline === 'top' || this.textBaseline === 'hanging') base = y + asc; else if (this.textBaseline === 'middle') base = y + (asc - desc) / 2; else if (this.textBaseline === 'bottom') base = y - desc;
+      const ls = parseFloat(this.letterSpacing) || 0, w = mt.width, align = this.textAlign === 'center' ? 'center' : (this.textAlign === 'right' || this.textAlign === 'end') ? 'right' : 'left';
+      const left = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x, p = this._paint(this.fillStyle);
+      // text is recorded, not written: neighbouring runs of one line / paragraph are merged into one text element at the end
+      this.out.push({ t: 'text', text, left, w, base, size, asc, desc, ls, align, family: ft.family, weight: ft.weight, style: ft.style, font: this.font, fill: p.fill, op: p.op, alpha: this.globalAlpha, m: this.m.slice(), clips: this.clips.join(',') });
     }
     strokeText() { /* not used by the layouts */ }
     drawImage(im, x, y, w, h) {
@@ -130,8 +132,52 @@
     // ---- structure (named groups become layers in Figma) ----
     group(name) { this.out.push(`<g id="${esc(String(name).replace(/[^\w-]+/g, '-'))}">`); this.groups++; }
     endGroup() { if (this.groups > 0) { this.out.push('</g>'); this.groups--; } }
+    // merge consecutive text runs: same font, matrix and clip → one line (runs keep their colours), stacked lines → one paragraph
+    _blocks() {
+      const out = [], same = (a, b) => a.font === b.font && a.ls === b.ls && a.clips === b.clips && a.alpha === b.alpha && a.m.every((v, i) => Math.abs(v - b.m[i]) < 0.01);
+      let blk = null;
+      for (const el of this.out) {
+        if (typeof el === 'string') { blk = null; out.push(el); continue; }
+        const run = { text: el.text, fill: el.fill, op: el.op };
+        if (blk && same(blk, el) && el.align === 'left' && blk.align === 'left') {
+          const ln = blk.lines[blk.lines.length - 1], gap = el.left - ln.end;
+          if (Math.abs(el.base - ln.base) < 0.6 && gap > -2 && gap < el.size * 0.75) { if (gap > el.size * 0.12) ln.runs.push({ text: ' ', fill: run.fill, op: run.op }); ln.runs.push(run); ln.end = el.left + el.w; continue; }
+          const step = el.base - ln.base;
+          if (Math.abs(el.left - blk.left) < 1.5 && step > el.size * 0.8 && step < el.size * 1.9 && (blk.step == null || Math.abs(step - blk.step) < 1.5)) { blk.step = step; blk.lines.push({ base: el.base, end: el.left + el.w, runs: [run] }); continue; }
+        }
+        blk = Object.assign({}, el, { t: 'block', lines: [{ base: el.base, end: el.left + el.w, runs: [run] }], step: null }); out.push(blk);
+      }
+      return out;
+    }
+    _textSVG(b) {
+      const esc2 = t => esc(t);
+      const body = b.lines.map(ln => `<tspan x="${f(b.left)}" y="${f(ln.base)}">${ln.runs.map(r => `<tspan fill="${esc(r.fill)}"${r.op < 1 ? ` fill-opacity="${r.op}"` : ''}>${esc2(r.text)}</tspan>`).join('')}</tspan>`).join('');
+      let el = `<text xml:space="preserve" transform="${`matrix(${b.m.map(v => f(v)).join(' ')})`}" font-family="${esc(b.family)}" font-size="${f(b.size)}" font-weight="${b.weight}"${b.style !== 'normal' ? ` font-style="${b.style}"` : ''}${b.ls ? ` letter-spacing="${f(b.ls)}"` : ''}${b.alpha < 1 ? ` opacity="${f(b.alpha)}"` : ''}>${body}</text>`;
+      if (b.clips) b.clips.split(',').reverse().forEach(id => (el = `<g clip-path="url(#${id})">${el}</g>`));
+      return el;
+    }
+    // the same recording as Figma nodes: groups → groups, text → live text, everything else → SVG chunks
+    toFigma(meta) {
+      while (this.groups > 0) this.endGroup();
+      const root = { type: 'group', name: (meta && meta.name) || 'Slide', children: [] }, stack = [root]; let buf = [];
+      const W = this.W, H = this.H, defs = this.defs.join('');
+      const flush = () => { if (!buf.length) return; stack[stack.length - 1].children.push({ type: 'svg', svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>${defs}</defs>${buf.join('')}</svg>` }); buf = []; };
+      for (const el of this._blocks()) {
+        if (typeof el === 'string') {
+          const g = /^<g id="([^"]*)">$/.exec(el);
+          if (g) { flush(); const grp = { type: 'group', name: g[1].replace(/-/g, ' '), children: [] }; stack[stack.length - 1].children.push(grp); stack.push(grp); }
+          else if (el === '</g>') { flush(); if (stack.length > 1) stack.pop(); }
+          else buf.push(el);
+          continue;
+        }
+        flush(); stack[stack.length - 1].children.push(textNode(el));
+      }
+      flush();
+      return root.children;
+    }
     toString(meta) {
       while (this.groups > 0) this.endGroup();
+      this.out = this._blocks().map(el => (typeof el === 'string' ? el : this._textSVG(el)));
       const fonts = (meta && meta.fonts) || [];
       return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${this.W}" height="${this.H}" viewBox="0 0 ${this.W} ${this.H}">\n<!-- Sixjuly Flow export. Text, shapes and photos are real SVG elements. Fonts used: ${esc(fonts.join(', '))} -->\n<defs>${this.defs.join('')}</defs>\n${this.out.join('\n')}\n</svg>\n`;
     }
@@ -144,6 +190,19 @@
     if (m) return { c: `rgb(${Math.round(m[1])},${Math.round(m[2])},${Math.round(m[3])})`, a: m[4] == null ? 1 : +m[4] };
     if (/^#[0-9a-f]{8}$/i.test(c)) return { c: c.slice(0, 7), a: parseInt(c.slice(7), 16) / 255 };
     return { c, a: c === 'transparent' ? 0 : 1 };
+  }
+  // a merged text block → a Figma text node description (position = top-left of the box in slide space, before rotation)
+  const STYLE_NAMES = { 100: 'Thin', 200: 'ExtraLight', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'SemiBold', 700: 'Bold', 800: 'ExtraBold', 900: 'Black' };
+  function textNode(b) {
+    const m = b.m, k = Math.hypot(m[0], m[1]) || 1, cos = m[0] / k, sin = m[1] / k, nat = b.asc + b.desc, lh = b.step || nat;
+    const top = b.lines[0].base - ((lh - nat) / 2 + b.asc), px = m[0] * b.left + m[2] * top + m[4], py = m[1] * b.left + m[3] * top + m[5];
+    let chars = '', ranges = [];
+    b.lines.forEach((ln, i) => { if (i) chars += '\n'; ln.runs.forEach(r => { const s0 = chars.length; chars += r.text; ranges.push({ s: s0, e: chars.length, fill: r.fill, op: r.op }); }); });
+    const merged = []; ranges.forEach(r => { const l = merged[merged.length - 1]; if (l && l.fill === r.fill && l.op === r.op && l.e === r.s) l.e = r.e; else merged.push(Object.assign({}, r)); });
+    const family = String(b.family).split(',')[0].replace(/["']/g, '').trim(), w = Number(b.weight) || 400, italic = b.style === 'italic';
+    return { type: 'text', chars, family, weight: w, style: (STYLE_NAMES[Math.round(w / 100) * 100] || 'Regular') + (italic ? ' Italic' : ''), italic, size: +(b.size * k).toFixed(2), lineHeight: +(lh * k).toFixed(2), letterSpacing: +(b.ls * k).toFixed(2),
+      align: b.lines.length === 1 ? (b.align || 'left') : 'left', x: +px.toFixed(2), y: +py.toFixed(2), rotation: +(Math.atan2(sin, cos) * 180 / Math.PI).toFixed(3), cos: +cos.toFixed(6), sin: +sin.toFixed(6), opacity: b.alpha, ranges: merged,
+      fill: merged.length ? merged[0].fill : '#000', name: chars.replace(/\s+/g, ' ').slice(0, 48) };
   }
   window.SixjulySVG = SixjulySVG;
 })();

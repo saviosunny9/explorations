@@ -5,7 +5,7 @@ const { chromium } = require('playwright'); const path = require('path'), fs = r
   const b = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
   const p = await b.newPage(); p.on('pageerror', e => console.log('PAGEERROR', e.message)); p.on('console', m => m.type() === 'error' && !/fonts|ERR/.test(m.text()) && console.log('CONSOLE', m.text()));
   await p.setContent('<body></body>');
-  for (const f of ['logo', 'render', 'layouts', 'layouts2', 'svgctx', 'copy']) await p.addScriptTag({ path: path.join(__dirname, `../${f}.js`) });
+  for (const f of ['logo', 'render', 'layouts', 'layouts2', 'layouts3', 'svgctx', 'copy']) await p.addScriptTag({ path: path.join(__dirname, `../${f}.js`) });
   const style = process.argv[3] || 'sixjuly';
   const res = await p.evaluate(async (style) => {
     const R = window.SixjulyRender; await R.loadFonts({});

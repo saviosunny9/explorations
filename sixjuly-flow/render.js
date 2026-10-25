@@ -87,7 +87,7 @@
   const plain = s => String(s == null ? '' : s).replace(/\[\[|\]\]|\{\{|\}\}/g, '');
 
   const mc = document.createElement('canvas').getContext('2d');
-  const FAM = { cond: '"Anton", "Bebas Neue", Impact, "Arial Narrow", sans-serif', serif: '"Instrument Serif", "Playfair Display", Georgia, serif', mono: '"Space Mono", "DM Mono", ui-monospace, Menlo, monospace' };
+  const FAM = { cond: '"Anton", "Bebas Neue", Impact, "Arial Narrow", sans-serif', serif: '"Instrument Serif", "Playfair Display", Georgia, serif', mono: '"Geist Mono", "Space Mono", ui-monospace, Menlo, monospace' };
   const LAYOUTS = {}, COVERS = {}, imgs = new Map();   // filled by layouts.js / the Images node
   function setFont(ctx, brand, weight, size, track, fam) {
     ctx.font = `${weight} ${size}px ${fam || stack(brand)}`;
@@ -156,6 +156,20 @@
     };
   }
 
+  // the structured grid: 12 columns, fixed meta bars top and bottom, everything else hangs off the columns
+  function gridGeometry(W, H) {
+    const reel = H / W > 1.6, k = W / 1080, mx = Math.round(72 * k), gut = Math.round(24 * k), colW = (W - 2 * mx - gut * 11) / 12;
+    const col = (a, n) => ({ x: mx + (a - 1) * (colW + gut), w: n * colW + (n - 1) * gut });
+    return {
+      W, H, reel, mx, gut, colW, col, grid: true,
+      metaY: reel ? 204 : 80, ruleTop: reel ? 228 : 106, top: reel ? 292 : 160,
+      ruleBot: reel ? H - 320 : H - 108, metaBY: reel ? H - 284 : H - 70, bottom: reel ? H - 372 : H - 160,
+      headSize: reel ? 92 : 80, footSize: reel ? 36 : 32, headerY: reel ? 204 : 80, labelSize: reel ? 26 : 22,
+    };
+  }
+  // the small numbered label above a headline in grid styles
+  const KIND_LABEL = { statement: 'Insight', list: 'Rules', steps: 'Process', compare: 'Before / after', stat: 'By the numbers', quote: 'In their words', tiles: 'Ideas', split: 'Then / now', checks: 'Do / don’t', timeline: 'Timeline', chat: 'Conversation', notes: 'Notes', poster: 'One word', marquee: 'Mantra', index: 'Contents', principles: 'Principles', metrics: 'Results', release: 'What’s new', matrix: 'Framework', system: 'System', glossary: 'Glossary', stack: 'Structure', flow: 'Process', spec: 'Specimen', casestudy: 'Case study', wrapped: 'Highlight', mesh: 'Overview', bento: 'Overview', table: 'Comparison', feature: 'Feature', columns: 'Breakdown', objects: 'Materials', art: 'Insight', collage: 'Work', posters: 'Work', greeting: 'Greetings', cta: 'Next step' };
+
   // ---- scene --------------------------------------------------------------------------------------------------------------
   // item = { role, unit, box, paint(ctx, st, ctxInfo) }; roles: header art tag head sub visual foot btn arrow
   const ROLE_ORDER = ['chrome', 'art', 'header', 'tag', 'head', 'sub', 'visual', 'free', 'btn', 'foot', 'arrow'];
@@ -163,38 +177,45 @@
   function layoutSlide(slide, env) {
     const { W, H, brand } = env;
     const th = env.theme;
-    const g = geometry(W, H);
     const SY = (window.SixjulyRender.STYLES || {})[env.style] || null;          // a style pack: type profile, chrome, corner scale
-    const scene = { W, H, g, theme: th, brand, slide, items: [], units: {}, style: SY, rs: SY && SY.rs != null ? SY.rs : 1, index: env.index || 0, total: env.total || 1 };
+    const grid = !!(SY && SY.grid), g = grid ? gridGeometry(W, H) : geometry(W, H);
+    const scene = { W, H, g, grid, series: env.series || '', theme: th, brand, slide, items: [], units: {}, style: SY, rs: SY && SY.rs != null ? SY.rs : 1, index: env.index || 0, total: env.total || 1 };
     const add = (role, box, paint, extra) => { const it = Object.assign({ role, unit: 0, box, paint }, extra || {}); scene.items.push(it); return it; };
-    const kind = slide.kind || 'statement';
+    const kind = slide.kind || 'statement', cover = kind === 'cover', cta = kind === 'cta';
     const reel = g.reel, OV = slide.o || {};
     // per-slide text overrides from the editor: size, weight, family, alignment, line height, tracking (colour is applied at paint time)
     const ty = (key, src, opts, fit) => {
       const o = OV[key] || {}, op = Object.assign({}, opts), sy = (SY && SY[key]) || null;
       if (sy) { if (sy.weight) op.weight = sy.weight; if (sy.fam && FAM[sy.fam]) op.fam = FAM[sy.fam]; if (sy.track != null) op.track = sy.track; if (sy.lh) op.lh = sy.lh; if (sy.scale && op.size) op.size *= sy.scale; if (sy.upper) src = String(src).toUpperCase(); if (sy.align) op.align = sy.align; }
-      if (o.weight) op.weight = +o.weight; if (o.fam && FAM[o.fam]) op.fam = FAM[o.fam]; if (o.align) op.align = o.align; if (o.lh) op.lh = +o.lh; if (o.track != null && o.track !== '') op.track = +o.track;
+      if (o.w) op.maxW = Math.max(120, +o.w); if (o.weight) op.weight = +o.weight; if (o.fam && FAM[o.fam]) op.fam = FAM[o.fam]; if (o.align) op.align = o.align; if (o.lh) op.lh = +o.lh; if (o.track != null && o.track !== '') op.track = +o.track;
       if (o.size) { op.size = +o.size; delete op.maxH; delete op.maxLines; return layoutRich(brand, src, op); }
       return fit ? fitRich(brand, src, op) : layoutRich(brand, src, op);
     };
 
     // headline ------------------------------------------------------------------------------------------------------------
-    const cover = kind === 'cover', cta = kind === 'cta';
     const hasVisual = !['statement', 'cover', 'cta'].includes(kind);
     const maxW = W - 2 * g.mx;
     let footL = null, footTop = g.bottom - (slide.handle ? 0 : 56);
     if (slide.foot) {
-      footL = ty('foot', slide.foot, { maxW: maxW - (slide.handle ? 330 : 130), size: g.footSize, weight: 400, lh: 1.3, track: -0.01, balance: false }, false);
+      footL = ty('foot', slide.foot, { maxW: grid ? g.col(1, cover ? 9 : 8).w : maxW - (slide.handle ? 330 : 130), size: g.footSize, weight: 400, lh: grid ? 1.28 : 1.3, track: -0.01, balance: false }, false);
       footTop = g.bottom - footL.h;
     }
     let subL = null;
     if (cover && slide.sub) {
-      subL = ty('sub', slide.sub, { maxW, size: reel ? 64 : 54, min: 36, weight: 600, lh: 1.12, track: -0.025, maxLines: 2 }, true);
+      subL = ty('sub', slide.sub, { maxW: grid ? g.col(1, 10).w : maxW, size: grid ? (reel ? 56 : 48) : reel ? 64 : 54, min: 30, weight: grid ? 500 : 600, lh: 1.1, track: grid ? -0.03 : -0.025, maxLines: 2 }, true);
       footTop = Math.min(footTop, footTop) - (footL ? 18 : 0) - subL.h;
     }
     let headL = null, headY = g.top;
-    const cov = cover && COVERS[slide.cover];
+    const GC = grid && cover && (window.SixjulyRender.GRID_COVERS || {})[slide.cover || 'type'];   // grid covers (type, block, index)
+    const cov = cover && !GC && COVERS[slide.cover];
+    const labelOn = grid && !cover && slide.label !== '';
     if (cov && cov.replaceHead) { cov.build(scene, add, { g, th, brand, slide, W, H, reel, U: window.SixjulyRender.U }); }
+    else if (slide.head && GC) { const r0 = GC.head(scene, { g, W, H, reel, th, brand, slide, subL, footL }); headL = ty('head', slide.head, r0.opts, true); headY = r0.y(headL); }
+    else if (slide.head && grid) {
+      const big = cta || kind === 'statement' && !slide.visual;
+      headL = ty('head', slide.head, { maxW: g.col(1, big ? 12 : 11).w, maxH: H * (big ? 0.42 : 0.3), size: g.headSize * (big ? 1.3 : 1), min: 48, weight: 500, lh: big ? 1.0 : 1.04, track: -0.042, maxLines: big ? 6 : 4 }, true);
+      headY = g.top + (labelOn ? (reel ? 64 : 56) : 0);
+    }
     else if (slide.head) {
       if (cover) {
         headL = ty('head', slide.head, { maxW, maxH: H * (reel ? 0.34 : 0.4), size: reel ? 260 : 230, min: 70, weight: 800, lh: 0.96, track: -0.045, maxLines: 4 }, true);
@@ -206,12 +227,20 @@
         headL = ty('head', slide.head, { maxW, maxH: H * 0.3, size: g.headSize, min: 52, weight: 500, lh: 1.1, track: -0.035, maxLines: 4 }, true);
       }
     }
-    if (headL && slide.header && !cover && !cta) headY = g.headerY + 74 * 0.84 + (reel ? 70 : 50);
+    if (headL && slide.header && !cover && !cta && !grid) headY = g.headerY + 74 * 0.84 + (reel ? 70 : 50);
+    // grid: a numbered section label above the headline ("02  Process")
+    if (labelOn) {
+      const lab = String(slide.label || KIND_LABEL[kind] || ''), num = String((env.index || 0) + 1).padStart(2, '0'), ly = g.top, ls = g.labelSize;
+      add('header', { x: g.mx, y: ly - 4, w: g.col(1, 6).w, h: ls + 10 }, ctx => {
+        setFont(ctx, brand, 500, ls, 0.02, FAM.mono); ctx.textBaseline = 'top'; ctx.fillStyle = th.hi; ctx.fillText(num, g.mx, ly);
+        const nw = ctx.measureText(num).width; ctx.fillStyle = th.mute; ctx.fillText(lab.toUpperCase(), g.mx + nw + ls * 1.4, ly); ctx.textBaseline = 'alphabetic';
+      }, { name: 'Section label' });
+    }
     scene.headL = headL;
     scene.headY = headY;
 
     // header (logo + handle) — on cover / closing slides, like the brand posts
-    if ((cover || cta || slide.header) && !(SY && SY.header === false)) {
+    if ((cover || cta || slide.header) && !(SY && SY.header === false) && !grid) {
       const lg = window.SIXJULY_LOGO, lw = 74, lhh = lw * lg.h / lg.w, y = g.headerY;
       add('header', { x: g.mx, y, w: lw, h: lhh }, (ctx, st) => {
         drawLogo(ctx, g.mx, y, lw, th.logo);
@@ -223,7 +252,7 @@
     }
 
     // cover art: sits in the free band between the headline and the bottom text, bleeding off the right edge ---------------
-    if (cover && env.art && env.art !== 'none' && headL && !slide.cover) {
+    if (cover && !grid && env.art && env.art !== 'none' && headL && !slide.cover) {
       const textTop = g.bottom - (footL ? footL.h + (subL ? 18 : 0) : 0) - (subL ? subL.h : 0);
       const free = textTop - (headY + headL.h) - 70;
       const size = clamp(free, 300, W * 0.72), cy = headY + headL.h + 35 + free / 2;
@@ -233,9 +262,10 @@
     }
 
     if (cov && !cov.replaceHead) { cov.build(scene, add, { g, th, brand, slide, W, H, reel, headL, headY, footTop, U: window.SixjulyRender.U }); }
+    if (GC && GC.build) GC.build(scene, add, { g, th, brand, slide, W, H, reel, headL, headY, footTop, subL, footL, U: window.SixjulyRender.U });
 
     // sticker tag (cover) -------------------------------------------------------------------------------------------------
-    if (cover && slide.tag && headL) {
+    if (cover && slide.tag && headL && !grid) {
       const tagText = String(slide.tag), tsz = fitLine(brand, tagText, W * 0.62, reel ? 88 : 76, 800, 36, -0.02);
       setFont(mc, brand, 800, tsz, -0.02);
       const tw = mc.measureText(tagText).width, pad = Math.round(tsz * 0.29), h = tsz * 1.12 + pad;
@@ -250,22 +280,29 @@
 
     // headline words ---------------------------------------------------------------------------------------------------------
     if (headL) {
-      const box = { x: g.mx, y: headY, w: maxW, h: headL.h };
+      const box = { x: g.mx, y: headY, w: Math.max(120, +(OV.head || {}).w || maxW), h: headL.h };
       scene.headBox = box;
-      add('head', box, null, { text: headL, ox: g.mx, oy: headY, ink: (OV.head || {}).color });
+      add('head', box, null, { text: headL, ox: g.mx, oy: headY, ink: (OV.head || {}).color || (GC && GC.ink ? GC.ink(th, brand) : undefined), hiInk: GC && GC.hiInk ? GC.hiInk(th, brand) : undefined });
     }
     const headBottom = headL ? headY + headL.h : g.top;
 
     // sub (cover) & foot -------------------------------------------------------------------------------------------------
     if (subL) {
-      const y = g.bottom - (footL ? footL.h + 18 : 0) - subL.h;
-      add('sub', { x: g.mx, y, w: maxW, h: subL.h }, null, { text: subL, ox: g.mx, oy: y, ink: (OV.sub || {}).color });
+      const y = g.bottom - (footL ? footL.h + (grid ? 22 : 18) : 0) - subL.h;
+      add('sub', { x: g.mx, y, w: Math.max(120, +(OV.sub || {}).w || maxW), h: subL.h }, null, { text: subL, ox: g.mx, oy: y, ink: (OV.sub || {}).color });
     }
-    if (footL) add('foot', { x: g.mx, y: footTop + (subL ? 0 : 0), w: maxW - 130, h: footL.h }, null, { text: footL, ox: g.mx, oy: g.bottom - footL.h, ink: (OV.foot || {}).color });
+    if (footL) add('foot', { x: g.mx, y: footTop + (subL ? 0 : 0), w: Math.max(120, +(OV.foot || {}).w || maxW - 130), h: footL.h }, null, { text: footL, ox: g.mx, oy: g.bottom - footL.h, ink: (OV.foot || {}).color });
     // arrow
     if (slide.handle) {
       const ay0 = g.bottom;
       add('arrow', { x: W - g.mx - 300, y: ay0 - 60, w: 300, h: 60 }, (ctx) => { ctx.fillStyle = th.ink; setFont(ctx, brand, 400, reel ? 26 : 23, 0); ctx.textAlign = 'right'; ctx.fillText(brand.handle || BRAND.handle, W - g.mx, ay0 - 28); ctx.fillText(brand.site || BRAND.site, W - g.mx, ay0 + 2); ctx.textAlign = 'left'; });
+    } else if (grid && (kind !== 'cta' || slide.arrow)) {
+      const ay = g.metaBY - g.labelSize * 0.32, ls = g.labelSize;
+      add('arrow', { x: W - g.mx - 150, y: ay - 22, w: 150, h: 44 }, (ctx, st) => {
+        const p = st.draw == null ? 1 : st.draw, x1 = W - g.mx;
+        ctx.save(); setFont(ctx, brand, 500, ls, 0.02, FAM.mono); ctx.fillStyle = th.ink; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(cover ? 'SWIPE' : 'NEXT', x1 - 52, g.metaBY); ctx.textAlign = 'left';
+        ctx.strokeStyle = th.ink; ctx.lineWidth = 2; ctx.lineCap = 'square'; ctx.beginPath(); ctx.moveTo(x1 - 36 * p, ay); ctx.lineTo(x1, ay); ctx.moveTo(x1 - 9, ay - 9); ctx.lineTo(x1, ay); ctx.lineTo(x1 - 9, ay + 9); ctx.stroke(); ctx.restore();
+      });
     } else if ((kind !== 'cta' || slide.arrow) && !(SY && SY.arrow === false)) {
       const ay = g.bottom - (footL ? Math.min(footL.h, g.footSize * 1.3) / 2 : 22);
       add('arrow', { x: W - g.mx - 64, y: ay - 24, w: 64, h: 48 }, (ctx, st) => {
@@ -279,7 +316,7 @@
     }
 
     // visual area ---------------------------------------------------------------------------------------------------------
-    const vTop = headBottom + (reel ? 60 : 40), vBot = footTop - (reel ? 60 : 40);
+    const vTop = headBottom + (grid ? (reel ? 72 : 56) : reel ? 60 : 40), vBot = footTop - (grid ? (reel ? 72 : 56) : reel ? 60 : 40);
     const vis = { x: g.mx, y: vTop, w: maxW, h: Math.max(200, vBot - vTop) };
     scene.vis = vis;
     if (hasVisual) buildVisual(scene, add, vis, env);
@@ -288,17 +325,18 @@
       const label = String(slide.btn).toUpperCase(), tw = mc.measureText(label).width;
       const bh = reel ? 150 : 128, bw = tw + 120, by = headY + headL.h + (reel ? 70 : 58);
       add('btn', { x: g.mx, y: by, w: bw, h: bh }, (ctx) => {
-        ctx.fillStyle = th.btn; rr(ctx, g.mx, by, bw, bh, scene.rs >= 0.8 ? bh / 2 : 8 * scene.rs); ctx.fill();
+        ctx.fillStyle = th.btn; rr(ctx, g.mx, by, bw, bh, grid ? bh / 2 : scene.rs >= 0.8 ? bh / 2 : 8 * scene.rs); ctx.fill();
         ctx.fillStyle = th.btnInk; setFont(ctx, brand, 700, reel ? 52 : 46, -0.01); ctx.textBaseline = 'middle'; ctx.fillText(label, g.mx + 60, by + bh / 2 + 3); ctx.textBaseline = 'alphabetic';
       });
     }
     // free layers added in the editor (text, shapes, photos), drawn above the layout
     (slide.layers || []).forEach((ly, k) => { const lay = prepLayer(ly, scene); add('free', lay.box, ctx => lay.paint(ctx), { unit: k, layer: ly.id, lay: ly }); });
     // style chrome: rules, folio, frames, backgrounds (drawn first, never selectable)
-    if (SY && SY.chrome && window.SixjulyRender.CHROME[SY.chrome]) window.SixjulyRender.CHROME[SY.chrome](scene, (box, paint) => add('chrome', box, paint, { nosel: true }), { g, th, brand, W, H, reel, index: scene.index, total: scene.total, slide });
+    if (SY && SY.chrome && window.SixjulyRender.CHROME[SY.chrome]) window.SixjulyRender.CHROME[SY.chrome](scene, (box, paint, ex) => add('chrome', box, paint, Object.assign({ nosel: true }, ex || {})), { g, th, brand, W, H, reel, index: scene.index, total: scene.total, slide, series: scene.series });
     // stable keys so edits (move / scale / hide) stay attached to the same element
     const cnt = {}; scene.items.forEach(it => { cnt[it.role] = cnt[it.role] || 0; it.key = it.layer ? 'free:' + it.layer : it.role + cnt[it.role]; cnt[it.role]++; });
-    scene.dots = SY && SY.dots != null ? SY.dots : (cover || cta || slide.dots);
+    scene.dots = grid ? false : SY && SY.dots != null ? SY.dots : (cover || cta || slide.dots);
+    if (grid && cta && window.SixjulyRender.GRID_CTA) window.SixjulyRender.GRID_CTA(scene, add, { g, th, brand, slide, W, H, reel, headL, headY, footTop });
     return scene;
   }
 
@@ -334,6 +372,8 @@
 
   function buildVisual(scene, add, vis, env) {
     const { brand, theme: th, slide, g, W } = scene, kind = slide.kind, reel = g.reel;
+    const GL = scene.grid && (window.SixjulyRender.GRID || {})[kind];
+    if (GL) return GL(scene, add, vis, env, window.SixjulyRender.U);
     if (LAYOUTS[kind]) return LAYOUTS[kind](scene, add, vis, env, window.SixjulyRender.U);
     const label = (ctx, text, cx, y, size) => { ctx.fillStyle = th.ink; setFont(ctx, brand, 400, size || (reel ? 28 : 25), 0.12); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(String(text).toUpperCase(), cx, y); ctx.textAlign = 'left'; };
     const centre = (h) => vis.y + (vis.h - h) / 2;
@@ -541,7 +581,7 @@
     ctx.textBaseline = 'alphabetic';
     const total = L.words.reduce((a, w) => a + w.runs.reduce((b, r) => b + r.t.length, 0), 0);
     let seen = 0;
-    const color = c => (c === 'hi' ? th.hi : c === 'sec' ? th.sec : ink || th.ink);
+    const hiC = item.hiInk || th.hi, color = c => (c === 'hi' ? hiC : c === 'sec' ? th.sec : ink || th.ink);
     const hiT = tl.hi, hiP = t == null ? 1 : clamp((t - hiT.start) / hiT.dur), hiE = EASE.smooth(hiP);
     const baseline = (L.lh - L.size) / 2 + L.size * 0.8;
     L.words.forEach(w => {
@@ -566,7 +606,7 @@
           const rx = wx + r.x, ry = wy + baseline;
           if (r.c === 'hi' && hiT.type === 'ink' && t != null && hiP < 1) {
             ctx.fillStyle = ink || th.ink; ctx.fillText(txt, rx, ry);
-            ctx.save(); ctx.beginPath(); ctx.rect(rx - 4, wy - 4, (r.w + 8) * hiE, L.lh + 8); ctx.clip(); ctx.fillStyle = th.hi; ctx.fillText(txt, rx, ry); ctx.restore();
+            ctx.save(); ctx.beginPath(); ctx.rect(rx - 4, wy - 4, (r.w + 8) * hiE, L.lh + 8); ctx.clip(); ctx.fillStyle = hiC; ctx.fillText(txt, rx, ry); ctx.restore();
           } else { ctx.fillStyle = color(r.c); ctx.fillText(txt, rx, ry); }
           if (r.c === 'hi' && hiT.type === 'underline' && t != null) {
             ctx.fillStyle = th.hi; ctx.fillRect(rx, wy + baseline + L.size * 0.1, r.w * hiE, Math.max(4, L.size * 0.055));
@@ -601,8 +641,8 @@
         withState(ctx, st, it.box, () => it.paint(ctx, st));
       };
       if (svg) ctx.group(itemName(it));
-      if (io && (io.dx || io.dy || (io.s && io.s !== 1))) {
-        ctx.save(); const b = it.box, cx = b.x + b.w / 2, cy = b.y + b.h / 2; ctx.translate(cx + (io.dx || 0), cy + (io.dy || 0)); if (io.s && io.s !== 1) ctx.scale(io.s, io.s); ctx.translate(-cx, -cy); draw(); ctx.restore();
+      if (io && (io.dx || io.dy || io.r || (io.s && io.s !== 1))) {
+        ctx.save(); const b = it.box, cx = b.x + b.w / 2, cy = b.y + b.h / 2; ctx.translate(cx + (io.dx || 0), cy + (io.dy || 0)); if (io.r) ctx.rotate(io.r); if (io.s && io.s !== 1) ctx.scale(io.s, io.s); ctx.translate(-cx, -cy); draw(); ctx.restore();
       } else draw();
       if (svg) ctx.endGroup();
     }
@@ -631,10 +671,10 @@
   const sceneCache = new Map();
   function sceneFor(deck, i, W, H) {
     const slide = deck.slides[i];
-    const key = JSON.stringify([slide, deck.brand, deck.design, W, H, i, deck.slides.length]);
+    const key = JSON.stringify([slide, deck.brand, deck.design, W, H, i, deck.slides.length, deck.topic]);
     let s = sceneCache.get(key);
     if (!s) {
-      s = layoutSlide(slide, { W, H, brand: Object.assign({}, BRAND, deck.brand || {}), theme: themeFor(deck, i), art: i === 0 ? (deck.design || {}).art : 'none', style: (slide && slide.style) || (deck.design || {}).style, index: i, total: deck.slides.length });
+      s = layoutSlide(slide, { W, H, brand: Object.assign({}, BRAND, deck.brand || {}), theme: themeFor(deck, i), art: i === 0 ? (deck.design || {}).art : 'none', style: (slide && slide.style) || (deck.design || {}).style, index: i, total: deck.slides.length, series: (deck.design || {}).series || deck.topic || '' });
       if (sceneCache.size > 80) sceneCache.clear();
       sceneCache.set(key, s);
     }
@@ -735,12 +775,13 @@
     }) };
   }
   const ITEM_NAMES = { head: 'Headline', sub: 'Sub-line', foot: 'Footer text', arrow: 'Arrow', header: 'Logo and handle', tag: 'Sticker', btn: 'Button', art: 'Cover art', visual: 'Visual' };
-  function itemName(it, k) { if (it.lay) return it.lay.type === 'text' ? 'Text' : it.lay.type === 'image' ? 'Photo' : 'Shape'; return ITEM_NAMES[it.role] || it.role; }
+  function itemName(it, k) { if (it.lay) return it.lay.type === 'text' ? 'Text' : it.lay.type === 'image' ? 'Photo' : 'Shape'; return it.name || ITEM_NAMES[it.role] || it.role; }
   // item box after the editor's move / scale overrides
   function itemBox(scene, it) {
     const io = ((scene.slide.o || {}).items || {})[it.key]; const b = it.box; if (!io) return b;
     const s = io.s || 1, cx = b.x + b.w / 2 + (io.dx || 0), cy = b.y + b.h / 2 + (io.dy || 0); return { x: cx - b.w * s / 2, y: cy - b.h * s / 2, w: b.w * s, h: b.h * s };
   }
+  const itemRot = (scene, it) => (it.lay ? it.lay.rot || 0 : ((((scene.slide.o || {}).items || {})[it.key]) || {}).r || 0);
   // topmost selectable element under a point (canvas px)
   function hitTest(scene, x, y) {
     const order = scene.items.slice().sort((a, b) => (ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)) || ((b.behind ? 1 : 0) - (a.behind ? 1 : 0)));
@@ -748,7 +789,7 @@
       for (let i = order.length - 1; i >= 0; i--) {
         const it = order[i]; if (it.nosel || !!it.soft !== soft) continue; const io = ((scene.slide.o || {}).items || {})[it.key]; if (io && io.hide) continue;
         const b = itemBox(scene, it); if (b.w * b.h > scene.W * scene.H * 0.85 || b.w < 4 || b.h < 4) continue;
-        let px = x, py = y; const rot = it.lay && it.lay.rot; if (rot) { const cx = b.x + b.w / 2, cy = b.y + b.h / 2, c = Math.cos(-rot), s2 = Math.sin(-rot); px = cx + (x - cx) * c - (y - cy) * s2; py = cy + (x - cx) * s2 + (y - cy) * c; }
+        let px = x, py = y; const rot = it.lay ? it.lay.rot : io && io.r; if (rot) { const cx = b.x + b.w / 2, cy = b.y + b.h / 2, c = Math.cos(-rot), s2 = Math.sin(-rot); px = cx + (x - cx) * c - (y - cy) * s2; py = cy + (x - cx) * s2 + (y - cy) * c; }
         if (px >= b.x - 6 && px <= b.x + b.w + 6 && py >= b.y - 6 && py <= b.y + b.h + 6) return it;
       }
       return null;
@@ -764,12 +805,19 @@
     if (scene.dots) { c.group('Dot grid'); paintDots(c, W, H, scene.theme.dot); c.endGroup(); }
     paintScene(c, scene, null, null, { noBg: true });
     const b = Object.assign({}, BRAND, deck.brand || {});
-    return c.toString({ fonts: [b.font, 'Anton', 'Instrument Serif', 'Space Mono'] });
+    return c.toString({ fonts: [b.font, 'Anton', 'Instrument Serif', 'Geist Mono'] });
+  }
+
+  // one slide as a Figma description: live text nodes + SVG chunks in named groups (needs svgctx.js; the importer plugin builds it)
+  function toFigma(deck, i, o) {
+    o = o || {}; const W = o.W || 1080, H = o.H || 1350, scene = sceneFor(deck, i, W, H), c = new window.SixjulySVG(W, H);
+    paintScene(c, scene, null, null, { noBg: true });
+    return { w: W, h: H, bg: scene.theme.bg, nodes: c.toFigma({ name: 'Slide ' + (i + 1) }) };
   }
 
   // ---- fonts -----------------------------------------------------------------------------------------------------------------
   const fontLinks = new Set();
-  const EXTRA = 'https://fonts.googleapis.com/css2?family=Anton&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap';
+  const EXTRA = 'https://fonts.googleapis.com/css2?family=Anton&family=Geist+Mono:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap';
   function addLink(href) {
     if (fontLinks.has(href)) return Promise.resolve(); fontLinks.add(href);
     const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l);
@@ -781,7 +829,7 @@
     try {
       await Promise.all([300, 400, 500, 600, 700, 800].map(w => document.fonts.load(`${w} 40px "${fam}"`, 'Aa Sixjuly 0123')).concat([
         document.fonts.load('400 40px "Anton"', 'Aa'), document.fonts.load('italic 400 40px "Instrument Serif"', 'Aa'), document.fonts.load('400 40px "Instrument Serif"', 'Aa'),
-        document.fonts.load('400 24px "Space Mono"', 'Aa'), document.fonts.load('700 24px "Space Mono"', 'Aa')]));
+        document.fonts.load('400 24px "Space Mono"', 'Aa'), document.fonts.load('700 24px "Space Mono"', 'Aa'), document.fonts.load('400 24px "Geist Mono"', 'Aa'), document.fonts.load('500 24px "Geist Mono"', 'Aa'), document.fonts.load('700 24px "Geist Mono"', 'Aa')]));
       await document.fonts.ready;
     } catch (e) { /* system fallback */ }
     sceneCache.clear();
@@ -790,7 +838,7 @@
   window.SixjulyRender = {
     BRAND, themesFor, parseRich, plain, layoutSlide, paintScene, timeline, drawSlide, drawReel, reelPlan, slideDuration, sceneFor,
     U: { rr, setFont, layoutRich, fitRich, fitLine, drawLogo, clamp, lerp, TAU, mc, mix, parseRich, plain, EASE, stack },
-    prepLayer, itemBox, hitTest, itemName, toSVG, sceneFor,
+    prepLayer, itemBox, itemRot, hitTest, itemName, toSVG, toFigma, sceneFor, gridGeometry, KIND_LABEL,
     STYLES: {}, CHROME: {},
     loadFonts, drawLogo, LAYOUTS, COVERS, FAM, imgs, DEFAULT_MOTION, MOTION_PRESETS, ENTER_TYPES, LOOP_TYPES, HI_TYPES, ARROW_TYPES, TRANSITIONS, EASE, stack,
   };

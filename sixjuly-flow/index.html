@@ -6,7 +6,7 @@
 <title>Sixjuly Flow</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@300..900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@300..900&family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="flow.css">
 </head>
 <body>
@@ -14,6 +14,7 @@
   <div class="brand"><svg id="mark" viewBox="0 0 100 84" width="26" height="22"></svg><b>Sixjuly Flow</b><span class="tag">post + reel automation</span></div>
   <nav class="nav" aria-label="Sections"><button type="button" data-view="flow" class="on">Flow</button><button type="button" data-view="topics">Topics</button><button type="button" data-view="drafts">Drafts</button></nav>
   <div class="spacer"></div>
+  <div class="undoctl" id="gUndo"><button class="btn icon" id="undoBtn" title="Undo (⌘Z)" aria-label="Undo" disabled>↶</button><button class="btn icon" id="redoBtn" title="Redo (⇧⌘Z)" aria-label="Redo" disabled>↷</button></div>
   <div class="menuwrap"><button class="btn" id="addBtn">+ Node</button><div class="menu" id="addMenu"></div></div>
   <div class="menuwrap"><button class="btn" id="exBtn">Flows ▾</button><div class="menu" id="exMenu"></div></div>
   <label class="auto" title="Re-run whenever a node changes. Claude copy is cached, so tweaking design or motion costs nothing."><span>Auto-run</span><span class="sw"><input type="checkbox" id="auto"><i></i></span></label>
@@ -49,11 +50,13 @@
 <script src="render.js"></script>
 <script src="layouts.js"></script>
 <script src="layouts2.js"></script>
+<script src="layouts3.js"></script>
 <script src="svgctx.js"></script>
 <script src="copy.js"></script>
 <script src="graph.js"></script>
 <script src="nodes.js"></script>
 <script src="export.js"></script>
+<script src="figma-plugin.js"></script>
 <script src="drafts.js"></script>
 <script src="starter-data.js"></script>
 <script src="tracker.js"></script>

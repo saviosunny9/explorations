@@ -7,8 +7,8 @@
   const R = window.SixjulyRender, C = window.SixjulyCopy, X = window.SixjulyExport, D = window.SixjulyDrafts, h = window.sjh;
   const clone = o => JSON.parse(JSON.stringify(o));
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const KIND_NAMES = { cover: 'Cover', statement: 'Statement', art: 'Illustration', collage: 'Collage', posters: 'Posters', greeting: 'Festival', tiles: 'Tiles', split: 'Then / now', checks: 'Do / don’t', poster: 'Giant word', chat: 'Chat', marquee: 'Tape', notes: 'Sticky notes', timeline: 'Timeline', compare: 'Before / after', stat: 'Big number', list: 'List', steps: 'Steps', quote: 'Quote', objects: 'UI objects', cta: 'Closing', index: 'Contents list', spec: 'Type specimen', casestudy: 'Case study', principles: 'Principles', metrics: 'Metrics', release: 'Release notes', matrix: '2 × 2 matrix', system: 'Design system', glossary: 'Glossary', stack: 'Layer stack', flow: 'Process flow', wrapped: 'Giant figure', mesh: 'Gradient hero' };
-  const COVERS = { '': 'Plain', annotate: 'Annotated', crt: 'Collage monitor', ripple: 'Numbered serif' };
+  const KIND_NAMES = { cover: 'Cover', statement: 'Statement', art: 'Illustration', collage: 'Collage', posters: 'Posters', greeting: 'Festival', tiles: 'Tiles', split: 'Then / now', checks: 'Do / don’t', poster: 'Giant word', chat: 'Chat', marquee: 'Tape', notes: 'Sticky notes', timeline: 'Timeline', compare: 'Before / after', stat: 'Big number', list: 'List', steps: 'Steps', quote: 'Quote', objects: 'UI objects', cta: 'Closing', index: 'Contents list', spec: 'Type specimen', casestudy: 'Case study', principles: 'Principles', metrics: 'Metrics', release: 'Release notes', matrix: '2 × 2 matrix', system: 'Design system', glossary: 'Glossary', stack: 'Layer stack', flow: 'Process flow', wrapped: 'Giant figure', mesh: 'Gradient hero', bento: 'Bento', table: 'Table', feature: 'Feature', columns: 'Columns' };
+  const COVERS = { '': 'Big type', block: 'Colour block', index: 'Big number', annotate: 'Annotated (classic)', crt: 'Collage monitor (classic)', ripple: 'Numbered serif (classic)' };
   const FONTS = { '': 'Brand font', serif: 'Serif italic', cond: 'Condensed', mono: 'Mono' };
   const WEIGHTS = { 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Black' };
   const THEMES = { light: 'White', cream: 'Cream', dark: 'Black', violet: 'Violet', orange: 'Orange' };
@@ -79,8 +79,9 @@
       item('PDF of the carousel', 'One page per slide', () => pdf()),
       h('hr'),
       item('Editable SVG files', 'Live text and shapes', () => svgZip()),
-      item('Figma pack', 'SVG slides + how to import', () => figma()),
-      item('Copy this slide’s SVG', 'Paste straight into Figma', () => copySvg()),
+      item('Add to Figma', 'Live text layers · paste into the importer', async () => toast(await X.addToFigma(S.deck, S.draft, ratioOpts()))),
+      item('Figma pack', 'Importer plugin, post file, SVGs', () => figma()),
+      item('Copy this slide’s SVG', 'For other tools', () => copySvg()),
       h('hr'),
       item('Everything (zip)', 'PNG, SVG, PDF, caption, sources', () => everything()));
   }
@@ -92,7 +93,7 @@
   async function pdf() { toast('Building PDF…'); await X.download(await X.pdfBlob(S.deck, ratioOpts()), `${base()}.pdf`); }
   async function svgZip() { const files = X.svgFiles(S.deck, ratioOpts()); await X.download(await X.zipFiles(files.map(f => ({ name: base() + '/' + f.name, blob: f.blob }))), `${base()}-svg.zip`); }
   async function figma() { await X.download(await X.zipFiles(await X.figmaPack(S.deck, S.draft, ratioOpts())), `${base()}-figma.zip`); toast('Figma pack saved. Open README.txt inside for the 3 steps.'); }
-  async function copySvg() { const svg = R.toSVG(S.deck, S.i, { W: dims()[0], H: dims()[1] }); try { await navigator.clipboard.writeText(svg); toast('SVG copied. Click in Figma and paste (⌘V).'); } catch (e) { await X.download(new Blob([svg], { type: 'image/svg+xml' }), `${base()}-${X.pad(S.i + 1)}.svg`); toast('Clipboard blocked, saved the SVG instead.'); } }
+  async function copySvg() { const svg = R.toSVG(S.deck, S.i, { W: dims()[0], H: dims()[1] }); try { await navigator.clipboard.writeText(svg); toast('SVG copied.'); } catch (e) { await X.download(new Blob([svg], { type: 'image/svg+xml' }), `${base()}-${X.pad(S.i + 1)}.svg`); toast('Clipboard blocked, saved the SVG instead.'); } }
   async function everything() { toast('Preparing everything…'); await X.download(await X.zipFiles(await X.everything(S.deck, S.draft, ratioOpts())), `${base()}-all.zip`); }
 
   // ---- views -------------------------------------------------------------------------------------------------------------------------------------
@@ -163,10 +164,10 @@
   function paintOverlay() {
     const ov = S.ov; if (!ov) return; ov.querySelectorAll('.sel,.guide,.hov').forEach(n => n.remove());
     const it = selItem(); if (!it) { if (S.key) S.key = null; return; }
-    const b = R.itemBox(scene(), it), lay = it.lay, rot = lay && lay.rot ? lay.rot : 0;
+    const b = R.itemBox(scene(), it), lay = it.lay, rot = R.itemRot(scene(), it);
     const box = h('div.sel', { style: { left: b.x * cs + 'px', top: b.y * cs + 'px', width: b.w * cs + 'px', height: b.h * cs + 'px', transform: rot ? `rotate(${rot}rad)` : '' } });
-    ['nw', 'ne', 'se', 'sw'].concat(lay ? ['e', 'w'] : []).forEach(p => box.append(h('i.hd.' + p, { 'data-h': p })));
-    if (lay) box.append(h('i.hd.rot', { 'data-h': 'rot' }));
+    ['nw', 'ne', 'se', 'sw'].concat(lay || TEXT_SRC[it.role] ? ['e', 'w'] : []).forEach(p => box.append(h('i.hd.' + p, { 'data-h': p })));
+    box.append(h('i.hd.rot', { 'data-h': 'rot', title: 'Drag to rotate (Shift snaps to 15°)' }));
     box.append(h('span.stag', null, R.itemName(it)));
     ov.append(box); S.box = box;
   }
@@ -203,8 +204,13 @@
         if (lay) { const l = (slide().layers || []).find(z => z.id === lay.id); l.x = Math.round(l0.x + ddx); l.y = Math.round(l0.y + ddy); } else { const o = overrideFor(it.key); o.dx = Math.round((ov0.dx || 0) + ddx); o.dy = Math.round((ov0.dy || 0) + ddy); }
       } else if (kind === 'pan' && lay) {
         const l = (slide().layers || []).find(z => z.id === lay.id); l.ox = clamp((l0.ox || 0) - dx / (b0.w * 0.4), -1, 1); l.oy = clamp((l0.oy || 0) - dy / (b0.h * 0.4), -1, 1);
-      } else if (kind === 'rot' && lay) {
-        const l = (slide().layers || []).find(z => z.id === lay.id); let a = Math.atan2(p.y - cy, p.x - cx) + Math.PI / 2; if (ev.shiftKey || Math.abs(a % (Math.PI / 4)) < 0.05) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12); l.rot = a;
+      } else if (kind === 'rot') {
+        let a = Math.atan2(p.y - cy, p.x - cx) + Math.PI / 2; if (a > Math.PI) a -= 2 * Math.PI; if (ev.shiftKey || Math.abs(a % (Math.PI / 4)) < 0.05) a = Math.round(a / (Math.PI / 12)) * (Math.PI / 12);
+        if (lay) (slide().layers || []).find(z => z.id === lay.id).rot = a; else { const o = overrideFor(it.key); if (Math.abs(a) < 0.001) delete o.r; else o.r = a; }
+      } else if (!lay && TEXT_SRC[it.role] && (kind === 'e' || kind === 'w')) {   // re-wrap a headline / footer by dragging its side
+        const s = slide(); s.o = s.o || {}; const to = (s.o[it.role] = s.o[it.role] || {}), o = overrideFor(it.key), sc = o.s || 1, x0 = it.box.x;
+        const nw = Math.round(Math.max(160, kind === 'e' ? (p.x - b0.x) / sc : (b0.x + b0.w - p.x) / sc)), left = kind === 'e' ? b0.x : b0.x + b0.w - nw * sc;
+        to.w = nw; o.dx = Math.round(left - (x0 + nw / 2 - nw * sc / 2));
       } else if (lay) {
         const l = (slide().layers || []).find(z => z.id === lay.id), ax = kind.includes('w') ? b0.x + b0.w : b0.x, ay = kind.includes('n') ? b0.y + b0.h : b0.y;
         if (kind === 'e' || kind === 'w') { const nx = kind === 'e' ? Math.max(60, p.x - b0.x) : Math.max(60, b0.x + b0.w - p.x); l.w = Math.round(nx); if (kind === 'w') l.x = Math.round(b0.x + b0.w - nx); }
@@ -238,8 +244,10 @@
 
   // keyboard ---------------------------------------------------------------------------------------------------------------------------------------------------
   function onKey(e) {
-    if (!S || root.hidden) return; const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-    const mod = e.metaKey || e.ctrlKey;
+    if (!S || root.hidden) return; const tag = (e.target.tagName || '').toLowerCase(), mod = e.metaKey || e.ctrlKey;
+    const typing = (tag === 'input' && !/checkbox|range|color|radio|button/.test(e.target.type || '')) || tag === 'textarea' || e.target.isContentEditable;
+    if (mod && !typing && (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'y')) { e.preventDefault(); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); (e.key.toLowerCase() === 'y' || e.shiftKey) ? redo() : undo(); return; }
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
     else if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); if (S.key) dupSelected(); else dupSlide(S.i); }
@@ -300,6 +308,15 @@
     if (S.draft.refs && S.draft.refs.length) el.append(sec('Sources', h('ul.refs', null, S.draft.refs.map(r => h('li', null, h('a', { href: /^https?:\/\//i.test(r.url) ? r.url : '#', target: '_blank', rel: 'noopener noreferrer' }, r.title || r.url), r.source ? h('span.muted', null, ' · ' + r.source) : null))), false));
   }
 
+  // X / Y / W / H / rotation fields for whatever is selected (layout elements store dx, dy, s, r; added layers store x, y, w, h, rot)
+  function geomRow(it, lay) {
+    const b = R.itemBox(scene(), it), deg = Math.round(R.itemRot(scene(), it) * 180 / Math.PI), io = () => overrideFor(it.key);
+    const cell = (label, val, set, o) => h('label.gc', null, h('span', null, label), h('input', Object.assign({ type: 'number', value: val, step: 1, onchange: e => { const v = parseFloat(e.target.value); if (!isNaN(v)) change(() => set(v), { keepInsp: true }); } }, o || {})));
+    const L = lay ? (slide().layers || []).find(z => z.id === lay.id) : null;
+    const cells = L ? [cell('X', Math.round(L.x), v => (L.x = Math.round(v))), cell('Y', Math.round(L.y), v => (L.y = Math.round(v))), cell('W', Math.round(L.w || b.w), v => (L.w = Math.max(10, Math.round(v)))), L.type === 'text' ? cell('H', Math.round(b.h), () => {}, { disabled: true, title: 'Text height follows the words' }) : cell('H', Math.round(L.h || b.h), v => (L.h = Math.max(10, Math.round(v)))), cell('°', deg, v => (L.rot = v * Math.PI / 180))]
+      : [cell('X', Math.round(b.x), v => { const o = io(); o.dx = Math.round((o.dx || 0) + v - b.x); }), cell('Y', Math.round(b.y), v => { const o = io(); o.dy = Math.round((o.dy || 0) + v - b.y); }), cell('Scale %', Math.round((io().s || 1) * 100), v => (io().s = clamp(v / 100, 0.15, 4)), { step: 5 }), cell('°', deg, v => { if (v) io().r = v * Math.PI / 180; else delete io().r; })];
+    return h('div.geom', null, cells);
+  }
   function elementSection(it, lay, s, th) {
     const kids = [], key = it.key;
     const textLike = !!(TEXT_SRC[it.role] || (lay && lay.type === 'text'));
@@ -331,14 +348,14 @@
       kids.push(row('Outline', colors(() => lay.stroke || '', v => change(() => (lay.stroke = v || undefined), { keepInsp: true }), th, true)), row('Line width', range(1, 24, 1, () => lay.sw || 4, v => edit(() => (lay.sw = v), 'sw' + key))));
       if (lay.shape === 'rect') kids.push(row('Corners', range(0, 200, 2, () => lay.radius || 0, v => edit(() => (lay.radius = v), 'rad' + key))));
     } else {
-      const io = () => ((s.o && s.o.items && s.o.items[key]) || {});
-      kids.push(row('Size', range(0.2, 3, 0.02, () => io().s || 1, v => edit(() => (overrideFor(key).s = v), 'sc' + key), v => Math.round(v * 100) + '%')), h('p.edhint', null, 'Drag to move, drag a corner to resize. Press Delete to hide it; hidden elements come back from the list below.'));
+      kids.push(h('p.edhint', null, 'Drag to move, a corner to resize, the round handle to rotate. Delete hides it; hidden elements come back from the list below.'));
     }
+    kids.unshift(geomRow(it, lay));
     if (lay) {
       kids.push(row('Rotation', range(-180, 180, 1, () => Math.round((lay.rot || 0) * 180 / Math.PI), v => edit(() => (lay.rot = v * Math.PI / 180), 'rot' + key), v => v + '°')), row('Order', h('div.rg', null, h('button.btn.sm', { type: 'button', onclick: () => reorder(lay, 1) }, 'Forward'), h('button.btn.sm', { type: 'button', onclick: () => reorder(lay, -1) }, 'Back'))));
       kids.push(row('Align to slide', h('div.rg', null, h('button.btn.sm', { type: 'button', onclick: () => centerLayer(lay, 'x') }, 'Centre ↔'), h('button.btn.sm', { type: 'button', onclick: () => centerLayer(lay, 'y') }, 'Centre ↕'))));
     }
-    const acts = h('div.rg.acts', null, lay ? h('button.btn.sm', { type: 'button', onclick: dupSelected }, 'Duplicate') : null, h('button.btn.sm', { type: 'button', onclick: delSelected }, lay ? 'Delete' : 'Hide'), !lay && ((s.o || {}).items || {})[key] ? h('button.btn.sm', { type: 'button', onclick: () => change(() => delete s.o.items[key]) }, 'Reset position') : null);
+    const acts = h('div.rg.acts', null, lay ? h('button.btn.sm', { type: 'button', onclick: dupSelected }, 'Duplicate') : null, h('button.btn.sm', { type: 'button', onclick: delSelected }, lay ? 'Delete' : 'Hide'), !lay && (((s.o || {}).items || {})[key] || (TEXT_SRC[it.role] && (s.o || {})[it.role] && s.o[it.role].w)) ? h('button.btn.sm', { type: 'button', onclick: () => change(() => { if (s.o.items) delete s.o.items[key]; if (TEXT_SRC[it.role] && s.o[it.role]) delete s.o[it.role].w; }) }, 'Reset position') : null);
     kids.push(acts);
     return sec('Selected: ' + R.itemName(it), kids, true);
   }
@@ -348,7 +365,7 @@
   function slideSection(s, th) {
     const kinds = Object.fromEntries(Object.entries(KIND_NAMES));
     const kids = [row('Layout', sel(kinds, () => s.kind, v => change(() => convertKind(s, v)))),
-      s.kind === 'cover' ? row('Cover style', sel(COVERS, () => s.cover || '', v => change(() => { if (v) s.cover = v; else delete s.cover; if (v === 'annotate' && !s.callouts) s.callouts = [{ w: 0, label: 'Detail' }]; if (v === 'ripple' && !s.num) { s.num = '5'; s.stamp = String(new Date().getFullYear()); } }))) : null,
+      s.kind === 'cover' ? row('Cover style', sel(COVERS, () => s.cover || '', v => change(() => { if (v) s.cover = v; else delete s.cover; if (v === 'annotate' && !s.callouts) s.callouts = [{ w: 0, label: 'Detail' }]; if (v === 'ripple' && !s.num) { s.num = '5'; s.stamp = String(new Date().getFullYear()); } if (v === 'index' && !s.num) s.num = '05'; }))) : null,
       row('Style', sel(styleOpts(), () => S.deck.design.style || 'sixjuly', v => change(() => { S.deck.design.style = v; S.deck.slides.forEach(x => delete x.style); if (S.deck.design.theme && S.deck.design.theme !== 'auto') S.deck.design.theme = 'auto'; }))),
       (R.STYLES && R.STYLES[S.deck.design.style || 'sixjuly'] && R.STYLES[S.deck.design.style || 'sixjuly'].note) ? h('p.edhint', null, R.STYLES[S.deck.design.style || 'sixjuly'].note + '.') : null,
       row('This slide', sel(styleOpts('Same as post'), () => s.style || '', v => change(() => { if (v) s.style = v; else delete s.style; delete s.theme; }))),
@@ -369,6 +386,8 @@
     const area = (label, get, put, rows, ph) => f.push(row(label, txt(get, set(put, 'c' + label), { area: true, rows: rows || 2, ph })));
     const line = (label, get, put) => f.push(row(label, txt(get, set(put, 'c' + label))));
     const lines = (label, get, put, rows, hint) => f.push(row(label, txt(() => (get() || []).join('\n'), set(v => put(v.split('\n').filter(x => x.trim())), 'c' + label), { area: true, rows: rows || 3 }), hint));
+    if (s.kind === 'cover' && s.cover === 'index') line('Number', () => s.num, v => (s.num = v));
+    if (s.kind !== 'cover') line('Section label', () => s.label != null ? s.label : (R.KIND_LABEL[s.kind] || ''), v => (s.label = v));
     if (s.kind === 'cover') { if (s.cover === 'ripple') { line('Number', () => s.num, v => (s.num = v)); line('Stamp', () => s.stamp, v => (s.stamp = v)); } area('Title', () => s.head, v => (s.head = v), 2); if (s.cover !== 'ripple' && s.cover !== 'crt') line('Sub-line', () => s.sub, v => (s.sub = v)); line('Sticker', () => s.tag, v => (s.tag = v)); }
     else if (s.head != null || s.kind) area('Headline', () => s.head, v => (s.head = v), 2);
     if (s.cover === 'annotate') lines('Callouts', () => (s.callouts || []).map(c => `${c.w}: ${c.label}`), v => (s.callouts = v.map(x => { const m = x.match(/^(\d+)\s*:\s*(.*)$/); return m ? { w: +m[1], label: m[2] } : { w: 0, label: x }; })), 3, 'One per line as “word number: label”. Word 0 is the first word of the title.');
@@ -384,17 +403,21 @@
     if (s.words) line('Words', () => s.words.join(', '), v => (s.words = v.split(',').map(x => x.trim()).filter(Boolean)));
     if (s.labels) lines('Callout labels', () => s.labels, v => (s.labels = v), 2);
     if (s.kind === 'spec') { line('Glyph', () => s.word, v => (s.word = v)); }
+    if (s.kind === 'bento') line('Big figure', () => s.value, v => (s.value = v));
+    if (s.kind === 'table') { line('Columns', () => (s.cols || []).join(' | '), v => (s.cols = v.split('|').map(x => x.trim()))); lines('Rows', () => (s.rows || []).map(r => r.join(' | ')), v => (s.rows = v.map(x => x.split('|').map(c => c.trim()))), 5, 'One row per line, cells separated by “|”.'); }
+    if (s.kind === 'feature') { line('Caption', () => s.caption, v => (s.caption = v)); line('Kicker', () => s.kicker, v => (s.kicker = v)); area('Body', () => s.body, v => (s.body = v), 3); }
     const kvLines = (label, key, hint) => lines(label, () => (s[key] || []).map(p => `${p.k} | ${p.v}`), v => (s[key] = v.map(x => { const [k, ...r] = x.split('|'); return { k: k.trim(), v: r.join('|').trim() }; }).filter(p => p.k)), 4, hint);
-    if (s.specs) kvLines('Spec rows', 'specs', 'One per line: “Family | Google Sans Flex”.');
-    if (s.meta) kvLines('Details', 'meta', 'One per line: “Client | Northwind”.');
-    if (s.stats) lines('Figures', () => s.stats.map(p => `${p.value} | ${p.label}`), v => (s.stats = v.map(x => { const [k, ...r] = x.split('|'); return { value: k.trim(), label: r.join('|').trim() }; }).filter(p => p.value)), 3, 'One per line: “3× | faster to publish”.');
+    if (s.kind === 'columns') kvLines('Columns', 'cols', 'One per line: “Problem | what was wrong”.');
+    if (Array.isArray(s.specs)) kvLines('Spec rows', 'specs', 'One per line: “Family | Google Sans Flex”.');
+    if (Array.isArray(s.meta)) kvLines('Details', 'meta', 'One per line: “Client | Northwind”.');
+    if (Array.isArray(s.stats)) lines('Figures', () => s.stats.map(p => `${p.value} | ${p.label}`), v => (s.stats = v.map(x => { const [k, ...r] = x.split('|'); return { value: k.trim(), label: r.join('|').trim() }; }).filter(p => p.value)), 3, 'One per line: “3× | faster to publish”.');
     if (s.kind === 'release') line('Version', () => s.version, v => (s.version = v));
-    if (s.changes) lines('Changes', () => s.changes.map(p => `${p.tag} | ${p.text}`), v => (s.changes = v.map(x => { const [k, ...r] = x.split('|'); return { tag: k.trim() || 'New', text: r.join('|').trim() }; }).filter(p => p.text)), 4, 'One per line: “New | what changed”. Tags: New, Improved, Fixed.');
+    if (Array.isArray(s.changes)) lines('Changes', () => s.changes.map(p => `${p.tag} | ${p.text}`), v => (s.changes = v.map(x => { const [k, ...r] = x.split('|'); return { tag: k.trim() || 'New', text: r.join('|').trim() }; }).filter(p => p.text)), 4, 'One per line: “New | what changed”. Tags: New, Improved, Fixed.');
     if (s.axes) { line('Horizontal axis', () => s.axes.x.join(' | '), v => (s.axes.x = v.split('|').map(x => x.trim()).concat(['', '']).slice(0, 2))); line('Vertical axis', () => s.axes.y.join(' | '), v => (s.axes.y = v.split('|').map(x => x.trim()).concat(['', '']).slice(0, 2))); }
-    if (s.dots) lines('Dots', () => s.dots.map(d => `${d.label} | ${d.x} | ${d.y}`), v => (s.dots = v.map(x => { const [l, a, b] = x.split('|'); return { label: (l || '').trim(), x: clamp(parseFloat(a) || 0.5, 0, 1), y: clamp(parseFloat(b) || 0.5, 0, 1) }; }).filter(d => d.label)), 4, 'One per line: “label | across 0-1 | up 0-1”.');
+    if (Array.isArray(s.dots)) lines('Dots', () => s.dots.map(d => `${d.label} | ${d.x} | ${d.y}`), v => (s.dots = v.map(x => { const [l, a, b] = x.split('|'); return { label: (l || '').trim(), x: clamp(parseFloat(a) || 0.5, 0, 1), y: clamp(parseFloat(b) || 0.5, 0, 1) }; }).filter(d => d.label)), 4, 'One per line: “label | across 0-1 | up 0-1”.');
     if (s.kind === 'glossary') { line('Term', () => s.term, v => (s.term = v)); line('Pronunciation', () => s.phonetic, v => (s.phonetic = v)); line('Part of speech', () => s.pos, v => (s.pos = v)); area('Definition', () => s.definition, v => (s.definition = v), 3); line('Example', () => s.example, v => (s.example = v)); }
     if (s.kind === 'wrapped') { line('Figure', () => s.value, v => (s.value = v)); line('Label', () => s.label, v => (s.label = v)); }
-    if (s.tags) line('Chips', () => s.tags.join(', '), v => (s.tags = v.split(',').map(x => x.trim()).filter(Boolean)));
+    if (Array.isArray(s.tags)) line('Chips', () => s.tags.join(', '), v => (s.tags = v.split(',').map(x => x.trim()).filter(Boolean)));
     if (s.kind === 'poster') line('Big word', () => s.word, v => (s.word = v));
     if (s.kind === 'marquee') line('Tape text', () => s.band, v => (s.band = v));
     if (s.kind === 'greeting') { line('Label', () => s.label, v => (s.label = v)); line('Title', () => s.title, v => (s.title = v)); }

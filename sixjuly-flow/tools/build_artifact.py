@@ -9,6 +9,8 @@ rd = lambda p: open(os.path.join(root, p), encoding='utf-8').read()
 # keep the copy-able Google Apps Script in step with apps-script/Code.gs
 import json
 open(os.path.join(root, 'sheet-script.js'), 'w', encoding='utf-8').write('/* Generated from apps-script/Code.gs by tools/build_artifact.py (keep them in step). */\nwindow.SJ_APPS_SCRIPT = ' + json.dumps(rd('apps-script/Code.gs')) + ';\n')
+# the Figma importer plugin, so the app can put it into the Figma pack
+open(os.path.join(root, 'figma-plugin.js'), 'w', encoding='utf-8').write('/* Generated from figma-plugin/ by tools/build_artifact.py (keep them in step). */\nwindow.SIXJULY_FIGMA_PLUGIN = ' + json.dumps({ 'manifest': rd('figma-plugin/manifest.json'), 'code': rd('figma-plugin/code.js'), 'ui': rd('figma-plugin/ui.html') }) + ';\n')
 html = rd('index.html')
 art = '--artifact' in sys.argv
 outdir = sys.argv[sys.argv.index('--artifact') + 1] if art else os.path.join(root, 'dist')

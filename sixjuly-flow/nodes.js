@@ -53,7 +53,7 @@
       { k: 'engine', label: 'Engine', type: 'seg', options: { auto: 'Auto', claude: 'Claude', patterns: 'Patterns' }, def: 'auto', hint: 'Auto writes with Claude when it is available (running inside Claude, or an API key in ⚙) and uses the offline pattern banks otherwise.' },
       { k: 'model', label: 'Model', type: 'select', options: { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-opus-5-5': 'Opus 5.5 (best)', 'claude-haiku-5-5': 'Haiku 5.5 (fastest)' }, def: 'claude-sonnet-5-5', show: p => p.engine !== 'patterns', hint: 'Used with an API key. Inside Claude the page uses Claude’s own model.' },
       { k: 'format', label: 'Format', type: 'select', options: C.FORMATS, def: 'mix' },
-      { k: 'layouts', label: 'Layouts', type: 'seg', options: { rich: 'Rich mix', classic: 'Classic' }, def: 'rich', show: p => p.format !== 'showcase' },
+      { k: 'layouts', label: 'Layouts', type: 'seg', options: { structured: 'Structured', rich: 'Expressive', classic: 'Classic' }, def: 'structured', show: p => p.format !== 'showcase' },
       { k: 'slides', label: 'Slides', type: 'seg', options: { 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' }, def: 7 },
       { k: 'voice', label: 'Voice notes', type: 'text', def: '', placeholder: 'e.g. a bit more playful, B2B founders', show: p => p.engine !== 'patterns' },
       { k: 'seed', type: 'button', label: '↻ New angle', action: n => { n.params.seed = (n.params.seed || 0) + 1; window.SixjulyFlow && window.SixjulyFlow.touch(n); }, def: 0 },
@@ -113,7 +113,8 @@
       { k: 'ctaTheme', label: 'Closer theme', type: 'select', options: THEMES_OPT, def: '' },
       { k: 'rhythm', label: 'Rhythm', type: 'seg', options: { consistent: 'Consistent', alternate: 'Alternate' }, def: 'consistent' },
       { k: 'altTheme', label: 'Alternate with', type: 'select', options: THEMES, def: 'cream', show: p => p.rhythm === 'alternate' },
-      { k: 'art', label: 'Cover art', type: 'seg', options: { none: 'None', orb: 'Halftone', spiral: 'Spiral' }, def: 'orb' },
+      { k: 'art', label: 'Cover art', type: 'seg', options: { none: 'None', orb: 'Halftone', spiral: 'Spiral' }, def: 'orb', show: p => p.style === 'classic' },
+      { k: 'series', label: 'Series name', type: 'text', def: '', placeholder: 'Top bar label (default: the topic)', show: p => p.style !== 'classic' },
     ],
     async run(ins, p) {
       const brand = ins.brand || R.BRAND, imgs = ins.images || [], SLOTS = { collage: 3, posters: 4, greeting: 1 };

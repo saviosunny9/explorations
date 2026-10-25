@@ -1,0 +1,21 @@
+<style>
+  body { font: 12px/1.45 Inter, system-ui, sans-serif; margin: 0; padding: 16px; color: var(--figma-color-text, #111); background: var(--figma-color-bg, #fff); }
+  h1 { font-size: 13px; font-weight: 600; margin: 0 0 4px; } p { margin: 0 0 12px; color: var(--figma-color-text-secondary, #666); }
+  textarea { width: 100%; height: 200px; box-sizing: border-box; font: 11px/1.4 ui-monospace, Menlo, monospace; border: 1px solid var(--figma-color-border, #ddd); border-radius: 4px; padding: 8px; resize: none; background: transparent; color: inherit; }
+  .row { display: flex; gap: 8px; margin-top: 10px; align-items: center; } .grow { flex: 1; }
+  button { font: inherit; font-weight: 500; border: 0; border-radius: 4px; padding: 7px 12px; cursor: pointer; }
+  .primary { background: var(--figma-color-bg-brand, #0d99ff); color: #fff; } .ghost { background: transparent; border: 1px solid var(--figma-color-border, #ddd); color: inherit; }
+  #msg { margin-top: 10px; min-height: 18px; } .err { color: var(--figma-color-text-danger, #e03e1a); }
+</style>
+<h1>Sixjuly Flow → Figma</h1>
+<p>In Sixjuly Flow choose <b>Export → Add to Figma</b> (or <b>Figma</b> on a post), then paste here or open the downloaded <code>.sixjuly.json</code>. Text stays editable text.</p>
+<textarea id="src" placeholder="Paste the copied post here (⌘V)"></textarea>
+<div class="row"><label class="ghost" style="padding:7px 12px;border-radius:4px;cursor:pointer">Open file…<input id="file" type="file" accept=".json,application/json" hidden></label><div class="grow"></div><button class="primary" id="go">Add to Figma</button></div>
+<div id="msg"></div>
+<script>
+  const $ = id => document.getElementById(id), msg = (t, err) => { $('msg').textContent = t; $('msg').className = err ? 'err' : ''; };
+  const send = text => { let data; try { data = JSON.parse(text); } catch (e) { return msg('That is not valid JSON. Copy the post again from Sixjuly Flow.', true); } msg('Building frames…'); parent.postMessage({ pluginMessage: { type: 'import', data } }, '*'); };
+  $('go').onclick = () => send($('src').value.trim());
+  $('file').onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { $('src').value = String(r.result).slice(0, 2000) + (r.result.length > 2000 ? '…' : ''); send(String(r.result)); }; r.readAsText(f); };
+  window.onmessage = e => { const m = e.data.pluginMessage || {}; if (m.type === 'progress') msg(`Built ${m.done} frame${m.done === 1 ? '' : 's'}…`); if (m.type === 'done') msg(`Done: ${m.frames} frame${m.frames === 1 ? '' : 's'}.` + (m.missing.length ? ` Missing fonts (Inter used instead): ${m.missing.join(', ')}.` : '')); if (m.type === 'error') msg(m.message, true); };
+</script>

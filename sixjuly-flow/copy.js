@@ -17,7 +17,8 @@
   };
   const CLASSIC = ['cover', 'statement', 'compare', 'stat', 'list', 'steps', 'quote', 'objects', 'cta'];
   const RICH = ['art', 'collage', 'posters', 'greeting', 'tiles', 'split', 'checks', 'poster', 'chat', 'marquee', 'notes', 'timeline'];
-  const DESIGN = ['index', 'spec', 'casestudy', 'principles', 'metrics', 'release', 'matrix', 'system', 'glossary', 'stack', 'flow', 'wrapped', 'mesh'];
+  const DESIGN = ['index', 'spec', 'casestudy', 'principles', 'metrics', 'release', 'matrix', 'system', 'glossary', 'stack', 'flow', 'wrapped', 'mesh', 'bento', 'table', 'feature', 'columns'];
+  const STRUCTURED = ['cover', 'statement', 'list', 'steps', 'compare', 'stat', 'quote', 'tiles', 'split', 'checks', 'timeline', 'index', 'principles', 'flow', 'columns', 'table', 'bento', 'feature', 'glossary', 'matrix', 'release', 'metrics', 'cta'];
   const KINDS = CLASSIC.concat(RICH, DESIGN);
 
   // ---- topics ------------------------------------------------------------------------------------------------------------
@@ -254,6 +255,61 @@
   const up1 = s => s.toUpperCase();
   const short2 = s => String(s).split(/\s+/).slice(0, 3).join(' ');
 
+  // ---- structured decks: grid-friendly kinds only (the default) -------------------------------------------------------------------------------------------------
+  const STRUCT_POOLS = {
+    reversal: ['compare', 'columns', 'list', 'tiles', 'table', 'checks', 'glossary'],
+    beforeafter: ['compare', 'split', 'table', 'columns', 'timeline', 'checks'],
+    list: ['list', 'tiles', 'principles', 'bento', 'checks', 'columns'],
+    myth: ['compare', 'checks', 'table', 'split', 'columns'],
+    howto: ['steps', 'checks', 'columns', 'compare', 'table'],
+    stat: ['stat', 'bento', 'columns', 'list'],
+  };
+  function buildStructured(fmt, T, pts, n, r) {
+    const pairs = pts.map(p => { const m = p.split(/\s*(?:→|->|=>)\s*/); return m.length > 1 ? { a: m[0], b: m[1] } : null; }).filter(Boolean);
+    const plainPts = pts.filter(p => !/→|->|=>/.test(p)), q = /^(why|how|what|when|where|who)\b/i.test(T), t = q ? 'it' : low(T), Tt = q ? 'This' : cap(low(T));
+    const mkP = richMakers(T, plainPts, r, { pairs }), mk0 = richMakers(T, [], r, { pairs });
+    let ptsLeft = plainPts.length >= 3;                                  // the user's points are used once, by the first list-like slide
+    const short = s => cap(String(s).split(/\s+/).slice(0, 8).join(' '));
+    const some = (k, bank) => { if (ptsLeft) { ptsLeft = false; return plainPts.slice(0, k).map(short); } return bank.slice().sort(() => r() - 0.5).slice(0, k); };
+    const mk = k => { if (!mkP[k]) return null; if (ptsLeft && LISTY.has(k)) { ptsLeft = false; return mkP[k](); } return mk0[k](); };
+    const withNum = pts.find(p => /\d/.test(p)), num = withNum && withNum.match(/(\d[\d.,]*\s?[%×xX+kKmM]?)\s*(.*)/);
+    const M = {
+      list: () => ({ kind: 'list', head: pick(r, q ? ['What [[actually]] matters', 'The short [[version]]', 'Three things to [[keep]]'] : ['Three rules for [[' + t + ']]', 'What [[actually]] matters', 'The short [[version]]']), items: some(3, BANK.rules), foot: pick(r, BANK.rulesFoot) }),
+      steps: () => ({ kind: 'steps', head: pick(r, ['How we [[approach it]]', 'The process, [[step by step]]', 'Four steps that [[work]]']), items: some(4, BANK.steps), foot: pick(r, BANK.stepsFoot) }),
+      flow: () => ({ kind: 'flow', head: pick(r, ['From idea to [[done]]', 'The process, [[step by step]]']), items: some(4, BANK.steps), foot: 'Four steps. {{No fuss.}}' }),
+      compare: () => { const p = pairs[0] || pick(r, BANK.mythA.map((a, i) => ({ a, b: BANK.mythB[i] }))); return { kind: 'compare', head: pick(r, ['What teams [[assume]]', 'The usual way vs [[the better one]]', q ? 'What [[changed]]' : 'What changed with [[' + t + ']]']), a: { label: pairs.length ? 'Before' : 'Myth', text: p.a }, b: { label: pairs.length ? 'After' : 'Truth', text: p.b }, foot: pick(r, ['The gap is where {{the work is.}}', 'Same goal. {{Better answer.}}']) }; },
+      stat: () => (num ? { kind: 'stat', head: 'The number [[behind it]]', stat: { value: num[1].replace(/\s/g, ''), label: num[2] || 'the difference it makes' }, foot: 'Numbers do not design anything. {{People do.}}' } : null),
+      columns: () => { const usePts = ptsLeft; const cols = usePts ? ['Problem', 'Approach', 'Result'].map((k, i) => ({ k, v: short(plainPts[i]) })) : pick(r, BANK3.columns); if (usePts) ptsLeft = false; return { kind: 'columns', head: pick(r, ['The idea [[in three parts]]', q ? 'Inside [[the work]]' : 'Inside [[' + t + ']]']), cols, foot: pick(r, ['Case notes, {{in short.}}', 'Three parts. {{One idea.}}']) }; },
+      table: () => ({ kind: 'table', head: pick(r, ['The usual way vs [[ours]]', 'Two ways to [[do it]]']), cols: ['', 'Usual', 'Better'], rows: pick(r, BANK3.tables), foot: 'Pick the one that {{fits.}}' }),
+      bento: () => ({ kind: 'bento', head: pick(r, [q ? 'The idea [[at a glance]]' : '[[' + Tt + ']] at a glance', 'The [[shape]] of it']), value: num ? num[1].replace(/\s/g, '') : '', items: some(4, BANK.rules.concat(BANK.steps)), foot: 'Small parts. {{One system.}}' }),
+    };
+    const make = k => (M[k] ? M[k]() : mk(k));
+    const want = Math.max(1, n - 2), mids = [q ? mk0.punch() : mk0.statement()], seenG = new Set(['statement']);
+    const pool0 = STRUCT_POOLS[fmt] || STRUCT_POOLS.reversal, pool = pool0.slice(0, 2).concat(pool0.slice(2).sort(() => r() - 0.5));
+    for (const k of pool.concat(['columns', 'compare', 'tiles', 'table', 'checks', 'principles', 'split'])) {
+      if (mids.length >= want) break; const grp = KIND_GROUP[k] || k; if (seenG.has(grp)) continue; const s0 = make(k); if (!s0) continue; seenG.add(grp); mids.push(s0);
+    }
+    while (mids.length < want) mids.push(mk0.punch());
+    // a contents slide listing what follows, for longer decks
+    if (want >= 6 && r() < 0.5) { mids.splice(want - 1); const heads = mids.slice(1).map(m => SixjulyRender.plain(m.head || '').replace(/\n/g, ' ')).filter(Boolean).slice(0, 5); mids.splice(1, 0, { kind: 'index', head: 'What is [[inside]]', items: heads, foot: 'Swipe for {{the whole story.}}' }); }
+    const tw = words(T), head = tw.length > 1 ? tw.slice(0, -1).join(' ') + ' [[' + tw[tw.length - 1] + ']]' : '[[' + T + ']]', m2 = T.match(/\b(\d+)\b/);
+    const cv = m2 || fmt === 'list' ? 'index' : pick(r, ['', '', 'block']);
+    const cover = { kind: 'cover', head, sub: pick(r, BANK.coverSub), foot: pick(r, BANK.coverFoot), tag: COVER_TAG[fmt] || '' };
+    if (cv) cover.cover = cv; if (cv === 'index') cover.num = m2 ? m2[1] : String(Math.max(3, mids.length)).padStart(2, '0');
+    const ctaPair = pick(r, BANK.cta);
+    return [cover, ...mids, { kind: 'cta', head: ctaPair[0], btn: pick(r, BANK.ctaBtn), foot: ctaPair[1] }];
+  }
+  const LISTY = new Set(['list', 'steps', 'tiles', 'index', 'principles', 'flow', 'stack', 'notes', 'bento', 'columns']);
+  const KIND_GROUP = { list: 'rows', principles: 'rows', index: 'rows', notes: 'rows', steps: 'process', flow: 'process', compare: 'versus', split: 'versus', table: 'versus2', tiles: 'cells', bento: 'cells' };
+  const BANK3 = {
+    columns: [[{ k: 'Problem', v: 'Nobody remembered the old work' }, { k: 'Approach', v: 'Keep what people know, cut the rest' }, { k: 'Result', v: 'Recognised in a second, at any size' }],
+      [{ k: 'Before', v: 'Ten ideas, none of them finished' }, { k: 'Shift', v: 'One idea, taken all the way' }, { k: 'After', v: 'Work people can describe in a sentence' }],
+      [{ k: 'Brief', v: 'Make it pop' }, { k: 'Question', v: 'What should people feel first?' }, { k: 'Answer', v: 'Calm, then curious' }]],
+    tables: [[['Start', 'Moodboard', 'The problem'], ['Measure', 'Likes', 'Recall'], ['Ship', 'Once, perfect', 'Early, then refine'], ['Own', 'The agency', 'Your team']],
+      [['Team', 'Rotating', 'Senior, fixed'], ['Process', 'Deck first', 'Prototype first'], ['Timeline', '12 weeks', '6 weeks'], ['Handover', 'PDF guidelines', 'A living system']],
+      [['Colour', 'Five accents', 'One accent'], ['Type', 'Three families', 'One family'], ['Layout', 'Free', 'On a grid'], ['Result', 'Loud', 'Clear']]],
+  };
+
   // the design-language layouts with sample copy (also used by the styles deck)
   const designSamples = () => [
     { kind: 'index', head: 'What is [[inside]]', items: ['Grids that hold', 'Type with a voice', 'Colour used on [[purpose]]', 'Motion that explains', 'Rules worth keeping'], foot: 'Five chapters, {{one idea.}}' },
@@ -269,6 +325,10 @@
     { kind: 'flow', head: 'From topic to [[post]]', items: ['Pick a topic', 'Write the copy', 'Choose a style', 'Export'], foot: 'Four steps, {{no fuss.}}' },
     { kind: 'wrapped', head: 'Your year in [[design]]', value: '7×', label: 'More posts than last year', foot: 'Thanks for {{making.}}' },
     { kind: 'mesh', head: 'Ship [[faster]] with calm tools', tags: ['Carousels', 'Reels', 'Batch'], foot: 'Built for the team' },
+    { kind: 'bento', head: 'The year in [[review]]', value: '48', items: ['Brands launched with clients across four continents', 'Design systems shipped', 'Workshops run', 'One studio, twelve people'], foot: 'Sample figures. {{Swap in your own.}}' },
+    { kind: 'table', head: 'Agency vs [[studio]]', cols: ['', 'Agency', 'Studio'], rows: [['Team', 'Rotating', 'Senior, fixed'], ['Process', 'Deck first', 'Prototype first'], ['Timeline', '12 weeks', '6 weeks'], ['Handover', 'PDF guidelines', 'A living system']], foot: 'Pick the one that {{fits.}}' },
+    { kind: 'feature', head: 'Colour is a [[system]]', caption: 'Palette study', kicker: 'Why it works', body: 'One accent, used rarely, does more than five used everywhere. Keep the violet for the word that matters.', foot: 'Use it {{sparingly.}}' },
+    { kind: 'columns', head: 'Inside a [[rebrand]]', cols: [{ k: 'Problem', v: 'Nobody remembered the old mark' }, { k: 'Approach', v: 'Keep the colour, simplify the shape' }, { k: 'Result', v: 'Recognised in a second, at any size' }], foot: 'Case notes, {{in short.}}' },
   ];
   // one deck that shows every style pack, one slide each (a slide can carry its own style)
   function stylesDeck() {
@@ -282,6 +342,9 @@
   // one deck that shows every layout with sample copy
   function showcase() {
     return { topic: 'Layout showcase', format: 'showcase', engine: 'patterns', caption: 'Every Sixjuly layout in one deck.', hashtags: ['#sixjuly', '#design'], slides: [
+      { kind: 'cover', head: 'Design systems that [[ship]]', tag: 'Hot take', sub: 'The [[quiet]] craft behind great brands', foot: 'What the best studios agree on' },
+      { kind: 'cover', cover: 'block', head: 'Why rebrands [[work]]', tag: 'Essay', sub: 'Familiar beats new', foot: 'Seven lessons from a decade of identity work' },
+      { kind: 'cover', cover: 'index', num: '07', head: 'Rules for [[better]] grids', sub: 'A field guide', foot: 'Save this for your next layout' },
       { kind: 'cover', cover: 'annotate', head: 'DIGITAL\nTEXTURES', callouts: [{ w: 0, label: 'Chrome buttons' }, { w: 1, label: 'Clay material' }], sub: 'The [[New Face]] of UI', foot: 'In 2026, screens are meant to feel touchable again' },
       { kind: 'cover', cover: 'crt', head: 'Rebrands That [[Broke The]] Internet', tag: '07', foot: 'Seven logo changes that set the internet on fire' },
       { kind: 'cover', cover: 'ripple', num: '8', head: 'Graphic Design\nTrends\nDominating', stamp: '2026', foot: '' },
@@ -324,7 +387,7 @@
     }
     if (fmt === 'stat' && !item.points.some(p => /\d/.test(p))) fmt = 'reversal';
     if (o.format === 'showcase' || fmt === 'showcase') { const sc = showcase(); sc.topic = T; return sc; }
-    const slides = o.layouts === 'classic' ? build(fmt, T, item.points || [], clampN(o.slides), r) : buildRich(fmt, T, item.points || [], clampN(o.slides), r);
+    const slides = o.layouts === 'classic' ? build(fmt, T, item.points || [], clampN(o.slides), r) : o.layouts === 'rich' ? buildRich(fmt, T, item.points || [], clampN(o.slides), r) : buildStructured(fmt, T, item.points || [], clampN(o.slides), r);
     const tags = BANK.tags.slice().sort(() => r() - 0.5).slice(0, 4);
     const caption = `${cap(T)}: the short version.\n\n${slides.filter(s => s.kind !== 'cover' && s.kind !== 'cta').map(s => SixjulyRender.plain(s.head || '').replace(/\n/g, ' ')).slice(0, 3).join(' ')}\n\nFollow @sixjulydesign for more on what's next in design.`;
     return { topic: T, format: fmt, engine: 'patterns', slides, caption, hashtags: tags };
@@ -377,14 +440,22 @@ Design-language layouts (editorial, system and data looks; use when the topic fi
 - wrapped: head, value (a short figure like "7×"), label (≤ 8 words), foot; ONLY with a figure the user supplied
 - mesh: head (≤ 8 words), tags (2-4 one-word chips), foot; a soft gradient hero, good as an opener or closer
 - system: head, foot; shows the Sixjuly colours, type and shape tokens (no other fields)`;
+  const STRUCT_DOC = `
+Structured layouts:
+- columns: head, cols (exactly 3 of {k: short label like "Problem", v: ≤ 8 words}), foot
+- table: head, cols (3 header labels, the first may be ""), rows (3-5 rows, each an array of 3 short cells ≤ 4 words), foot
+- bento: head, items (3-4 short lines ≤ 9 words; the first is the main point), value (optional big figure, ONLY if the user gave it), foot
+- feature: head, caption (≤ 4 words), kicker (≤ 3 words), body (≤ 30 words), foot
+Covers in the structured look: omit "cover" for big type, "block" for a colour panel, or "index" with num (a two-digit count such as "07"). Optional tag (≤ 2 words).
+Any slide may carry label (≤ 3 words), the small section name shown above the headline.`;
   const GUARD = `
 Only claim facts you are confident are true. Never invent statistics or quotes attributed to real people or companies; use stat/quote only when the user's points supply the figure or when it is clearly the studio's own view. Every slide must have a head and foot except covers and the ones noted.`;
-  const systemPrompt = layouts => BASE + (layouts === 'classic' ? '' : RICH_DOC + DESIGN_DOC) + GUARD;
-  const SYSTEM = systemPrompt('rich');
+  const systemPrompt = layouts => BASE + (layouts === 'classic' ? '' : layouts === 'rich' ? RICH_DOC + DESIGN_DOC : RICH_DOC + DESIGN_DOC + STRUCT_DOC) + GUARD;
+  const SYSTEM = systemPrompt('structured');
 
   function userPrompt(item, o) {
     const fmt = o.format && o.format !== 'mix' ? `Format: ${FORMATS[o.format]}.` : 'Choose the format that suits the topic (hot take, before/after, list of rules, myth vs truth, how-to, or a single striking number).';
-    return `Topic: ${item.topic}\n${item.points && item.points.length ? 'Points to cover: ' + item.points.join('; ') + '\n' : ''}${item.refs && item.refs.length ? 'Background reading, for context only. Write everything in your own words and never copy phrases from these titles:\n' + item.refs.slice(0, 6).map(r => '- ' + r.title + (r.source ? ' (' + r.source + ')' : '')).join('\n') + '\n' : ''}${fmt}\nSlide count: ${clampN(o.slides)} including cover and closing slide.${o.layouts === 'classic' ? ' Use only the classic kinds.' : ''}\n${o.voice ? 'Extra voice notes: ' + o.voice + '\n' : ''}${o.seed ? 'Variation #' + o.seed + ': take a different angle than the obvious one.\n' : ''}Return the JSON now.`;
+    return `Topic: ${item.topic}\n${item.points && item.points.length ? 'Points to cover: ' + item.points.join('; ') + '\n' : ''}${item.refs && item.refs.length ? 'Background reading, for context only. Write everything in your own words and never copy phrases from these titles:\n' + item.refs.slice(0, 6).map(r => '- ' + r.title + (r.source ? ' (' + r.source + ')' : '')).join('\n') + '\n' : ''}${fmt}\nSlide count: ${clampN(o.slides)} including cover and closing slide.${o.layouts === 'classic' ? ' Use only the classic kinds.' : o.layouts === 'rich' ? '' : ' Use only these kinds: ' + STRUCTURED.join(', ') + '.'}\n${o.voice ? 'Extra voice notes: ' + o.voice + '\n' : ''}${o.seed ? 'Variation #' + o.seed + ': take a different angle than the obvious one.\n' : ''}Return the JSON now.`;
   }
 
   let sampleP = null;
@@ -445,7 +516,8 @@ Only claim facts you are confident are true. Never invent statistics or quotes a
       if (kind === 'objects') out.objects = (Array.isArray(s.objects) ? s.objects : []).slice(0, 3).map(x => ({ type: ['jelly', 'toggle', 'card'].includes(x.type) ? x.type : 'card', label: str(x.label, 14) }));
       if (kind === 'cta') out.btn = str(s.btn, 24) || "Let's talk";
       if (kind === 'cover') {
-        if (['annotate', 'crt', 'ripple'].includes(s.cover)) out.cover = s.cover;
+        if (['annotate', 'crt', 'ripple', 'block', 'index'].includes(s.cover)) out.cover = s.cover;
+        if (out.cover === 'index') out.num = str(String(s.num || ''), 3);
         if (out.cover === 'annotate') out.callouts = (Array.isArray(s.callouts) ? s.callouts : []).slice(0, 4).map(c => ({ w: Math.max(0, parseInt(c.w, 10) || 0), label: str(c.label, 28) })).filter(c => c.label);
         if (out.cover === 'ripple') { out.num = str(String(s.num || ''), 3); out.stamp = str(String(s.stamp || ''), 8); }
       }
@@ -470,6 +542,11 @@ Only claim facts you are confident are true. Never invent statistics or quotes a
       if (kind === 'matrix') { const ax = s.axes || {}, a2 = (v, d) => (Array.isArray(v) && v.length >= 2 ? [str(String(v[0]), 20), str(String(v[1]), 20)] : d); out.axes = { x: a2(ax.x, ['Low effort', 'High effort']), y: a2(ax.y, ['Low impact', 'High impact']) }; out.dots = (Array.isArray(s.dots) ? s.dots : []).slice(0, 6).map(d => ({ label: str(String(d && d.label || ''), 20), x: Math.max(0, Math.min(1, +d.x || 0.5)), y: Math.max(0, Math.min(1, +d.y || 0.5)) })).filter(d => d.label); if (!out.dots.length) out.kind = 'statement'; }
       if (kind === 'glossary') { out.term = str(String(s.term || ''), 24) || 'Texture'; out.phonetic = str(String(s.phonetic || ''), 30); out.pos = str(String(s.pos || ''), 12) || 'noun'; out.definition = str(String(s.definition || ''), 160); out.example = str(String(s.example || ''), 80); }
       if (kind === 'wrapped') { out.value = str(String(s.value || ''), 6) || '7×'; out.label = str(String(s.label || ''), 50); }
+      if (kind === 'bento') { out.items = (Array.isArray(s.items) ? s.items : []).map(x => str(String(x), 70)).filter(Boolean).slice(0, 4); out.value = str(String(s.value || ''), 6); if (out.items.length < 2) out.kind = 'statement'; }
+      if (kind === 'table') { out.cols = (Array.isArray(s.cols) ? s.cols : ['', 'Before', 'After']).slice(0, 4).map(x => str(String(x == null ? '' : x), 16)); out.rows = (Array.isArray(s.rows) ? s.rows : []).slice(0, 6).filter(Array.isArray).map(r => out.cols.map((_, i) => str(String(r[i] == null ? '' : r[i]), 30))); if (!out.rows.length) out.kind = 'statement'; }
+      if (kind === 'feature') { out.caption = str(String(s.caption || ''), 30); out.kicker = str(String(s.kicker || ''), 24); out.body = str(String(s.body || ''), 220); }
+      if (kind === 'columns') { out.cols = (Array.isArray(s.cols) ? s.cols : []).slice(0, 3).map(p => ({ k: str(String(p && p.k || ''), 16), v: str(String(p && p.v || ''), 70) })).filter(p => p.v); if (out.cols.length < 2) out.kind = 'statement'; }
+      if (typeof s.label === 'string' && s.label.trim() && kind !== 'cover') out.label = str(s.label, 24);
       if (kind === 'mesh') out.tags = (Array.isArray(s.tags) ? s.tags : []).slice(0, 4).map(x => str(String(x), 16)).filter(Boolean);
       if (STYLE_KEYS().includes(s.style)) out.style = s.style;
       if ((kind === 'list' || kind === 'steps') && !out.items.length) out.kind = 'statement';
@@ -497,5 +574,5 @@ Only claim facts you are confident are true. Never invent statistics or quotes a
   }
   const canUseClaude = async key => !!key || !!(await getSample());
 
-  window.SixjulyCopy = { rewordTopics, FORMATS, KINDS, CLASSIC, RICH, DESIGN, stylesDeck, showcase, canUseClaude, parseTopics, write, writePatterns, writeClaude, normalizeStory, extractJSON, SYSTEM };
+  window.SixjulyCopy = { rewordTopics, FORMATS, KINDS, CLASSIC, RICH, DESIGN, STRUCTURED, stylesDeck, showcase, canUseClaude, parseTopics, write, writePatterns, writeClaude, normalizeStory, extractJSON, SYSTEM };
 })();

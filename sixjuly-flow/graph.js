@@ -17,10 +17,10 @@
 
   const G = {
     types: {}, nodes: [], edges: [], view: { x: 40, y: 40, k: 1 }, sel: null, selEdge: null,
-    listeners: { change: [], run: [] }, nextId: 1,
+    listeners: { change: [], run: [], history: [] }, nextId: 1,
   };
   G.on = (e, fn) => G.listeners[e].push(fn);
-  const emit = (e, a) => G.listeners[e].forEach(fn => fn(a));
+  const emit = (e, a) => { G.listeners[e].forEach(fn => fn(a)); if (e === 'change' && a && !a.view && !a.history) record(!a.field); };
   let root, world, wires, drag = null;
   const NODE_W = 280;
 
@@ -58,9 +58,29 @@
     (data.nodes || []).forEach(n => { if (G.types[n.type]) { const nn = { id: n.id, type: n.type, x: n.x, y: n.y, params: Object.assign(G.defaults(n.type), n.params || {}), status: '', msg: '' }; G.nodes.push(nn); G.nextId = Math.max(G.nextId, parseInt(String(n.id).slice(1), 10) + 1 || G.nextId); buildNode(nn); } });
     G.edges = (data.edges || []).filter(e => G.node(e.from[0]) && G.node(e.to[0]));
     if (data.view) G.view = Object.assign({ x: 40, y: 40, k: 1 }, data.view);
-    applyView(); drawWires(); changed(true);
+    applyView(); drawWires(); changed(true); H.list = []; H.i = -1; record(true);
   };
-  function changed(quiet) { if (!quiet) emit('change', { structural: true }); }
+  function changed(quiet) { renumber(); if (!quiet) emit('change', { structural: true }); }
+
+  // ---- history: every change to nodes, fields and wires can be undone (⌘Z / ⇧⌘Z); the view (pan / zoom) is not recorded ---------------------------
+  const H = { list: [], i: -1, t: 0, busy: false };
+  const snap = () => JSON.stringify({ nodes: G.nodes.map(n => ({ id: n.id, type: n.type, x: Math.round(n.x), y: Math.round(n.y), params: n.params })), edges: G.edges });
+  function record(now) {
+    if (H.busy) return; clearTimeout(H.t);
+    const go = () => { const s = snap(); if (H.list[H.i] === s) return; H.list.length = H.i + 1; H.list.push(s); if (H.list.length > 80) H.list.shift(); H.i = H.list.length - 1; emit('history'); };
+    if (now) go(); else H.t = setTimeout(go, 400);
+  }
+  function restoreSnap(s) {
+    H.busy = true; const o = JSON.parse(s), keepSel = G.sel;
+    G.nodes.forEach(n => n.el.remove()); G.nodes = []; G.edges = [];
+    o.nodes.forEach(n => { const nn = { id: n.id, type: n.type, x: n.x, y: n.y, params: n.params, status: '', msg: '' }; G.nodes.push(nn); buildNode(nn); });
+    G.edges = o.edges; G.sel = G.node(keepSel) ? keepSel : null; markSel(); drawWires(); emit('change', { structural: true, history: true }); H.busy = false; emit('history');
+  }
+  G.undo = () => { clearTimeout(H.t); const cur = snap(); if (H.list[H.i] !== cur) record(true); if (H.i > 0) { H.i--; restoreSnap(H.list[H.i]); } };
+  G.redo = () => { if (H.i < H.list.length - 1) { H.i++; restoreSnap(H.list[H.i]); } };
+  G.canUndo = () => H.i > 0 || (H.i >= 0 && H.list[H.i] !== snap());
+  G.canRedo = () => H.i < H.list.length - 1;
+  G.resetHistory = () => { H.list = [snap()]; H.i = 0; emit('history'); };
 
   // ---- DOM -------------------------------------------------------------------------------------------------------------------------
   G.init = el => {
@@ -71,6 +91,9 @@
     root.addEventListener('pointerdown', onDown); window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
     root.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('keydown', e => {
+      if (document.body.classList.contains('focus-open') || root.closest('[hidden]') || root.offsetParent === null) return;
+      const typing = /INPUT|TEXTAREA/.test((e.target || {}).tagName || '') && !/checkbox|range|color|radio/.test(e.target.type || '');
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'y') && !typing) { e.preventDefault(); if (e.key.toLowerCase() === 'y' || e.shiftKey) G.redo(); else G.undo(); return; }
       if (/INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '')) return;
       if ((e.key === 'Backspace' || e.key === 'Delete')) { if (G.selEdge != null) { G.edges.splice(G.selEdge, 1); G.selEdge = null; drawWires(); changed(); } else if (G.sel) G.remove(G.sel); }
     });
@@ -120,6 +143,8 @@
     });
   }
   G.redraw = drawWires;
+  // number the nodes left to right (01, 02 …) so the flow reads like a sequence
+  function renumber() { G.nodes.slice().sort((a, b) => (a.x - b.x) || (a.y - b.y)).forEach((n, i) => { const e = n.el && n.el.querySelector('.nidx'); if (e) e.textContent = String(i + 1).padStart(2, '0'); }); }
   function markSel() { G.nodes.forEach(n => n.el.classList.toggle('sel', n.id === G.sel)); }
 
   // ---- interaction -------------------------------------------------------------------------------------------------------------------
@@ -199,7 +224,7 @@
     const def = G.types[n.type];
     const ports = (list, dir) => h('div.ports.' + dir, null, (list || []).map(p => h('div.port.' + dir, { 'data-port': p.id, title: p.label }, dir === 'in' ? [h('i.dot.t-' + p.type), h('span', null, p.label)] : [h('span', null, p.label), h('i.dot.t-' + p.type)])));
     n.el = h('div.node.k-' + def.key, { 'data-id': n.id, style: { left: n.x + 'px', top: n.y + 'px', width: NODE_W + 'px' } },
-      h('div.nh', null, h('span.ni', { html: def.icon || '' }), h('b', null, def.title), h('span.ns', { title: '' }), h('button.nx', { title: 'Delete node', onclick: () => G.remove(n.id) }, '×')),
+      h('div.nh', null, h('span.nidx', null, ''), h('span.ni', { html: def.icon || '' }), h('b', null, def.title), h('span.ns', { title: '' }), h('button.nx', { title: 'Delete node', onclick: () => G.remove(n.id) }, '×')),
       (def.inputs && def.inputs.length) || (def.outputs && def.outputs.length) ? h('div.nio', null, ports(def.inputs, 'in'), ports(def.outputs, 'out')) : null,
       def.hint ? h('div.nhint', null, def.hint) : null,
       h('div.nb'), h('div.nmsg'));
