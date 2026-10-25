@@ -7,6 +7,8 @@
   const opt = (obj) => obj;
   const FONTS = { 'Google Sans Flex': 'Google Sans Flex', Inter: 'Inter', 'DM Sans': 'DM Sans', Manrope: 'Manrope', 'Space Grotesk': 'Space Grotesk', Sora: 'Sora', Outfit: 'Outfit', 'Plus Jakarta Sans': 'Plus Jakarta Sans' };
   const THEMES = { light: 'White', cream: 'Cream', dark: 'Black', violet: 'Violet', orange: 'Orange' };
+  const THEMES_AUTO = Object.assign({ auto: 'Auto (from style)' }, THEMES);
+  const STYLE_OPTS = () => Object.fromEntries((R.STYLE_ORDER || []).map(k => [k, R.STYLES[k].name]));
   const THEMES_OPT = Object.assign({ '': 'Same as slides' }, THEMES);
 
   const MOTION_ENTER = R.ENTER_TYPES, MOTION_LOOP = R.LOOP_TYPES;
@@ -105,7 +107,8 @@
     inputs: [{ id: 'stories', label: 'Copy', type: 'stories' }, { id: 'brand', label: 'Brand (optional)', type: 'brand', optional: true }, { id: 'images', label: 'Images (optional)', type: 'images', optional: true }],
     outputs: [{ id: 'decks', label: 'Slides', type: 'decks' }],
     fields: [
-      { k: 'theme', label: 'Theme', type: 'select', options: THEMES, def: 'light' },
+      { k: 'style', label: 'Style', type: 'select', options: STYLE_OPTS(), def: 'sixjuly' },
+      { k: 'theme', label: 'Theme', type: 'select', options: THEMES_AUTO, def: 'auto' },
       { k: 'coverTheme', label: 'Cover theme', type: 'select', options: THEMES_OPT, def: '' },
       { k: 'ctaTheme', label: 'Closer theme', type: 'select', options: THEMES_OPT, def: '' },
       { k: 'rhythm', label: 'Rhythm', type: 'seg', options: { consistent: 'Consistent', alternate: 'Alternate' }, def: 'consistent' },

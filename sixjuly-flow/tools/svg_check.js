@@ -1,14 +1,15 @@
 // Renders each showcase slide twice (canvas, then SVG → image) and reports how close they are; saves a side-by-side sheet.
-//   node tools/svg_check.js out.png
+//   node tools/svg_check.js out.png [style]
 const { chromium } = require('playwright'); const path = require('path'), fs = require('fs');
 (async () => {
   const b = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
   const p = await b.newPage(); p.on('pageerror', e => console.log('PAGEERROR', e.message)); p.on('console', m => m.type() === 'error' && !/fonts|ERR/.test(m.text()) && console.log('CONSOLE', m.text()));
   await p.setContent('<body></body>');
-  for (const f of ['logo', 'render', 'layouts', 'svgctx', 'copy']) await p.addScriptTag({ path: path.join(__dirname, `../${f}.js`) });
-  const res = await p.evaluate(async () => {
+  for (const f of ['logo', 'render', 'layouts', 'layouts2', 'svgctx', 'copy']) await p.addScriptTag({ path: path.join(__dirname, `../${f}.js`) });
+  const style = process.argv[3] || 'sixjuly';
+  const res = await p.evaluate(async (style) => {
     const R = window.SixjulyRender; await R.loadFonts({});
-    const deck = { brand: {}, design: { theme: 'light', art: 'orb' }, slides: SixjulyCopy.showcase().slides };
+    const deck = { brand: {}, design: { theme: style === 'sixjuly' ? 'light' : 'auto', style, art: 'orb' }, slides: SixjulyCopy.showcase().slides };
     const out = [], W = 1080, H = 1350;
     for (let i = 0; i < deck.slides.length; i++) {
       const a = document.createElement('canvas'); a.width = W; a.height = H; const ca = a.getContext('2d'); R.drawSlide(ca, deck, i, { W, H });
@@ -20,7 +21,7 @@ const { chromium } = require('playwright'); const path = require('path'), fs = r
       out.push({ i, kind: deck.slides[i].kind + (deck.slides[i].cover ? ':' + deck.slides[i].cover : ''), diffPct: +(diff / n * 100).toFixed(2), kb: Math.round(svg.length / 1024), texts: (svg.match(/<text /g) || []).length, a: a.toDataURL('image/png'), c: c.toDataURL('image/png'), svg: i === 3 || i === 4 ? svg : '' });
     }
     return out;
-  });
+  }, style);
   res.forEach(r => console.log(r.i, r.kind, r.err ? 'ERR ' + r.err : `diff ${r.diffPct}%  ${r.kb}KB  ${r.texts} text elements`));
   const pick = res.filter(r => r.a).slice(0, 12); const out = process.argv[2] || 'svg-check.png';
   const html = '<body style="margin:0;background:#444;display:flex;flex-wrap:wrap;gap:6px;width:2400px">' + pick.map(r => `<div style="width:380px"><img src="${r.a}" width=190><img src="${r.c}" width=190></div>`).join('') + '</body>';

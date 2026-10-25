@@ -34,6 +34,9 @@
     { name: 'Reel only', hint: '9:16 video with motion', make: () => flowFull({ carousel: false }) },
     { name: 'Punchy reels, dark theme', hint: 'Fast word-by-word motion on black', make: () => { const f = flowFull({ motion: R.MOTION_PRESETS.punchy }); f.nodes.find(n => n.type === 'motion').params.preset = 'punchy'; f.nodes.find(n => n.id === 'n4').params = { theme: 'dark', art: 'spiral' }; return f; } },
     { name: 'Layout showcase', hint: 'One deck with every layout and cover style', make: () => flowFull({ topics: 'Layout showcase', write: { format: 'showcase', engine: 'patterns' } }) },
+    { name: 'Style packs', hint: 'One deck that shows all seven design styles', make: () => flowFull({ topics: 'Style packs', write: { format: 'styles', engine: 'patterns' } }) },
+    { name: 'Swiss grid carousel', hint: 'Hairline rules, folio, flush-left grotesk (studio style)', make: () => { const f = flowFull({ reel: false }); f.nodes.find(n => n.id === 'n4').params = { style: 'swiss' }; return f; } },
+    { name: 'Colour poster reels', hint: 'Flat colour fields and giant type, fast motion', make: () => { const f = flowFull({ carousel: false, motion: R.MOTION_PRESETS.punchy }); f.nodes.find(n => n.type === 'motion').params.preset = 'punchy'; f.nodes.find(n => n.id === 'n4').params = { style: 'poster' }; return f; } },
     { name: 'Blank', hint: 'Start from nothing', make: () => ({ v: 1, nodes: [], edges: [] }) },
   ];
 

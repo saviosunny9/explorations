@@ -233,8 +233,8 @@
     items.forEach((txt, i) => {
       const x = vis.x + (i % cols) * (tw + gap), y = y0 + Math.floor(i / cols) * (th2 + gap), [bg, ink] = COL[i % 4];
       add('visual', { x, y, w: tw, h: th2 }, ctx => {
-        ctx.fillStyle = bg; rr(ctx, x, y, tw, th2, 36); ctx.fill();
-        ctx.save(); rr(ctx, x, y, tw, th2, 36); ctx.clip(); ctx.fillStyle = 'rgba(255,255,255,.2)'; const k = i % 4;
+        ctx.fillStyle = bg; rr(ctx, x, y, tw, th2, 36 * scene.rs); ctx.fill();
+        ctx.save(); rr(ctx, x, y, tw, th2, 36 * scene.rs); ctx.clip(); ctx.fillStyle = 'rgba(255,255,255,.2)'; const k = i % 4;
         if (k === 0) { ctx.beginPath(); ctx.arc(x + tw - 20, y + 10, th2 * 0.34, 0, TAU); ctx.fill(); } else if (k === 1) { ctx.save(); ctx.translate(x + tw - 70, y + 70); ctx.rotate(0.6); ctx.fillRect(-50, -50, 100, 100); ctx.restore(); } else if (k === 2) { ctx.beginPath(); ctx.moveTo(x + tw - 150, y + 130); ctx.lineTo(x + tw - 20, y + 130); ctx.lineTo(x + tw - 20, y); ctx.closePath(); ctx.fill(); } else { for (let n = 0; n < 3; n++) { ctx.beginPath(); ctx.arc(x + tw - 60, y + 60, 24 + n * 26, 0, TAU); ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.stroke(); } }
         ctx.restore();
         const t = fitRich(b, txt, { maxW: tw - 64, maxH: th2 * 0.55, size: scene.g.reel ? 54 : 48, min: 26, weight: 700, lh: 1.08, track: -0.03 });
@@ -295,7 +295,7 @@
       const me = o.m.who === 'me', w = Math.min(maxW, o.t.w + 64), h = heights[i], x = me ? vis.x + vis.w - w : vis.x + 70, yy = y; y += h + gap;
       add('visual', { x: me ? x : vis.x, y: yy, w: w + 70, h }, ctx => {
         if (!me) { ctx.fillStyle = b.orange; ctx.beginPath(); ctx.arc(vis.x + 27, yy + h - 27, 27, 0, TAU); ctx.fill(); ctx.fillStyle = '#fff'; setFont(ctx, b, 700, 28, 0); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', vis.x + 27, yy + h - 25); ctx.textAlign = 'left'; }
-        ctx.fillStyle = me ? b.violet : (th.dark ? '#26262b' : '#EFECE5'); rr(ctx, x, yy, w, h, 36); ctx.fill();
+        ctx.fillStyle = me ? b.violet : (th.dark ? '#26262b' : '#EFECE5'); rr(ctx, x, yy, w, h, 36 * scene.rs); ctx.fill();
         ctx.fillStyle = me ? (th.name === 'Violet' ? '#121212' : '#fff') : th.ink; setFont(ctx, b, 500, o.t.size, o.t.track); ctx.textBaseline = 'top';
         o.t.words.forEach(wd => wd.runs.forEach(r => ctx.fillText(r.t, x + 32 + wd.x + r.x, yy + 28 + wd.y + o.t.lh * 0.06))); ctx.textBaseline = 'alphabetic';
       }, { unit: i });

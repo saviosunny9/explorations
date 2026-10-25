@@ -28,7 +28,7 @@ Topics ─▶ Write ─▶ Design ─┬─▶ Carousel post
 | Brand | Colours, font, handle, site (defaults are the Sixjuly brand file) | font, violet, orange, more colours |
 | Images | Your photos and work screenshots (optional) | upload; used by collage, posters, greeting |
 | Write | Topic → slide copy + caption + hashtags | engine (Auto / Claude / Patterns), model, format, layouts, slide count, voice notes |
-| Design | Lays copy out as brand slides | theme, cover / closer theme, alternate rhythm, cover art (halftone orb, spiral, none) |
+| Design | Lays copy out as brand slides | style (seven packs), theme (Auto follows the style), cover / closer theme, alternate rhythm, cover art (halftone orb, spiral, none) |
 | Motion | Animates each element | style presets + per-element entrances, highlight, visual loop, transition, speed, easing, stagger, seconds per slide |
 | Carousel post | Static output | ratio (4:5, 1:1, 3:4), 1080 / 2160, PNG / JPG |
 | Reel video | 9:16 video from the Motion node | 30 / 60 fps, MP4 / WebM, quality |
@@ -39,7 +39,7 @@ starter flows, save and open (`.json`). The flow is also remembered in the brows
 
 ### Layouts
 
-Open **Flows → Layout showcase** and press Run to see every layout in one deck (26 slides, carousel and reel). Reels use the same slides on 1080 × 1920
+Open **Flows → Layout showcase** and press Run to see every layout in one deck (39 slides, carousel and reel). Reels use the same slides on 1080 × 1920
 with Instagram's top and bottom UI zones kept clear.
 
 | Layout | What it is | Fields |
@@ -65,6 +65,17 @@ with Instagram's top and bottom UI zones kept clear.
 | `notes` | Three rotated sticky notes | `notes` |
 | `quote`, `objects` | Big quote mark; jelly button, chrome toggle, clay card | `quote`, `objects` |
 | `cta` | Closing line with a pill button | `btn` |
+| `index`, `principles`, `flow`, `stack` | Contents list, numbered principles, zig-zag process, layer stack | `items` |
+| `spec`, `system`, `glossary` | Type specimen, Sixjuly colour / type / shape board, dictionary entry | `word`, `specs [{k, v}]`; none; `term`, `definition` … |
+| `casestudy`, `release`, `metrics` | Image plus detail table, tagged changelog, big figures | `meta [{k, v}]`; `version`, `changes [{tag, text}]`; `stats [{value, label}]` |
+| `matrix`, `wrapped`, `mesh` | 2 × 2 with dots, giant repeated figure, gradient hero with chips | `axes`, `dots`; `value`, `label`; `tags` |
+
+### Style packs
+
+Seven looks that sit on top of every layout (Design node → **Style**, or the editor's **Style** / **This slide**): *Sixjuly house* (default), *Swiss grid*, *Editorial*,
+*Mono terminal*, *Bento*, *Colour poster*, *Glow*. A style sets the type profile, the rules / folio / frame around the slide, corner roundness and, with **Theme → Auto**,
+its own background colours. **Write → Format → Style packs** (or *Flows → Style packs*) makes a deck that shows all seven. Where each idea comes from, what it
+does and does not copy, and how to add a style: see [`DESIGN-LANGUAGE.md`](DESIGN-LANGUAGE.md).
 
 Photo slots (collage, posters, greeting) show generated artwork until you connect an **Images** node to Design: add photos or work screenshots and they are placed in order.
 The Write node's **Layouts** switch picks *Rich mix* (all of the above, no kind repeated) or *Classic* (the original nine kinds).
@@ -166,6 +177,9 @@ Writes `out/<topic>/carousel/slide-01.png …`, `reel.mp4|webm` and `caption.txt
 | `tools/smoke_test.js` | Playwright test: run, rewire, presets, mocked Claude call, API export, video |
 | `tools/generate.js` | Headless batch generator |
 | `layouts.js` | Extra layouts, illustrations and cover styles (hooks into `render.js`) |
+| `layouts2.js` | Design-language library: style packs (`R.STYLES`), their chrome painters, and thirteen more layouts |
+| `DESIGN-LANGUAGE.md` | Where the styles and layouts come from, limits, how to add one |
+| `tools/style_sheet.js`, `tools/styles_test.js` | Contact sheet of the new layouts in a style; test of every style × every layout, the styles deck and the copy engine |
 | `tools/layout_sheet.js`, `tools/render_sheet.js` | Dev contact sheets of every slide kind |
 | `tools/build_artifact.py` | Builds `dist/sixjuly-flow.html` (one file) or, with `--artifact DIR`, the page for a claude.ai artifact |
 | `tools/artifact_test.js` | Loads the built file with a stubbed `window.claude` (sample + downloads) |

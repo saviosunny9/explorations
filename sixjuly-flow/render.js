@@ -158,19 +158,21 @@
 
   // ---- scene --------------------------------------------------------------------------------------------------------------
   // item = { role, unit, box, paint(ctx, st, ctxInfo) }; roles: header art tag head sub visual foot btn arrow
-  const ROLE_ORDER = ['art', 'header', 'tag', 'head', 'sub', 'visual', 'free', 'btn', 'foot', 'arrow'];
+  const ROLE_ORDER = ['chrome', 'art', 'header', 'tag', 'head', 'sub', 'visual', 'free', 'btn', 'foot', 'arrow'];
 
   function layoutSlide(slide, env) {
     const { W, H, brand } = env;
     const th = env.theme;
     const g = geometry(W, H);
-    const scene = { W, H, g, theme: th, brand, slide, items: [], units: {} };
+    const SY = (window.SixjulyRender.STYLES || {})[env.style] || null;          // a style pack: type profile, chrome, corner scale
+    const scene = { W, H, g, theme: th, brand, slide, items: [], units: {}, style: SY, rs: SY && SY.rs != null ? SY.rs : 1, index: env.index || 0, total: env.total || 1 };
     const add = (role, box, paint, extra) => { const it = Object.assign({ role, unit: 0, box, paint }, extra || {}); scene.items.push(it); return it; };
     const kind = slide.kind || 'statement';
     const reel = g.reel, OV = slide.o || {};
     // per-slide text overrides from the editor: size, weight, family, alignment, line height, tracking (colour is applied at paint time)
     const ty = (key, src, opts, fit) => {
-      const o = OV[key] || {}, op = Object.assign({}, opts);
+      const o = OV[key] || {}, op = Object.assign({}, opts), sy = (SY && SY[key]) || null;
+      if (sy) { if (sy.weight) op.weight = sy.weight; if (sy.fam && FAM[sy.fam]) op.fam = FAM[sy.fam]; if (sy.track != null) op.track = sy.track; if (sy.lh) op.lh = sy.lh; if (sy.scale && op.size) op.size *= sy.scale; if (sy.upper) src = String(src).toUpperCase(); if (sy.align) op.align = sy.align; }
       if (o.weight) op.weight = +o.weight; if (o.fam && FAM[o.fam]) op.fam = FAM[o.fam]; if (o.align) op.align = o.align; if (o.lh) op.lh = +o.lh; if (o.track != null && o.track !== '') op.track = +o.track;
       if (o.size) { op.size = +o.size; delete op.maxH; delete op.maxLines; return layoutRich(brand, src, op); }
       return fit ? fitRich(brand, src, op) : layoutRich(brand, src, op);
@@ -209,7 +211,7 @@
     scene.headY = headY;
 
     // header (logo + handle) — on cover / closing slides, like the brand posts
-    if (cover || cta || slide.header) {
+    if ((cover || cta || slide.header) && !(SY && SY.header === false)) {
       const lg = window.SIXJULY_LOGO, lw = 74, lhh = lw * lg.h / lg.w, y = g.headerY;
       add('header', { x: g.mx, y, w: lw, h: lhh }, (ctx, st) => {
         drawLogo(ctx, g.mx, y, lw, th.logo);
@@ -264,7 +266,7 @@
     if (slide.handle) {
       const ay0 = g.bottom;
       add('arrow', { x: W - g.mx - 300, y: ay0 - 60, w: 300, h: 60 }, (ctx) => { ctx.fillStyle = th.ink; setFont(ctx, brand, 400, reel ? 26 : 23, 0); ctx.textAlign = 'right'; ctx.fillText(brand.handle || BRAND.handle, W - g.mx, ay0 - 28); ctx.fillText(brand.site || BRAND.site, W - g.mx, ay0 + 2); ctx.textAlign = 'left'; });
-    } else if (kind !== 'cta' || slide.arrow) {
+    } else if ((kind !== 'cta' || slide.arrow) && !(SY && SY.arrow === false)) {
       const ay = g.bottom - (footL ? Math.min(footL.h, g.footSize * 1.3) / 2 : 22);
       add('arrow', { x: W - g.mx - 64, y: ay - 24, w: 64, h: 48 }, (ctx, st) => {
         const p = st.draw == null ? 1 : st.draw;
@@ -286,15 +288,17 @@
       const label = String(slide.btn).toUpperCase(), tw = mc.measureText(label).width;
       const bh = reel ? 150 : 128, bw = tw + 120, by = headY + headL.h + (reel ? 70 : 58);
       add('btn', { x: g.mx, y: by, w: bw, h: bh }, (ctx) => {
-        ctx.fillStyle = th.btn; rr(ctx, g.mx, by, bw, bh, bh / 2); ctx.fill();
+        ctx.fillStyle = th.btn; rr(ctx, g.mx, by, bw, bh, scene.rs >= 0.8 ? bh / 2 : 8 * scene.rs); ctx.fill();
         ctx.fillStyle = th.btnInk; setFont(ctx, brand, 700, reel ? 52 : 46, -0.01); ctx.textBaseline = 'middle'; ctx.fillText(label, g.mx + 60, by + bh / 2 + 3); ctx.textBaseline = 'alphabetic';
       });
     }
     // free layers added in the editor (text, shapes, photos), drawn above the layout
     (slide.layers || []).forEach((ly, k) => { const lay = prepLayer(ly, scene); add('free', lay.box, ctx => lay.paint(ctx), { unit: k, layer: ly.id, lay: ly }); });
+    // style chrome: rules, folio, frames, backgrounds (drawn first, never selectable)
+    if (SY && SY.chrome && window.SixjulyRender.CHROME[SY.chrome]) window.SixjulyRender.CHROME[SY.chrome](scene, (box, paint) => add('chrome', box, paint, { nosel: true }), { g, th, brand, W, H, reel, index: scene.index, total: scene.total, slide });
     // stable keys so edits (move / scale / hide) stay attached to the same element
     const cnt = {}; scene.items.forEach(it => { cnt[it.role] = cnt[it.role] || 0; it.key = it.layer ? 'free:' + it.layer : it.role + cnt[it.role]; cnt[it.role]++; });
-    scene.dots = cover || cta || slide.dots;
+    scene.dots = SY && SY.dots != null ? SY.dots : (cover || cta || slide.dots);
     return scene;
   }
 
@@ -342,7 +346,7 @@
         ctx.save();
         ctx.fillStyle = strong ? th.hi : th.card;
         if (!strong && !th.dark) { ctx.shadowColor = 'rgba(0,0,0,0.07)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10; }
-        rr(ctx, x, y, cw, ch, 36); ctx.fill(); ctx.restore();
+        rr(ctx, x, y, cw, ch, 36 * scene.rs); ctx.fill(); ctx.restore();
         const t = layoutRich(brand, plain(d.text), { maxW: cw - 70, size: 46, weight: 600, lh: 1.12, track: -0.025, align: 'center' });
         const fit = fitRich(brand, plain(d.text), { maxW: cw - 70, maxH: ch - 60, size: 50, min: 26, weight: 600, lh: 1.12, track: -0.025, align: 'center' });
         const L = fit || t; const ty = y + (ch - L.h) / 2;
@@ -453,7 +457,7 @@
 
   function motionFor(motion, role) {
     const m = motion || DEFAULT_MOTION;
-    const map = { header: m.header, art: m.art, tag: m.tag, head: m.head, sub: m.head === 'words' || m.head === 'type' ? 'rise' : m.head, visual: m.visual, free: m.visual, foot: m.foot, btn: m.btn, arrow: 'fade' };
+    const map = { chrome: 'none', header: m.header, art: m.art, tag: m.tag, head: m.head, sub: m.head === 'words' || m.head === 'type' ? 'rise' : m.head, visual: m.visual, free: m.visual, foot: m.foot, btn: m.btn, arrow: 'fade' };
     return map[role] || 'fade';
   }
 
@@ -614,11 +618,12 @@
   // ---- decks, still frames and reels --------------------------------------------------------------------------------------------------
   // deck = { slides:[…], brand, design:{ theme, coverTheme, ctaTheme, art, rhythm } }
   function themeFor(deck, i) {
-    const T = themesFor(deck.brand), d = deck.design || {}, n = deck.slides.length;
-    let key = d.theme || 'light';
+    const T = themesFor(deck.brand), d = deck.design || {}, n = deck.slides.length, SY = (window.SixjulyRender.STYLES || {})[(deck.slides[i] && deck.slides[i].style) || d.style] || null;
+    let key = d.theme && d.theme !== 'auto' ? d.theme : ((SY && SY.theme) || 'light');
+    if ((!d.theme || d.theme === 'auto') && SY && SY.cycle) key = SY.cycle[i === 0 ? 0 : i === n - 1 ? 1 : 2 + ((i - 1) % (SY.cycle.length - 2))];
     if (i === 0 && d.coverTheme) key = d.coverTheme;
     if (i === n - 1 && d.ctaTheme) key = d.ctaTheme;
-    if (d.rhythm === 'alternate' && i > 0 && i < n - 1) key = i % 2 ? (d.theme || 'light') : (d.altTheme || 'cream');
+    if (d.rhythm === 'alternate' && i > 0 && i < n - 1) key = i % 2 ? (d.theme && d.theme !== 'auto' ? d.theme : 'light') : (d.altTheme || 'cream');
     const sl = deck.slides[i] || {}; if (sl.theme && T[sl.theme]) key = sl.theme;
     let th = T[key] || T.light; if (sl.bgColor) th = Object.assign({}, th, { bg: sl.bgColor });
     return th;
@@ -626,10 +631,10 @@
   const sceneCache = new Map();
   function sceneFor(deck, i, W, H) {
     const slide = deck.slides[i];
-    const key = JSON.stringify([slide, deck.brand, deck.design, W, H, i === deck.slides.length - 1, i === 0]);
+    const key = JSON.stringify([slide, deck.brand, deck.design, W, H, i, deck.slides.length]);
     let s = sceneCache.get(key);
     if (!s) {
-      s = layoutSlide(slide, { W, H, brand: Object.assign({}, BRAND, deck.brand || {}), theme: themeFor(deck, i), art: i === 0 ? (deck.design || {}).art : 'none' });
+      s = layoutSlide(slide, { W, H, brand: Object.assign({}, BRAND, deck.brand || {}), theme: themeFor(deck, i), art: i === 0 ? (deck.design || {}).art : 'none', style: (slide && slide.style) || (deck.design || {}).style, index: i, total: deck.slides.length });
       if (sceneCache.size > 80) sceneCache.clear();
       sceneCache.set(key, s);
     }
@@ -741,7 +746,7 @@
     const order = scene.items.slice().sort((a, b) => (ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)) || ((b.behind ? 1 : 0) - (a.behind ? 1 : 0)));
     const probe = soft => {
       for (let i = order.length - 1; i >= 0; i--) {
-        const it = order[i]; if (!!it.soft !== soft) continue; const io = ((scene.slide.o || {}).items || {})[it.key]; if (io && io.hide) continue;
+        const it = order[i]; if (it.nosel || !!it.soft !== soft) continue; const io = ((scene.slide.o || {}).items || {})[it.key]; if (io && io.hide) continue;
         const b = itemBox(scene, it); if (b.w * b.h > scene.W * scene.H * 0.85 || b.w < 4 || b.h < 4) continue;
         let px = x, py = y; const rot = it.lay && it.lay.rot; if (rot) { const cx = b.x + b.w / 2, cy = b.y + b.h / 2, c = Math.cos(-rot), s2 = Math.sin(-rot); px = cx + (x - cx) * c - (y - cy) * s2; py = cy + (x - cx) * s2 + (y - cy) * c; }
         if (px >= b.x - 6 && px <= b.x + b.w + 6 && py >= b.y - 6 && py <= b.y + b.h + 6) return it;
@@ -786,6 +791,7 @@
     BRAND, themesFor, parseRich, plain, layoutSlide, paintScene, timeline, drawSlide, drawReel, reelPlan, slideDuration, sceneFor,
     U: { rr, setFont, layoutRich, fitRich, fitLine, drawLogo, clamp, lerp, TAU, mc, mix, parseRich, plain, EASE, stack },
     prepLayer, itemBox, hitTest, itemName, toSVG, sceneFor,
+    STYLES: {}, CHROME: {},
     loadFonts, drawLogo, LAYOUTS, COVERS, FAM, imgs, DEFAULT_MOTION, MOTION_PRESETS, ENTER_TYPES, LOOP_TYPES, HI_TYPES, ARROW_TYPES, TRANSITIONS, EASE, stack,
   };
 })();

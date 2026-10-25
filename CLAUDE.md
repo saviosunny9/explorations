@@ -11,7 +11,7 @@ from `savio-1/new-design`, branch `claude/charming-mendel-rchh9w`, with its full
 requests unless asked.
 
 `sixjuly-flow/` (repo root) is a separate product: a node-based automation tool that turns topics into Sixjuly-branded carousels
-and reels (no dependency on `studio/`; see its `README.md`). It also has a post editor, SVG / PDF / Figma exports and a Topics dashboard (sources, links, approval, optional Google Sheet via Apps Script). Tests: `NODE_PATH=$(npm root -g) node sixjuly-flow/tools/{smoke_test,editor_test,tracker_test,apps_script_test,artifact_test}.js`; build with `python3 sixjuly-flow/tools/build_artifact.py`.
+and reels (no dependency on `studio/`; see its `README.md`). It also has a post editor, SVG / PDF / Figma exports and a Topics dashboard (sources, links, approval, optional Google Sheet via Apps Script) and a design-language library (7 style packs + 13 layouts in `layouts2.js`, see `sixjuly-flow/DESIGN-LANGUAGE.md`). Tests: `NODE_PATH=$(npm root -g) node sixjuly-flow/tools/{smoke_test,editor_test,tracker_test,apps_script_test,artifact_test,styles_test}.js`; build with `python3 sixjuly-flow/tools/build_artifact.py`.
 
 `HANDOFF.md` (repo root) has the links, history, open items and how to resume in a new chat.
 

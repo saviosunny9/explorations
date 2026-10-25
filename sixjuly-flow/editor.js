@@ -7,11 +7,12 @@
   const R = window.SixjulyRender, C = window.SixjulyCopy, X = window.SixjulyExport, D = window.SixjulyDrafts, h = window.sjh;
   const clone = o => JSON.parse(JSON.stringify(o));
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const KIND_NAMES = { cover: 'Cover', statement: 'Statement', art: 'Illustration', collage: 'Collage', posters: 'Posters', greeting: 'Festival', tiles: 'Tiles', split: 'Then / now', checks: 'Do / don’t', poster: 'Giant word', chat: 'Chat', marquee: 'Tape', notes: 'Sticky notes', timeline: 'Timeline', compare: 'Before / after', stat: 'Big number', list: 'List', steps: 'Steps', quote: 'Quote', objects: 'UI objects', cta: 'Closing' };
+  const KIND_NAMES = { cover: 'Cover', statement: 'Statement', art: 'Illustration', collage: 'Collage', posters: 'Posters', greeting: 'Festival', tiles: 'Tiles', split: 'Then / now', checks: 'Do / don’t', poster: 'Giant word', chat: 'Chat', marquee: 'Tape', notes: 'Sticky notes', timeline: 'Timeline', compare: 'Before / after', stat: 'Big number', list: 'List', steps: 'Steps', quote: 'Quote', objects: 'UI objects', cta: 'Closing', index: 'Contents list', spec: 'Type specimen', casestudy: 'Case study', principles: 'Principles', metrics: 'Metrics', release: 'Release notes', matrix: '2 × 2 matrix', system: 'Design system', glossary: 'Glossary', stack: 'Layer stack', flow: 'Process flow', wrapped: 'Giant figure', mesh: 'Gradient hero' };
   const COVERS = { '': 'Plain', annotate: 'Annotated', crt: 'Collage monitor', ripple: 'Numbered serif' };
   const FONTS = { '': 'Brand font', serif: 'Serif italic', cond: 'Condensed', mono: 'Mono' };
   const WEIGHTS = { 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Black' };
   const THEMES = { light: 'White', cream: 'Cream', dark: 'Black', violet: 'Violet', orange: 'Orange' };
+  const styleOpts = same => Object.assign(same ? { '': same } : {}, Object.fromEntries((R.STYLE_ORDER || []).map(k => [k, R.STYLES[k].name])));
   const SW = [['ink', 'Text'], ['hi', 'Highlight'], ['sec', 'Accent'], ['#7E3EFF', 'Violet'], ['#FF4900', 'Orange'], ['#FCD94B', 'Yellow'], ['#6F83F3', 'Periwinkle'], ['#F9F5EC', 'Cream'], ['#FFFFFF', 'White'], ['#121212', 'Black']];
   const swatchCss = (c, th) => c === 'ink' ? th.ink : c === 'hi' ? th.hi : c === 'sec' ? th.sec : c === 'bg' ? th.bg : c;
 
@@ -348,15 +349,18 @@
     const kinds = Object.fromEntries(Object.entries(KIND_NAMES));
     const kids = [row('Layout', sel(kinds, () => s.kind, v => change(() => convertKind(s, v)))),
       s.kind === 'cover' ? row('Cover style', sel(COVERS, () => s.cover || '', v => change(() => { if (v) s.cover = v; else delete s.cover; if (v === 'annotate' && !s.callouts) s.callouts = [{ w: 0, label: 'Detail' }]; if (v === 'ripple' && !s.num) { s.num = '5'; s.stamp = String(new Date().getFullYear()); } }))) : null,
-      row('Theme', seg(THEMES, () => s.theme || S.deck.design.theme || 'light', v => change(() => { s.theme = v; delete s.bgColor; }))),
+      row('Style', sel(styleOpts(), () => S.deck.design.style || 'sixjuly', v => change(() => { S.deck.design.style = v; S.deck.slides.forEach(x => delete x.style); if (S.deck.design.theme && S.deck.design.theme !== 'auto') S.deck.design.theme = 'auto'; }))),
+      (R.STYLES && R.STYLES[S.deck.design.style || 'sixjuly'] && R.STYLES[S.deck.design.style || 'sixjuly'].note) ? h('p.edhint', null, R.STYLES[S.deck.design.style || 'sixjuly'].note + '.') : null,
+      row('This slide', sel(styleOpts('Same as post'), () => s.style || '', v => change(() => { if (v) s.style = v; else delete s.style; delete s.theme; }))),
+      row('Theme', seg(THEMES, () => s.theme || (S.deck.design.theme !== 'auto' && S.deck.design.theme) || Object.keys(THEMES).find(k => THEMES[k] === scene().theme.name) || '', v => change(() => { s.theme = v; delete s.bgColor; }))),
       row('Background', colors(() => s.bgColor || '', v => change(() => (v ? (s.bgColor = v) : delete s.bgColor), { keepInsp: true }), th, true)),
       h('div.rg.acts', null, h('button.btn.sm', { type: 'button', onclick: () => dupSlide(S.i) }, 'Duplicate slide'), h('button.btn.sm', { type: 'button', onclick: () => delSlide(S.i) }, 'Delete slide'), h('button.btn.sm', { type: 'button', disabled: S.i === 0, onclick: () => moveSlide(S.i, S.i - 1) }, '← Move'), h('button.btn.sm', { type: 'button', disabled: S.i >= S.deck.slides.length - 1, onclick: () => moveSlide(S.i, S.i + 1) }, 'Move →')),
       (s.o && Object.keys(s.o).length) || (s.layers && s.layers.length) ? h('button.btn.sm', { type: 'button', onclick: () => change(() => { delete s.o; s.layers = []; S.key = null; }) }, 'Reset my edits on this slide') : null];
     return sec(`Slide ${S.i + 1} · ${KIND_NAMES[s.kind] || s.kind}`, kids, !S.key);
   }
   function convertKind(s, kind) {
-    if (s.kind === kind) return; const n = sample(kind), keep = { head: s.head, foot: s.foot, theme: s.theme, bgColor: s.bgColor, layers: s.layers, imgs: s.imgs };
-    Object.keys(s).forEach(k => delete s[k]); Object.assign(s, n); ['head', 'foot'].forEach(k => { if (keep[k] && (n[k] != null || k === 'head')) s[k] = keep[k]; }); if (keep.theme) s.theme = keep.theme; if (keep.bgColor) s.bgColor = keep.bgColor; if (keep.layers && keep.layers.length) s.layers = keep.layers; if (keep.imgs) s.imgs = keep.imgs; S.key = null;
+    if (s.kind === kind) return; const n = sample(kind), keep = { head: s.head, foot: s.foot, style: s.style, theme: s.theme, bgColor: s.bgColor, layers: s.layers, imgs: s.imgs };
+    Object.keys(s).forEach(k => delete s[k]); Object.assign(s, n); ['head', 'foot'].forEach(k => { if (keep[k] && (n[k] != null || k === 'head')) s[k] = keep[k]; }); if (keep.theme) s.theme = keep.theme; if (keep.style) s.style = keep.style; if (keep.bgColor) s.bgColor = keep.bgColor; if (keep.layers && keep.layers.length) s.layers = keep.layers; if (keep.imgs) s.imgs = keep.imgs; S.key = null;
   }
 
   // content fields for whatever the slide holds
@@ -379,6 +383,18 @@
     if (s.points) lines('Timeline', () => s.points.map(p => `${p.k} | ${p.v}`), v => (s.points = v.map(x => { const [k, ...r] = x.split('|'); return { k: k.trim(), v: r.join('|').trim() }; })), 4, 'One per line: “2024 | what happened”.');
     if (s.words) line('Words', () => s.words.join(', '), v => (s.words = v.split(',').map(x => x.trim()).filter(Boolean)));
     if (s.labels) lines('Callout labels', () => s.labels, v => (s.labels = v), 2);
+    if (s.kind === 'spec') { line('Glyph', () => s.word, v => (s.word = v)); }
+    const kvLines = (label, key, hint) => lines(label, () => (s[key] || []).map(p => `${p.k} | ${p.v}`), v => (s[key] = v.map(x => { const [k, ...r] = x.split('|'); return { k: k.trim(), v: r.join('|').trim() }; }).filter(p => p.k)), 4, hint);
+    if (s.specs) kvLines('Spec rows', 'specs', 'One per line: “Family | Google Sans Flex”.');
+    if (s.meta) kvLines('Details', 'meta', 'One per line: “Client | Northwind”.');
+    if (s.stats) lines('Figures', () => s.stats.map(p => `${p.value} | ${p.label}`), v => (s.stats = v.map(x => { const [k, ...r] = x.split('|'); return { value: k.trim(), label: r.join('|').trim() }; }).filter(p => p.value)), 3, 'One per line: “3× | faster to publish”.');
+    if (s.kind === 'release') line('Version', () => s.version, v => (s.version = v));
+    if (s.changes) lines('Changes', () => s.changes.map(p => `${p.tag} | ${p.text}`), v => (s.changes = v.map(x => { const [k, ...r] = x.split('|'); return { tag: k.trim() || 'New', text: r.join('|').trim() }; }).filter(p => p.text)), 4, 'One per line: “New | what changed”. Tags: New, Improved, Fixed.');
+    if (s.axes) { line('Horizontal axis', () => s.axes.x.join(' | '), v => (s.axes.x = v.split('|').map(x => x.trim()).concat(['', '']).slice(0, 2))); line('Vertical axis', () => s.axes.y.join(' | '), v => (s.axes.y = v.split('|').map(x => x.trim()).concat(['', '']).slice(0, 2))); }
+    if (s.dots) lines('Dots', () => s.dots.map(d => `${d.label} | ${d.x} | ${d.y}`), v => (s.dots = v.map(x => { const [l, a, b] = x.split('|'); return { label: (l || '').trim(), x: clamp(parseFloat(a) || 0.5, 0, 1), y: clamp(parseFloat(b) || 0.5, 0, 1) }; }).filter(d => d.label)), 4, 'One per line: “label | across 0-1 | up 0-1”.');
+    if (s.kind === 'glossary') { line('Term', () => s.term, v => (s.term = v)); line('Pronunciation', () => s.phonetic, v => (s.phonetic = v)); line('Part of speech', () => s.pos, v => (s.pos = v)); area('Definition', () => s.definition, v => (s.definition = v), 3); line('Example', () => s.example, v => (s.example = v)); }
+    if (s.kind === 'wrapped') { line('Figure', () => s.value, v => (s.value = v)); line('Label', () => s.label, v => (s.label = v)); }
+    if (s.tags) line('Chips', () => s.tags.join(', '), v => (s.tags = v.split(',').map(x => x.trim()).filter(Boolean)));
     if (s.kind === 'poster') line('Big word', () => s.word, v => (s.word = v));
     if (s.kind === 'marquee') line('Tape text', () => s.band, v => (s.band = v));
     if (s.kind === 'greeting') { line('Label', () => s.label, v => (s.label = v)); line('Title', () => s.title, v => (s.title = v)); }
