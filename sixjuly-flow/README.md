@@ -198,7 +198,7 @@ Writes `out/<topic>/carousel/slide-01.png …`, `reel.mp4|webm` and `caption.txt
 | `layouts.js` | Extra layouts, illustrations and cover styles (hooks into `render.js`) |
 | `layouts3.js` | The structured grid: style packs on the grid, meta bars, grid covers, grid versions of the core layouts, bento / table / feature / columns |
 | `figma-plugin/`, `figma-plugin.js` | The Figma importer plugin (manifest, code, UI) and its generated copy that the app puts into Figma packs |
-| `tools/figma_test.js`, `tools/transform_test.js` | Figma export + the plugin against a stand-in for the Figma API; undo, rotate, resize and number fields |
+| `tools/figma_test.js`, `tools/transform_test.js`, `tools/node_controls_test.js` | Figma export + the plugin against a stand-in for the Figma API; undo, rotate, resize and number fields; node fields usable at every window size |
 | `layouts2.js` | Design-language library: style packs (`R.STYLES`), their chrome painters, and thirteen more layouts |
 | `DESIGN-LANGUAGE.md` | Where the styles and layouts come from, limits, how to add one |
 | `tools/style_sheet.js`, `tools/styles_test.js` | Contact sheet of the new layouts in a style; test of every style × every layout, the styles deck and the copy engine |

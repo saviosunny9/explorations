@@ -106,8 +106,9 @@
     if (!G.nodes.length) return;
     const r = root.getBoundingClientRect(); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     G.nodes.forEach(n => { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x + NODE_W); y1 = Math.max(y1, n.y + n.el.offsetHeight); });
-    const k = clamp(Math.min((r.width - 80) / (x1 - x0), (r.height - 80) / (y1 - y0)), 0.35, 1);
-    G.view = { k, x: (r.width - (x1 - x0) * k) / 2 - x0 * k, y: Math.max(30, (r.height - (y1 - y0) * k) / 2 - y0 * k) };
+    // never shrink below a size where fields stay readable and clickable; if the flow is bigger, start at its top-left and let people pan
+    const k = clamp(Math.min((r.width - 80) / (x1 - x0), (r.height - 80) / (y1 - y0)), 0.8, 1), fitsW = (x1 - x0) * k <= r.width - 40, fitsH = (y1 - y0) * k <= r.height - 40;
+    G.view = { k, x: fitsW ? (r.width - (x1 - x0) * k) / 2 - x0 * k : 24 - x0 * k, y: fitsH ? Math.max(30, (r.height - (y1 - y0) * k) / 2 - y0 * k) : 64 - y0 * k };
     applyView(); drawWires();
   };
   G.zoom = (f, cx, cy) => {
@@ -165,7 +166,9 @@
       const n = G.node(head.closest('.node').dataset.id); G.sel = n.id; G.selEdge = null; markSel(); n.el.style.zIndex = ++G.z || (G.z = 10);
       const w = toWorld(e.clientX, e.clientY); drag = { kind: 'node', n, dx: w.x - n.x, dy: w.y - n.y }; e.preventDefault(); return;
     }
-    const node = e.target.closest('.node'); if (node) { G.sel = node.dataset.id; G.selEdge = null; markSel(); return; }
+    const node = e.target.closest('.node');
+    if (node && e.target.closest('input, select, textarea, button, label, a, .seg')) return;   // form controls work normally; they never start a drag or steal the click
+    if (node) { G.sel = node.dataset.id; G.selEdge = null; markSel(); return; }
     if (e.target.closest('.graph-ui')) return;
     G.sel = null; G.selEdge = null; markSel(); drawWires();
     drag = { kind: 'pan', x: e.clientX, y: e.clientY, vx: G.view.x, vy: G.view.y }; root.classList.add('panning');
