@@ -459,10 +459,17 @@ function startWorld(host, BASE) {
     ok(t);
   }, undefined, fail));
   // The model ships as base64 text (the host serves .txt, not .glb); decode and parse it here.
-  const loadGlb = url => fetch(url).then(r => { if (!r.ok) throw new Error(url + ' ' + r.status); return r.arrayBuffer(); })
+  // A host that won't serve .glb can take the model as base64 text (data-glb="halcyra.glb.txt").
+  const loadGlb = url => fetch(url).then(r => { if (!r.ok) throw new Error(url + ' ' + r.status); return url.endsWith('.txt') ? r.text() : r.arrayBuffer(); })
+    .then(data => {
+      if (typeof data !== 'string') return data;
+      const bin = atob(data.trim()), buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      return buf.buffer;
+    })
     .then(buf => new Promise((ok, no) => new THREE.GLTFLoader().parse(buf, '', ok, no)));
 
-  Promise.all([loadGlb(BASE + 'halcyra.glb'), loadTex(BASE + 'albedo.jpg', true), loadTex(BASE + 'clouds.jpg'),
+  Promise.all([loadGlb(BASE + (host.dataset.glb || 'halcyra.glb')), loadTex(BASE + 'albedo.jpg', true), loadTex(BASE + 'clouds.jpg'),
                loadTex(BASE + 'night.jpg'), loadTex(BASE + 'rough.jpg')])
   .then(([gltf, albedo, clouds, night, rough]) => {
     const root = gltf.scene;
