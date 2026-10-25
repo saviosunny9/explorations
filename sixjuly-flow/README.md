@@ -144,11 +144,19 @@ nothing here claims to make one. Photo brightness / contrast edits travel as an 
 
 ## Topics: sources, links and approval
 
-The **Topics** page turns the list of sources in your tracker workbook into reviewable topic ideas. The first version ships with the 74 sources from `design_intelligence_source_tracker.xlsx` and its 17-topic taxonomy (plus Typography and Motion).
+The **Topics** page turns the list of sources in your tracker workbook into reviewable topic ideas. It ships with the 74 sources from `design_intelligence_source_tracker.xlsx` (38 of them with a verified RSS / Atom feed) and its 17-topic taxonomy (plus Typography and Motion).
 
-1. **Sources**: follow, pause, edit, add and remove sources, grouped by kind (studios, people, blogs and publications, news, newsletters, research, platforms). Each row shows how it is checked and when it was last checked, and whether that worked, with the error in plain words.
-2. **Check sources** reads each followed source that has a feed address (RSS / Atom). The browser can only read feeds that allow it; the rest need the **Google Sheet collector** (below) or **Add link**. Social profiles and newsletters are never read: their links open in a new tab for manual review. Nothing is scraped, no hidden browser, no logins.
-3. **Found links** shows title, source, date, link and a short plain note (at most 280 characters) for each new link, with a subject from the taxonomy and a relevance score from source priority, recency and keyword match. Search and filter by source, subject, status and date; add links by hand or import a CSV.
+A strip at the top of the page shows the whole route with live counts, and one line says what to do next:
+
+```
+01 Sources ─▶ 02 Fetch ─▶ 03 Found links ─▶ 04 Topic ideas ─▶ 05 Approved → drafts
+```
+
+1. **Sources**: follow, pause, edit, add and remove sources, grouped by kind. Each row shows how it is read (*Feed (reads anywhere)*, *Feed (Sheet collector)*, *Page*, *Manual*), when it was last fetched, and whether that worked.
+2. **Fetch all sources** (one button, every followed source at once): the newest articles from each feed land in **Found links**, and topic ideas are suggested from them straight away. A report shows every source: *Read* (with how many new links), *Blocked in this browser*, *Failed* and *No feed*, with **See N new links** and **Read the other N automatically**.
+   - *Where it runs*: most websites only let a server read their feed, so in a browser a handful of feeds work (designboom, Frank Chimero, Fast Company and any feed that allows it). With the free **Google Sheet collector** connected (below), the same button sends the job to Google, which reads every feed, follows feeds that pages announce, and can run every morning on its own. Inside Claude the app cannot read other websites at all; open the downloaded file for fetching.
+   - Social profiles and newsletters are never read: their links open in a new tab for manual review, and **Add link** saves anything worth keeping. Nothing is scraped, no hidden browser, no logins.
+3. **Found links** shows title, source, date, link and a short plain note (at most 280 characters) for each link, with a subject from the taxonomy and a relevance score from source priority, recency and keyword match. *From the last fetch* shows only what the latest run added. Search and filter by source, subject, status and date; add links by hand or import a CSV.
 4. **Suggested topics** groups links by subject and shared phrases and shows the links behind every idea. **Improve wording** (optional) asks Claude to rewrite titles using only what is on screen.
 5. **Approve / Save for later / Reject** each idea. Only an approved topic offers **Create draft**: it runs the existing flow (your Write, Design and Carousel nodes) with the topic and its subtopics, saves the result as a draft with the supporting links as references (they travel into `caption.txt` and the zip), and opens it in the editor. Approving the finished post is a second, separate step.
 

@@ -377,7 +377,7 @@ window.SJ_STARTER = {
 "why": "Enterprise UX and research-led design.",
 "site": "https://www.yujdesigns.com/",
 "blog": "https://www.yujdesigns.com/insights",
-"feed": "",
+"feed": "https://www.yujdesigns.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=YUJ+Designs",
@@ -400,7 +400,7 @@ window.SJ_STARTER = {
 "why": "Design research and service design in India.",
 "site": "https://think.design/",
 "blog": "https://think.design/blog",
-"feed": "",
+"feed": "https://think.design/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Think+Design",
@@ -469,7 +469,7 @@ window.SJ_STARTER = {
 "why": "Foundational UX concepts and human-centered design.",
 "site": "https://jnd.org/",
 "blog": "https://jnd.org/",
-"feed": "",
+"feed": "https://jnd.org/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Don+Norman",
@@ -538,7 +538,7 @@ window.SJ_STARTER = {
 "why": "Explores the intersection of design, computation, technology, and business.",
 "site": "https://maeda.pm/",
 "blog": "https://maeda.pm/",
-"feed": "",
+"feed": "https://maeda.pm/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=John+Maeda",
@@ -607,7 +607,7 @@ window.SJ_STARTER = {
 "why": "Thoughtful essays on creative practice and design culture.",
 "site": "https://frankchimero.com/",
 "blog": "https://frankchimero.com/",
-"feed": "",
+"feed": "https://frankchimero.com/feed.xml",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Frank+Chimero",
@@ -620,7 +620,8 @@ window.SJ_STARTER = {
 "notes": "Confirm social profile is official before ingesting. Prefer RSS/blog first; use social APIs or approved integrations where permitted.",
 "group": "People",
 "enabled": true,
-"paused": false
+"paused": false,
+"browserOK": true
 },
 {
 "id": "s28",
@@ -630,7 +631,7 @@ window.SJ_STARTER = {
 "why": "Design leadership and how the design profession is changing.",
 "site": "https://andybudd.com/",
 "blog": "https://andybudd.com/archives",
-"feed": "",
+"feed": "https://andybudd.com/rss",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Andy+Budd",
@@ -699,7 +700,7 @@ window.SJ_STARTER = {
 "why": "Ethics and responsibility in the design profession.",
 "site": "https://muledesign.com/",
 "blog": "https://muledesign.com/",
-"feed": "",
+"feed": "https://muledesign.com/blog/rss.xml",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Mike+Monteiro",
@@ -745,7 +746,7 @@ window.SJ_STARTER = {
 "why": "Useful adjacent perspective on AI's impact on creative work.",
 "site": "https://www.oneusefulthing.org/",
 "blog": "https://www.oneusefulthing.org/",
-"feed": "",
+"feed": "https://www.oneusefulthing.org/feed",
 "newsletter": "https://www.oneusefulthing.org/subscribe",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Ethan+Mollick",
@@ -791,7 +792,7 @@ window.SJ_STARTER = {
 "why": "Design news, interviews, industry perspectives, and creative careers.",
 "site": "https://www.creativeboom.com/",
 "blog": "https://www.creativeboom.com/digital/",
-"feed": "",
+"feed": "https://www.creativeboom.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Creative+Boom",
@@ -814,7 +815,7 @@ window.SJ_STARTER = {
 "why": "Detailed commentary on identity launches and rebrands.",
 "site": "https://www.underconsideration.com/brandnew/",
 "blog": "https://www.underconsideration.com/brandnew/",
-"feed": "",
+"feed": "https://www.underconsideration.com/brandnew/feed/thefollowup",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Brand+New+%2F+UnderConsideration",
@@ -883,7 +884,7 @@ window.SJ_STARTER = {
 "why": "Deeper articles on web standards and digital craft.",
 "site": "https://alistapart.com/",
 "blog": "https://alistapart.com/articles/",
-"feed": "",
+"feed": "https://alistapart.com/main/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=A+List+Apart",
@@ -906,7 +907,7 @@ window.SJ_STARTER = {
 "why": "Design research, product workflows, and industry reports.",
 "site": "https://www.figma.com/blog/",
 "blog": "https://www.figma.com/blog/",
-"feed": "",
+"feed": "https://www.figma.com/blog/feed/atom.xml",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Figma+Blog",
@@ -975,7 +976,7 @@ window.SJ_STARTER = {
 "why": "Broad international design news and emerging work.",
 "site": "https://www.designboom.com/",
 "blog": "https://www.designboom.com/",
-"feed": "",
+"feed": "https://www.designboom.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=designboom",
@@ -988,7 +989,8 @@ window.SJ_STARTER = {
 "notes": "Confirm social profile is official before ingesting. Prefer RSS/blog first; use social APIs or approved integrations where permitted.",
 "group": "News sites",
 "enabled": true,
-"paused": false
+"paused": false,
+"browserOK": true
 },
 {
 "id": "s44",
@@ -1044,7 +1046,7 @@ window.SJ_STARTER = {
 "why": "Curated design links for a quick daily scan.",
 "site": "https://sidebar.io/",
 "blog": "https://sidebar.io/",
-"feed": "",
+"feed": "https://sidebar.io/feed.xml",
 "newsletter": "https://sidebar.io/",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Sidebar",
@@ -1067,7 +1069,7 @@ window.SJ_STARTER = {
 "why": "Weekly curated UX reading list.",
 "site": "https://uxdesignweekly.com/",
 "blog": "https://uxdesignweekly.com/",
-"feed": "",
+"feed": "https://uxdesignweekly.com/rss",
 "newsletter": "https://uxdesignweekly.com/",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=UX+Design+Weekly",
@@ -1090,7 +1092,7 @@ window.SJ_STARTER = {
 "why": "Thoughtful weekly curation across design and technology.",
 "site": "https://www.densediscovery.com/",
 "blog": "https://www.densediscovery.com/",
-"feed": "",
+"feed": "https://www.densediscovery.com/feed/",
 "newsletter": "https://www.densediscovery.com/",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Dense+Discovery",
@@ -1136,7 +1138,7 @@ window.SJ_STARTER = {
 "why": "Product and industrial design news and commentary.",
 "site": "https://www.core77.com/",
 "blog": "https://www.core77.com/",
-"feed": "",
+"feed": "https://www.core77.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Core77",
@@ -1159,7 +1161,7 @@ window.SJ_STARTER = {
 "why": "Packaging design projects, news, and industry trends.",
 "site": "https://thedieline.com/",
 "blog": "https://thedieline.com/",
-"feed": "",
+"feed": "https://thedieline.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=The+Dieline",
@@ -1182,7 +1184,7 @@ window.SJ_STARTER = {
 "why": "Product and industrial design ideas and innovations.",
 "site": "https://www.yankodesign.com/",
 "blog": "https://www.yankodesign.com/",
-"feed": "",
+"feed": "https://www.yankodesign.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Yanko+Design",
@@ -1205,7 +1207,7 @@ window.SJ_STARTER = {
 "why": "Web design trends, resources, and tutorials.",
 "site": "https://www.webdesignerdepot.com/",
 "blog": "https://www.webdesignerdepot.com/",
-"feed": "",
+"feed": "https://webdesignerdepot.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Webdesigner+Depot",
@@ -1343,7 +1345,7 @@ window.SJ_STARTER = {
 "why": "Moving image and motion design industry.",
 "site": "https://motionographer.com/",
 "blog": "https://motionographer.com/",
-"feed": "",
+"feed": "https://motionographer.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Motionographer",
@@ -1366,7 +1368,7 @@ window.SJ_STARTER = {
 "why": "Broad design news and event discovery.",
 "site": "https://www.dexigner.com/",
 "blog": "https://www.dexigner.com/",
-"feed": "",
+"feed": "https://www.dexigner.com/feed/news",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Dexigner",
@@ -1389,7 +1391,7 @@ window.SJ_STARTER = {
 "why": "India-oriented UX and product design content.",
 "site": "https://uxness.in/",
 "blog": "https://uxness.in/",
-"feed": "",
+"feed": "https://www.uxness.in/feeds/posts/default",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=UXness",
@@ -1412,7 +1414,7 @@ window.SJ_STARTER = {
 "why": "Product design and tool-related stories.",
 "site": "https://prototypr.io/",
 "blog": "https://prototypr.io/",
-"feed": "",
+"feed": "https://prototypr.io/feed.xml",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Prototypr",
@@ -1435,7 +1437,7 @@ window.SJ_STARTER = {
 "why": "Design through the lens of business and innovation.",
 "site": "https://www.fastcompany.com/design",
 "blog": "https://www.fastcompany.com/design",
-"feed": "",
+"feed": "https://www.fastcompany.com/rss",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Fast+Company+Design",
@@ -1448,7 +1450,8 @@ window.SJ_STARTER = {
 "notes": "Confirm social profile is official before ingesting. Prefer RSS/blog first; use social APIs or approved integrations where permitted.",
 "group": "News sites",
 "enabled": true,
-"paused": false
+"paused": false,
+"browserOK": true
 },
 {
 "id": "s64",
@@ -1458,7 +1461,7 @@ window.SJ_STARTER = {
 "why": "Technology news that can signal changes in design tools and interfaces.",
 "site": "https://www.theverge.com/",
 "blog": "https://www.theverge.com/",
-"feed": "",
+"feed": "https://www.theverge.com/rss/index.xml",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=The+Verge",
@@ -1481,7 +1484,7 @@ window.SJ_STARTER = {
 "why": "Context for emerging technologies affecting design and products.",
 "site": "https://www.technologyreview.com/",
 "blog": "https://www.technologyreview.com/",
-"feed": "",
+"feed": "https://www.technologyreview.com/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=MIT+Technology+Review",
@@ -1504,7 +1507,7 @@ window.SJ_STARTER = {
 "why": "Primary source for AI product and capability announcements relevant to design workflows.",
 "site": "https://openai.com/news/",
 "blog": "https://openai.com/news/",
-"feed": "",
+"feed": "https://openai.com/blog/rss.xml",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=OpenAI+News",
@@ -1550,7 +1553,7 @@ window.SJ_STARTER = {
 "why": "Design thinking and AI-related perspectives from a major technology organization.",
 "site": "https://microsoft.design/",
 "blog": "https://microsoft.design/articles/",
-"feed": "",
+"feed": "https://microsoft.design/feed/",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Microsoft+Design",
@@ -1665,7 +1668,7 @@ window.SJ_STARTER = {
 "why": "Discover work and creative portfolios; trend signal, not editorial authority.",
 "site": "https://www.behance.net/",
 "blog": "https://www.behance.net/",
-"feed": "",
+"feed": "https://www.behance.net/rss",
 "newsletter": "",
 "social": {
 "linkedin": "https://www.linkedin.com/search/results/all/?keywords=Behance",

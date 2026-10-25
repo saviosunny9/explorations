@@ -38,13 +38,49 @@
     const root = document.getElementById('topicsView'); if (!T()) return; root.innerHTML = '';
     const counts = { topics: T().topics.length, links: T().links.length, sources: T().sources.length };
     const tabs = [['topics', 'Suggested topics', counts.topics], ['links', 'Found links', counts.links], ['sources', 'Sources', counts.sources], ['sheet', 'Google Sheet', null]];
+    root.append(pipeline());
     root.append(h('div.dh', null,
       h('div.dtabs', null, tabs.map(([k, l, n]) => h('button' + (st.tab === k ? '.on' : ''), { type: 'button', onclick: () => { st.tab = k; renderDash(); } }, l, n != null ? h('i', null, String(n)) : null, k === 'sheet' ? h('span.sd.' + (Sheet.connected ? 'ok' : 'none'), { title: Sheet.connected ? 'Connected' : 'Not connected' }) : null))),
       h('div.spacer'),
-      h('button.btn.sm', { type: 'button', disabled: !!st.busy, onclick: () => checkAll() }, st.busy === 'check' ? st.busyMsg : 'Check sources'),
-      h('button.btn.sm.primary', { type: 'button', disabled: !!st.busy, onclick: () => { const n = TR.suggest().length; toast(n ? `${n} new topic${n === 1 ? '' : 's'} to review` : 'No new topic ideas yet. Check sources or add links first.'); st.tab = 'topics'; renderDash(); } }, 'Suggest topics')));
+      h('button.btn.sm' + (T().links.length ? '' : '.primary'), { type: 'button', disabled: !!st.busy, onclick: () => fetchAll() }, st.busy === 'check' ? st.busyMsg : 'Fetch all sources'),
+      h('button.btn.sm' + (T().links.length ? '.primary' : ''), { type: 'button', disabled: !!st.busy, onclick: () => { const n = TR.suggest().length; toast(n ? `${n} new topic${n === 1 ? '' : 's'} to review` : 'No new topic ideas yet. Fetch sources or add links first.'); st.tab = 'topics'; renderDash(); } }, 'Suggest topics')));
+    if (st.report) root.append(reportPanel());
     root.append(banner());
     const body = h('div.dbody'); root.append(body); ({ topics: topicsTab, links: linksTab, sources: sourcesTab, sheet: sheetTab })[st.tab](body);
+  }
+  // the whole route from sources to posts, with live counts; each step opens its tab
+  function pipeline() {
+    const S = T().sources.filter(s => s.enabled && !s.paused), feeds = S.filter(s => s.feed).length, week = Date.now() - 7 * 864e5;
+    const newLinks = T().links.filter(l => (l.capturedAt || 0) >= week).length, review = T().topics.filter(t => t.status === 'Needs review').length, approved = T().topics.filter(t => t.status === 'Approved' || t.status === 'Draft ready').length;
+    const last = Math.max(0, ...T().sources.map(s => s.lastChecked || 0));
+    const step = (n, title, big, sub, tab, on) => h('button.pstep' + (on ? '.on' : ''), { type: 'button', onclick: () => { if (tab) { st.tab = tab; renderDash(); } else fetchAll(); } }, h('span.pn', null, n), h('span.pt', null, title), h('b.pb', null, big), h('span.ps', null, sub));
+    const next = !T().links.length ? 'Next: press Fetch all sources. Each source with a feed is read and its newest articles land in Found links.'
+      : !T().topics.length ? 'Next: press Suggest topics. Links that share a theme become topic ideas, each with the links behind it.'
+      : review ? `Next: review ${review} topic idea${review === 1 ? '' : 's'}. Approve one, then Create draft turns it into a post.` : 'Fetch again any time; only links you have not seen are added.';
+    return h('section.pipe', null,
+      h('div.psteps', null,
+        step('01', 'Sources', String(S.length), `followed · ${feeds} with a feed`, 'sources', st.tab === 'sources'), h('i.par', null, '→'),
+        step('02', 'Fetch', last ? TR.ago(last) : 'Not yet', Sheet.connected ? 'via Google Sheet' : 'in this browser', null, false), h('i.par', null, '→'),
+        step('03', 'Found links', String(T().links.length), `${newLinks} this week`, 'links', st.tab === 'links'), h('i.par', null, '→'),
+        step('04', 'Topic ideas', String(review), 'to review', 'topics', st.tab === 'topics'), h('i.par', null, '→'),
+        step('05', 'Approved', String(approved), 'become drafts', 'topics', false)),
+      h('p.pnext', null, next));
+  }
+  function reportPanel() {
+    const r = st.report, done = r.rows.filter(x => x.state !== 'waiting').length, pct = r.rows.length ? Math.round(done / r.rows.length * 100) : 100;
+    const by = k => r.rows.filter(x => x.state === k), ok = by('ok'), blocked = by('blocked'), manual = by('manual'), failed = by('failed');
+    const added = ok.reduce((a, x) => a + (x.added || 0), 0), row = x => h('div.rr.' + x.state, null, h('span.rs', null, { ok: '✓', blocked: '!', manual: '–', failed: '×', waiting: '…' }[x.state]), h('span.rn', null, x.site ? link(x.site, x.name) : x.name), h('span.rm', null, x.msg || ''));
+    const grp = (title, list, hint, open) => list.length ? h('details.rg2', { open: !!open }, h('summary', null, `${title} (${list.length})`, hint ? h('span.muted', null, ' — ' + hint) : null), list.map(row)) : null;
+    return h('section.report', null,
+      h('div.rh2', null, h('b', null, r.title || (r.running ? `Fetching ${done} of ${r.rows.length} sources…` : `Fetched ${r.rows.length} sources ${TR.ago(r.at)}`)), h('div.spacer'),
+        !r.running && !r.inClaude && (blocked.length || failed.length) && !Sheet.connected ? h('button.btn.sm', { type: 'button', title: 'A free Google Apps Script reads every feed, also on a daily schedule', onclick: () => { st.tab = 'sheet'; st.report = null; renderDash(); } }, `Read the other ${blocked.length + failed.length} automatically`) : null,
+        !r.running && added ? h('button.btn.sm.primary', { type: 'button', onclick: () => { st.tab = 'links'; st.f.links.since = r.at; st.report = null; renderDash(); } }, `See ${added} new link${added === 1 ? '' : 's'}`) : null,
+        !r.running ? h('button.btn.sm', { type: 'button', onclick: () => { st.report = null; renderDash(); } }, 'Close') : null),
+      h('div.pbar', null, h('i', { style: { width: pct + '%' } })),
+      h('div.rsum', null, h('span', null, h('b', null, String(added)), ' new links'), h('span', null, h('b', null, String(ok.length)), ' sources read'), h('span', null, h('b', null, String(blocked.length + failed.length)), ' could not be read here'), h('span', null, h('b', null, String(manual.length)), ' have no feed')),
+      r.note ? h('p.edhint', null, r.note) : null,
+      grp('Read', ok, '', true), grp('Blocked in this browser', blocked, Sheet.connected ? '' : 'the websites do not let a browser page read their feed. Connect the Google Sheet collector to read these automatically.', false),
+      grp('Failed', failed, 'the feed did not answer; it will be tried again next time'), grp('No feed', manual, 'studios and people without a feed: open their site and use “Add link” for anything worth keeping'));
   }
   function banner() {
     const items = [];
@@ -69,7 +105,7 @@
     listEl = h('div.tlist'); listEl.render = () => {
       listEl.innerHTML = ''; const q = f.q.toLowerCase();
       const rows = T().topics.filter(t => (!f.status || t.status === f.status) && (!f.main || t.mainTopic === f.main) && (!f.source || TR.refsOf(t).some(r => r.source === f.source)) && inRange(t.created, f.days) && (!q || (t.title + ' ' + t.angle + ' ' + t.mainTopic).toLowerCase().includes(q))).sort((a, b) => (a.status === 'Needs review' ? 0 : 1) - (b.status === 'Needs review' ? 0 : 1) || b.created - a.created);
-      if (!rows.length) return listEl.append(h('div.empty2', null, h('h3', null, T().topics.length ? 'Nothing matches these filters' : 'No topic suggestions yet'), h('p', null, T().topics.length ? 'Clear a filter to see more.' : 'Press “Check sources” to look for new links (or paste links on the Found links tab), then “Suggest topics”. Each suggestion shows the links behind it, and nothing becomes a post until you approve it.')));
+      if (!rows.length) return listEl.append(h('div.empty2', null, h('h3', null, T().topics.length ? 'Nothing matches these filters' : 'No topic suggestions yet'), h('p', null, T().topics.length ? 'Clear a filter to see more.' : 'Press “Fetch all sources” to look for new links (or paste links on the Found links tab), then “Suggest topics”. Each suggestion shows the links behind it, and nothing becomes a post until you approve it.')));
       rows.forEach(t => listEl.append(topicCard(t)));
     };
     body.append(listEl); listEl.render();
@@ -116,11 +152,12 @@
       h('input', { type: 'search', placeholder: 'Search links', value: f.q, 'aria-label': 'Search links', oninput: e => { f.q = e.target.value; st.shown.links = 60; refreshList(); } }),
       sel([['', 'Any source'], ...srcs.map(s => [s, s])], f.source, v => { f.source = v; refreshList(); }), sel([['', 'Any subject'], ...mains.map(m => [m, m])], f.topic, v => { f.topic = v; refreshList(); }),
       sel([['', 'Any status'], ...TR.LINK_STATUS.map(s => [s, s])], f.status, v => { f.status = v; refreshList(); }), sel(DAYS, f.days, v => { f.days = v; refreshList(); }),
+      f.since ? h('button.btn.sm', { type: 'button', title: 'Show every link again', onclick: () => { f.since = 0; renderDash(); } }, 'From the last fetch ×') : null,
       h('div.spacer'), h('button.btn.sm', { type: 'button', onclick: importCSV }, 'Import CSV'), h('button.btn.sm.primary', { type: 'button', onclick: addLinkDialog }, '+ Add link')));
     listEl = h('div.llist'); listEl.render = () => {
       listEl.innerHTML = ''; const q = f.q.toLowerCase();
-      const rows = T().links.filter(l => (!f.source || l.source === f.source) && (!f.topic || l.topic === f.topic) && (!f.status || l.status === f.status) && inRange(l.publishedAt || l.capturedAt, f.days) && (!q || (l.title + ' ' + l.summary + ' ' + l.source).toLowerCase().includes(q))).sort((a, b) => (b.publishedAt || b.capturedAt) - (a.publishedAt || a.capturedAt));
-      if (!rows.length) return listEl.append(h('div.empty2', null, h('h3', null, T().links.length ? 'Nothing matches these filters' : 'No links yet'), h('p', null, 'Links appear here when a feed is checked. For sources that cannot be checked automatically, use “Add link” to save a link and review it yourself.')));
+      const rows = T().links.filter(l => (!f.since || (l.capturedAt || 0) >= f.since) && (!f.source || l.source === f.source) && (!f.topic || l.topic === f.topic) && (!f.status || l.status === f.status) && inRange(l.publishedAt || l.capturedAt, f.days) && (!q || (l.title + ' ' + l.summary + ' ' + l.source).toLowerCase().includes(q))).sort((a, b) => (b.publishedAt || b.capturedAt) - (a.publishedAt || a.capturedAt));
+      if (!rows.length) return listEl.append(h('div.empty2', null, h('h3', null, T().links.length ? 'Nothing matches these filters' : 'No links yet'), h('p', null, 'Links appear here after “Fetch all sources”: the newest articles from every source with a feed (title, date, source and a short summary — never the full article). For sources that cannot be checked automatically, use “Add link” to save a link and review it yourself.')));
       listEl.append(h('div.lh', null, h('span', null, 'Link'), h('span', null, 'Source'), h('span', null, 'Date'), h('span', null, 'Subject'), h('span', null, 'Status'), h('span')));
       rows.slice(0, st.shown.links).forEach(l => listEl.append(h('div.lr' + (l.status === 'Skipped' ? '.skip' : ''), null,
         h('div.lt', null, link(l.url, l.title), l.summary ? h('div.sm', null, l.summary) : null), h('div.ls', { title: l.source }, l.source, h('div.muted', null, hostOf(l.url))), h('div.ld', null, l.published || l.captured),
@@ -149,7 +186,7 @@
   // ---- sources tab ----------------------------------------------------------------------------------------------------------------------------------------------------
   function sourcesTab(body) {
     const f = st.f.sources, groups = [...new Set(T().sources.map(s => s.group || 'Other'))];
-    body.append(h('p.explain', null, h('b', null, 'How checking works. '), 'Sources with a feed address are read automatically. Pages without one are read by the Google Sheet collector only if the page announces its own feed and its robots.txt allows it. Social profiles (LinkedIn, Instagram, X, YouTube) and newsletters are never read by this app: open them from the links on each row and use “Add link” for anything worth keeping.'));
+    body.append(h('p.explain', null, h('b', null, 'How fetching works. '), '“Fetch all sources” reads every followed source that has a feed and puts its newest articles in Found links. Most websites only let a server read their feed, so in the browser a few feeds work and the rest need the free Google Sheet collector (Google Sheet tab), which reads all of them and can run every morning. Pages without a feed are read by the collector only if the page announces its own feed and its robots.txt allows it. Social profiles (LinkedIn, Instagram, X, YouTube) and newsletters are never read by this app: open them from the links on each row and use “Add link” for anything worth keeping.'));
     body.append(h('div.fbar', null,
       h('input', { type: 'search', placeholder: 'Search sources', value: f.q, 'aria-label': 'Search sources', oninput: e => { f.q = e.target.value; refreshList(); } }),
       sel([['', 'All groups'], ...GROUP_ORDER.filter(g => groups.includes(g)).map(g => [g, g])], f.group, v => { f.group = v; refreshList(); }), sel([['', 'On and paused'], ['on', 'Only following'], ['off', 'Only off']], f.on, v => { f.on = v; refreshList(); }),
@@ -184,7 +221,7 @@
       h('details', null, h('summary', null, 'Social profiles (opened by you, never read by the app)'), h('div.g2', null, field('LinkedIn', soc.linkedin), field('Instagram', soc.instagram), field('X', soc.x), field('YouTube', soc.youtube))), field('Notes', notes),
       h('div.row', null, h('button.btn', { type: 'button', onclick: () => dlg.close() }, 'Cancel'), h('div.spacer'), h('button.btn.primary', { type: 'button', onclick: () => {
         if (!I.name.value.trim()) return toast('Give the source a name');
-        const patch = { name: I.name.value.trim(), type: I.type.value.trim(), group: grp.value, priority: pri.value, site: I.site.value.trim(), blog: I.blog.value.trim(), feed: I.feed.value.trim(), newsletter: I.newsletter.value.trim(), topics: I.topics.value.trim(), notes: notes.value.trim(), social: Object.fromEntries(Object.entries(soc).map(([k, e]) => [k, e.value.trim()])) };
+        const patch = { name: I.name.value.trim(), type: I.type.value.trim(), group: grp.value, priority: pri.value, site: I.site.value.trim(), blog: I.blog.value.trim(), feed: I.feed.value.trim(), feedByUser: I.feed.value.trim() !== (v.feed || '') || v.feedByUser || false, newsletter: I.newsletter.value.trim(), topics: I.topics.value.trim(), notes: notes.value.trim(), social: Object.fromEntries(Object.entries(soc).map(([k, e]) => [k, e.value.trim()])) };
         if (s) TR.updateSource(s.id, patch); else TR.addSource(patch); dlg.close(); refresh();
       } }, 'Save source'))));
     document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal(); I.name.focus();
@@ -199,11 +236,33 @@
     } catch (e) { TR.markChecked(s, { ok: false, error: e.message }); toast(e.message); }
     st.busy = ''; refresh();
   }
+  // one button for every source: through the Google Sheet collector when connected, otherwise straight from this browser
+  async function fetchAll() {
+    if (st.busy) return;
+    const inClaude = !!(window.claude && typeof window.claude.use === 'function'), S = T().sources.filter(s => s.enabled && !s.paused);
+    if (inClaude && !Sheet.connected) {
+      st.report = { title: 'Fetching is not available inside Claude', inClaude: true, at: Date.now(), running: false, rows: S.map(s => ({ name: s.name, site: s.site || s.blog, state: s.feed ? 'blocked' : 'manual', msg: s.feed ? 'Not readable from inside Claude' : 'No feed' })), note: 'This copy runs inside Claude, which cannot read other websites. Open the downloaded app (dist/sixjuly-flow.html) in Chrome to fetch sources; with the Google Sheet collector connected it reads every feed, also on a daily schedule.' };
+      return renderDash();
+    }
+    if (Sheet.connected) return checkAll();
+    const runAt = Date.now(), rows = S.map(s => ({ id: s.id, name: s.name, site: s.site || s.blog, state: s.feed ? 'waiting' : 'manual', msg: s.feed ? '' : 'No feed address' }));
+    st.report = { at: runAt, running: true, rows }; st.busy = 'check'; st.busyMsg = 'Fetching…'; renderDash();
+    const todo = rows.filter(x => x.state === 'waiting'); let i = 0;
+    const work = async () => { while (i < todo.length) { const x = todo[i++], s = T().sources.find(q => q.id === x.id); const r = await TR.checkInBrowser(s); TR.markChecked(s, r);
+      if (r.ok) { x.state = 'ok'; x.added = r.added; x.msg = `${r.found} in the feed, ${r.added} new`; } else if (/not allowed|blocked|Failed to fetch/i.test(r.error || '')) { x.state = 'blocked'; x.msg = 'The website blocks reading its feed from a browser page'; } else { x.state = 'failed'; x.msg = r.error || 'No answer'; }
+      st.busyMsg = `Fetching ${rows.filter(q => q.state !== 'waiting').length}/${rows.length}`; const p = document.querySelector('.report'); if (p) p.replaceWith(reportPanel()); const b = document.querySelector('.dh .btn.sm'); if (b) b.textContent = st.busyMsg; } };
+    await Promise.all([work(), work(), work(), work()]);
+    st.report.running = false; st.busy = '';
+    const n = TR.suggest().length, added = rows.reduce((a, x) => a + (x.added || 0), 0);
+    if (n) st.report.note = `${n} new topic idea${n === 1 ? '' : 's'} made from these links — see Suggested topics.`;
+    toast(`${added} new link${added === 1 ? '' : 's'}` + (n ? `, ${n} topic idea${n === 1 ? '' : 's'}` : '')); renderDash();
+  }
   async function checkAll() {
     if (st.busy) return; st.busy = 'check'; st.busyMsg = 'Checking…'; renderDash();
     try {
       let msg;
-      if (Sheet.connected) { const r = await Sheet.check((d, t) => { st.busyMsg = `Checking ${d}/${t}`; const b = document.querySelector('.dh .btn.sm'); if (b) b.textContent = st.busyMsg; }); msg = `Checked ${r.total} sources on Google: ${r.added} new links, ${r.failed} failed, ${r.manual} need manual review.`; }
+      if (Sheet.connected) { const runAt = Date.now(); const r = await Sheet.check((d, t) => { st.busyMsg = `Checking ${d}/${t}`; const b = document.querySelector('.dh .btn.sm'); if (b) b.textContent = st.busyMsg; }); msg = `Checked ${r.total} sources on Google: ${r.added} new links, ${r.failed} failed, ${r.manual} need manual review.`;
+        st.report = { at: runAt, running: false, rows: T().sources.filter(s => s.enabled && !s.paused).map(s => ({ name: s.name, site: s.site || s.blog, state: s.lastStatus === 'ok' ? 'ok' : s.lastStatus === 'manual' ? 'manual' : s.lastStatus === 'failed' ? 'failed' : 'manual', added: s.lastAdded || 0, msg: s.lastStatus === 'ok' ? `${s.lastAdded || 0} new` : s.lastError || '' })) }; }
       else {
         const todo = T().sources.filter(s => s.enabled && !s.paused && s.feed); let added = 0, ok = 0, blocked = 0, i = 0;
         for (const s of todo) { i++; st.busyMsg = `Checking ${i}/${todo.length}`; const b = document.querySelector('.dh .btn.sm'); if (b) b.textContent = st.busyMsg; const r = await TR.checkInBrowser(s); TR.markChecked(s, r); if (r.ok) { ok++; added += r.added; } else blocked++; }
@@ -238,7 +297,7 @@
         h('div.col', null,
           h('button.btn', { type: 'button', disabled: !Sheet.connected, onclick: () => run('Sending', async () => { const n = await Sheet.push(true); return `Sent ${n} rows to the Sheet.`; }) }, 'Send everything to the Sheet'),
           h('button.btn', { type: 'button', disabled: !Sheet.connected, onclick: () => run('Reading the Sheet', async () => { const n = await Sheet.pull(); refresh(); return `Read ${n} rows from the Sheet. Edits you made there (statuses, notes) are now here.`; }) }, 'Get latest from the Sheet'),
-          h('button.btn', { type: 'button', disabled: !Sheet.connected || !!st.busy, onclick: () => checkAll() }, 'Check all sources on Google'),
+          h('button.btn', { type: 'button', disabled: !Sheet.connected || !!st.busy, onclick: () => fetchAll() }, 'Fetch all sources on Google'),
           h('p.edhint', null, 'To check sources every morning without opening this app, run the function ', h('code', null, 'installDailyTrigger'), ' once in the Apps Script editor.')),
         h('h3', { style: { marginTop: '22px' } }, 'No Sheet? Use files'),
         h('p.edhint', null, 'Download the tracker as four CSV files you can import into any spreadsheet, or import links from a CSV.'),

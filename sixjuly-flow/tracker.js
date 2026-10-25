@@ -21,6 +21,9 @@
     let saved = null; try { saved = await KV.get('tracker'); } catch (e) { /* first run */ }
     T = saved || { sources: clone(STARTER.sources), links: [], topics: [], taxonomy: clone(STARTER.taxonomy), seeded: true };
     T.taxonomy = T.taxonomy && T.taxonomy.length ? T.taxonomy : clone(STARTER.taxonomy); T.removed = T.removed || {};
+    // newer starter data may know a feed address the saved copy does not: fill it in unless the user set one themselves
+    const byId = new Map(STARTER.sources.map(s => [s.id, s]));
+    T.sources.forEach(s => { const o = byId.get(s.id); if (!o) return; if (!s.feed && o.feed && !s.feedByUser) { s.feed = o.feed; s.dirty = true; } if (o.browserOK && s.feed === o.feed) s.browserOK = true; });
     return T;
   }
   let saveT = 0;
@@ -98,7 +101,7 @@
   function markChecked(src, r) { src.dirty = true; src.lastChecked = now(); src.lastStatus = r.ok ? 'ok' : (r.manual ? 'manual' : 'failed'); src.lastError = r.ok ? '' : (r.error || ''); src.lastAdded = r.added || 0; save(); }
 
   // ---- sources -------------------------------------------------------------------------------------------------------------------------------------
-  const method = s => (s.feed ? 'Feed' : s.blog ? 'Page (manual or collector)' : 'Manual');
+  const method = s => (s.feed ? (s.browserOK ? 'Feed (reads anywhere)' : 'Feed (Sheet collector)') : s.blog || s.site ? 'Page (collector looks for a feed)' : 'Manual');
   function addSource(o) { const s = Object.assign({ id: uid('s'), name: 'New source', type: 'Design blog', group: 'Design blogs & publications', topics: '', why: '', site: '', blog: '', feed: '', newsletter: '', social: {}, priority: 'Medium', region: 'Global', notes: '', enabled: true, paused: false, custom: true, dirty: true }, o || {}); T.sources.unshift(s); save(); return s; }
   const updateSource = (id, patch) => { const s = T.sources.find(x => x.id === id); if (s) { Object.assign(s, patch, { dirty: true }); save(); } return s; };
   const removeSource = id => { gone('sources', id); T.sources = T.sources.filter(s => s.id !== id); save(); };

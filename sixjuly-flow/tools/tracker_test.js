@@ -32,10 +32,10 @@ const rss = items => `<?xml version="1.0"?><rss version="2.0"><channel><title>t<
   await p.fill('dialog textarea', 'Variable fonts and type systems keep growing.'); await p.click('dialog >> text=Save link');
   log.manual = await p.evaluate(() => { const l = SixjulyTracker.data.links[0]; return [l.title, l.topic, l.status, l.key, l.source].join(' | '); });
   // 3. check all (feeds read in the browser)
-  await p.click('.dh >> text=Check sources'); await p.waitForFunction(() => !document.querySelector('.dh .btn.sm[disabled]'), null, { timeout: 30000 }); await p.waitForTimeout(400);
+  await p.click('.dh >> text=Fetch all sources'); await p.waitForFunction(() => !document.querySelector('.dh .btn.sm[disabled]'), null, { timeout: 30000 }); await p.waitForTimeout(400);
   log.afterCheck = await p.evaluate(() => ({ links: SixjulyTracker.data.links.length, topics: SixjulyTracker.data.topics.length, statuses: SixjulyTracker.data.sources.filter(s => s.lastStatus).map(s => s.name + ':' + s.lastStatus).join(', '), err: (SixjulyTracker.data.sources.find(s => s.name === 'Smashing Magazine') || {}).lastError }));
   // dedupe: checking again adds nothing
-  const before = await p.evaluate(() => SixjulyTracker.data.links.length); await p.click('.dh >> text=Check sources'); await p.waitForTimeout(1500); log.dedupe = before === await p.evaluate(() => SixjulyTracker.data.links.length);
+  const before = await p.evaluate(() => SixjulyTracker.data.links.length); await p.click('.dh >> text=Fetch all sources'); await p.waitForTimeout(1500); log.dedupe = before === await p.evaluate(() => SixjulyTracker.data.links.length);
   // 4. suggestions + approval
   await p.click('.dh >> text=Suggest topics'); await p.waitForSelector('.tc', { timeout: 8000 }).catch(() => {}); console.log('state', await p.evaluate(() => JSON.stringify({ links: SixjulyTracker.data.links.map(l => l.title + ' / ' + l.topic), topics: SixjulyTracker.data.topics.length, checked: SixjulyTracker.data.sources.filter(s => s.lastStatus).map(s => s.name + ':' + s.lastStatus + ':' + s.lastError.slice(0, 40)) }))); log.topicTitles = await p.evaluate(() => SixjulyTracker.data.topics.map(t => `${t.title} [${t.mainTopic}] ${t.linkIds.length} links`).join(' || '));
   if (shots) await p.screenshot({ path: path.join(shots, 'tr-2-topics.png') });
@@ -54,7 +54,7 @@ const rss = items => `<?xml version="1.0"?><rss version="2.0"><channel><title>t<
   log.sheetMsg = await p.evaluate(() => (document.querySelector('.sres') || {}).textContent); await p.waitForTimeout(300);
   await p.click('text=Send everything to the Sheet'); await p.waitForFunction(() => /Sent \d+ rows/.test(document.querySelector('.sres').textContent)); log.sent = await p.evaluate(() => document.querySelector('.sres').textContent);
   await p.click('text=Get latest from the Sheet'); await p.waitForFunction(() => /Read \d+ rows/.test(document.querySelector('.sres').textContent)); log.pulled = await p.evaluate(() => SixjulyTracker.data.links.find(l => l.id === 'lx1') ? SixjulyTracker.data.links.find(l => l.id === 'lx1').topic : 'missing');
-  await p.click('.dh >> text=Check sources'); await p.waitForFunction(() => !document.querySelector('.dh .btn.sm[disabled]'), null, { timeout: 15000 }); await p.waitForTimeout(300);
+  await p.click('.dh >> text=Fetch all sources'); await p.waitForFunction(() => !document.querySelector('.dh .btn.sm[disabled]'), null, { timeout: 15000 }); await p.waitForTimeout(300);
   log.collector = await p.evaluate(() => SixjulyTracker.data.sources.filter(s => s.id === 's2').map(s => s.lastStatus + ': ' + s.lastError).join());
   log.calls = [...new Set(calls)].join(', ');
   // 7. csv fallback
